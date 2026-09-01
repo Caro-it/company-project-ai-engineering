@@ -1,5 +1,13 @@
 # Proyecto de Compañía - Ingeniería de IA — Plantilla para estudiantes
 
+> ## 🔗 Entrega Hito 1
+>
+> **Sitio publicado:** https://caro-it.github.io/company-project-ai-engineering/uis/website/index.html
+>
+> **Código:** [`uis/website/`](./uis/website/)
+>
+> PageSpeed Insights (móvil): Rendimiento 94 · Accesibilidad 100 · Prácticas 100 · SEO 100
+
 [![4Geeks Academy](https://img.shields.io/badge/4Geeks-Academy-blue)](https://4geeksacademy.com)
 [![AI Engineering](https://img.shields.io/badge/track-AI%20Engineering-green)](https://4geeksacademy.com/es/programas-de-carrera/ingenieria-ia)
 
