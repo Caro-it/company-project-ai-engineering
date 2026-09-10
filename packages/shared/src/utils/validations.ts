@@ -18,7 +18,6 @@ export function tieneComentariosValidos(comentarios: string | null): boolean {
 }
 
 export function tieneEmailValido(email: string): boolean {
-  // Validar formato de email usando expresión regular
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 }
 
@@ -29,6 +28,31 @@ export function tieneTelefonoValido(telefono: string): boolean {
 }
 
 export function tieneLinkedinValido(linkedin: string | null): boolean {
-  // si existe, debe empezar por http:// o https://
   return linkedin === null || /^https?:\/\//.test(linkedin);
+}
+
+export function tieneFechasCoherentes(proceso: Proceso): boolean {
+  if (proceso.estado === 'Cerrado' && proceso.fechaCierre === null) {
+    return false;
+  }
+  if (proceso.fechaCierre !== null && proceso.fechaCierre < proceso.fechaApertura) {
+    return false;
+  }
+  return true;
+}
+
+export function esCandidatoValido(candidato: Candidato): boolean {
+  return tieneNombreValido(candidato.nombreCompleto)
+      && tieneEmailValido(candidato.email)
+      && tieneTelefonoValido(candidato.telefono)
+      && tieneLinkedinValido(candidato.linkedin)
+      && tieneExperienciaValida(candidato.aniosExperiencia)
+      && tieneComentariosValidos(candidato.comentarios)
+      && candidato.aceptaPoliticaDatos;
+}
+
+export function esProcesoValido(proceso: Proceso): boolean {
+  return tieneFechasCoherentes(proceso)
+      && proceso.titulo.trim().length > 0
+      && tieneExperienciaValida(proceso.aniosExperienciaMinimos);
 }
