@@ -324,3 +324,14 @@ cd packages/shared
 npm install
 npm run typecheck
 ```
+
+### Pagina de pruebas
+
+```bash
+cd packages/shared
+npm install
+npm run build
+npx http-server . -p 3000
+```
+
+Abre http://127.0.0.1:3000

@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Nexova — Pruebas de la capa de lógica</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-100 p-6">
+  <main class="mx-auto max-w-4xl">
+    <h1 class="mb-2 text-2xl font-bold text-slate-900">Nexova — Capa de lógica</h1>
+    <p class="mb-6 text-slate-600">Banco de pruebas de las utilidades de procesamiento de datos.</p>
+
+    <section class="mb-6 rounded-lg bg-white p-4 shadow">
+      <h2 class="mb-3 font-semibold text-slate-800">Operaciones</h2>
+      <div class="flex flex-wrap gap-2">
+        <button data-accion="todos" class="rounded bg-slate-700 px-3 py-2 text-sm text-white hover:bg-slate-800">Ver candidatos</button>
+        <button data-accion="filtrar-sector" class="rounded bg-blue-700 px-3 py-2 text-sm text-white hover:bg-blue-800">Filtrar: Tecnología</button>
+        <button data-accion="filtrar-experiencia" class="rounded bg-blue-700 px-3 py-2 text-sm text-white hover:bg-blue-800">Filtrar: 5+ años</button>
+        <button data-accion="ordenar-exp-desc" class="rounded bg-emerald-700 px-3 py-2 text-sm text-white hover:bg-emerald-800">Ordenar: experiencia ↓</button>
+        <button data-accion="ordenar-nombre" class="rounded bg-emerald-700 px-3 py-2 text-sm text-white hover:bg-emerald-800">Ordenar: nombre ↑</button>
+        <button data-accion="agrupar" class="rounded bg-emerald-700 px-3 py-2 text-sm text-white hover:bg-emerald-800">Agrupar por sector</button>
+        <button data-accion="buscar-lineal" class="rounded bg-violet-700 px-3 py-2 text-sm text-white hover:bg-violet-800">Búsqueda lineal (id 4)</button>
+        <button data-accion="buscar-binaria" class="rounded bg-violet-700 px-3 py-2 text-sm text-white hover:bg-violet-800">Búsqueda binaria (id 4)</button>
+        <button data-accion="reporte" class="rounded bg-amber-700 px-3 py-2 text-sm text-white hover:bg-amber-800">Generar reporte</button>
+        <button data-accion="validar" class="rounded bg-rose-700 px-3 py-2 text-sm text-white hover:bg-rose-800">Validar candidatos</button>
+      </div>
+    </section>
+
+    <section class="rounded-lg bg-white p-4 shadow">
+      <h2 class="mb-3 font-semibold text-slate-800">Resultado</h2>
+      <pre id="salida" class="overflow-auto rounded bg-slate-900 p-4 text-sm text-slate-100">Pulsa una operación.</pre>
+    </section>
+  </main>
+
+  <script type="module">
+    import { filtrarPorSector, filtrarPorExperienciaMinima, ordenarPorExperiencia, ordenarPorNombre, agruparPorSector } from './dist/utils/collections.js';
+    import { buscarCandidatoPorId, buscarBinarioPorId } from './dist/utils/search.js';
+    import { contarPorSector, contarPorNivelIngles, calcularExperienciaPromedio, obtenerMaximaExperiencia, obtenerMinimaExperiencia } from './dist/utils/transformations.js';
+    import { esCandidatoValido } from './dist/utils/validations.js';
+
+    const candidatos = [
+      { id: 1, nombreCompleto: 'Ana Ruiz', email: 'ana@mail.com', telefono: '+34 612 345 678', paisResidencia: 'España', aniosExperiencia: 8, sectorInteres: 'Tecnología', nivelIngles: 'Avanzado', disponibilidad: 'Inmediata', linkedin: 'https://linkedin.com/in/ana', comentarios: null, aceptaPoliticaDatos: true, fechaRegistro: new Date('2026-01-10') },
+      { id: 2, nombreCompleto: 'Bruno Sáez', email: 'bruno@mail.com', telefono: '+34 600 111 222', paisResidencia: 'España', aniosExperiencia: 3, sectorInteres: 'Retail', nivelIngles: 'Intermedio', disponibilidad: '1 mes', linkedin: null, comentarios: 'Busco cambio', aceptaPoliticaDatos: true, fechaRegistro: new Date('2026-01-12') },
+      { id: 3, nombreCompleto: 'Lucía Vega', email: 'lucia@mail.com', telefono: '+1 305 555 0191', paisResidencia: 'Estados Unidos', aniosExperiencia: 12, sectorInteres: 'Servicios Financieros', nivelIngles: 'Nativo', disponibilidad: '2-3 meses', linkedin: null, comentarios: null, aceptaPoliticaDatos: true, fechaRegistro: new Date('2026-01-15') },
+      { id: 4, nombreCompleto: 'Marc Puig', email: 'marc@mail.com', telefono: '+34 655 999 000', paisResidencia: 'España', aniosExperiencia: 5, sectorInteres: 'Tecnología', nivelIngles: 'Avanzado', disponibilidad: 'Inmediata', linkedin: null, comentarios: null, aceptaPoliticaDatos: true, fechaRegistro: new Date('2026-01-18') },
+      { id: 5, nombreCompleto: 'Sinapellido', email: 'malformado', telefono: '600111222', paisResidencia: 'Otro', aniosExperiencia: 99, sectorInteres: 'Otro', nivelIngles: 'Básico', disponibilidad: 'Solo explorando', linkedin: 'linkedin.com/sin-protocolo', comentarios: null, aceptaPoliticaDatos: false, fechaRegistro: new Date('2026-01-20') }
+    ];
+
+    const salida = document.getElementById('salida');
+
+    const resumir = (lista) => lista.map(c => `${c.id} — ${c.nombreCompleto} · ${c.sectorInteres} · ${c.aniosExperiencia} años`);
+
+    const acciones = {
+      'todos': () => resumir(candidatos),
+      'filtrar-sector': () => resumir(filtrarPorSector(candidatos, 'Tecnología')),
+      'filtrar-experiencia': () => resumir(filtrarPorExperienciaMinima(candidatos, 5)),
+      'ordenar-exp-desc': () => resumir(ordenarPorExperiencia(candidatos, false)),
+      'ordenar-nombre': () => resumir(ordenarPorNombre(candidatos, true)),
+      'agrupar': () => {
+        const grupos = agruparPorSector(candidatos);
+        return Object.entries(grupos).map(([sector, lista]) => `${sector}: ${lista.map(c => c.nombreCompleto).join(', ')}`);
+      },
+      'buscar-lineal': () => [`Índice devuelto: ${buscarCandidatoPorId(candidatos, 4)}`],
+      'buscar-binaria': () => {
+        const ordenados = [...candidatos].sort((a, b) => a.id - b.id);
+        return [`Índice devuelto: ${buscarBinarioPorId(ordenados, 4)}`, `No existente (id 99): ${buscarBinarioPorId(ordenados, 99)}`];
+      },
+      'reporte': () => [
+        `Por sector: ${JSON.stringify(contarPorSector(candidatos))}`,
+        `Por nivel de inglés: ${JSON.stringify(contarPorNivelIngles(candidatos))}`,
+        `Experiencia promedio: ${calcularExperienciaPromedio(candidatos).toFixed(2)} años`,
+        `Máxima: ${obtenerMaximaExperiencia(candidatos)} · Mínima: ${obtenerMinimaExperiencia(candidatos)}`
+      ],
+      'validar': () => candidatos.map(c => `${c.nombreCompleto}: ${esCandidatoValido(c) ? 'VÁLIDO' : 'NO VÁLIDO'}`)
+    };
+
+    document.querySelectorAll('button[data-accion]').forEach(boton => {
+      boton.addEventListener('click', () => {
+        const resultado = acciones[boton.dataset.accion]();
+        salida.textContent = resultado.join('\n');
+      });
+    });
+  </script>
+</body>
+</html>

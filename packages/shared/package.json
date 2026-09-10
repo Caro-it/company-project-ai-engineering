@@ -6,7 +6,8 @@
   "main": "index.ts",
   "types": "index.ts",
   "scripts": {
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "build": "tsc --outDir dist --noEmit false"
   },
   "keywords": [
     "types",
