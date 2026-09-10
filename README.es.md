@@ -331,7 +331,7 @@ npm run typecheck
 cd packages/shared
 npm install
 npm run build
-npx http-server . -p 3000
+npx http-server . -p 3000 -a 0.0.0.0
 ```
 
 Abre http://127.0.0.1:3000
