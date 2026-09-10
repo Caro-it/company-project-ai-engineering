@@ -314,3 +314,13 @@ Esta plantilla fue creada como parte del Programa de Carrera de Ingeniería de I
 Puedes encontrar otras plantillas y recursos similares en la [página de GitHub de 4Geeks Academy](https://github.com/4geeksacademy).
 
 _Esta plantilla la mantiene 4Geeks Academy para el track de Ingeniería de IA. Uso exclusivo del programa._
+
+## Hito 2 - Verificacion de tipos
+
+Para validar el codigo TypeScript de la capa de logica:
+
+```bash
+cd packages/shared
+npm install
+npm run typecheck
+```
