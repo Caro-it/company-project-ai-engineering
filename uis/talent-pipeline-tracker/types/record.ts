@@ -21,7 +21,7 @@ export interface Note {
   created_at: string;
 }
 
-export interface Record {
+export interface TalentRecord{
   id: string;
   full_name: string;
   email: string;
@@ -42,7 +42,7 @@ export interface RecordsResponse {
   total: number;
   page: number;
   limit: number;
-  data: Record[];
+  data: TalentRecord[];
 }
 
 export interface RecordFilters {

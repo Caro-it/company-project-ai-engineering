@@ -1,11 +1,11 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import type { Record } from '@/types/record';
+import type { TalentRecord } from '@/types/record';
 import { getRecords } from '@/services/records';
 
 export default function Home() {
-  const [records, setRecords] = useState<Record[]>([]);
+  const [records, setRecords] = useState<TalentRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
