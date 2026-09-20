@@ -3,6 +3,8 @@
 import { useEffect, useState } from 'react';
 import type { TalentRecord } from '@/types/record';
 import { getRecords } from '@/services/records';
+import { STATUS_LABELS, STAGE_LABELS } from '@/lib/labels';
+
 
 export default function Home() {
   const [records, setRecords] = useState<TalentRecord[]>([]);
@@ -37,7 +39,7 @@ export default function Home() {
       <ul>
         {records.map((record) => (
           <li key={record.id} className="border-b py-2">
-            {record.full_name} — {record.position} — {record.status} / {record.stage}
+              {record.full_name} — {record.position} — {STATUS_LABELS[record.status]} / {STAGE_LABELS[record.stage]}
           </li>
         ))}
       </ul>
