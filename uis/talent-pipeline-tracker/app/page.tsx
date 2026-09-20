@@ -6,11 +6,13 @@ import type { TalentRecord, RecordStatus, RecordStage } from '@/types/record';
 import { getRecords } from '@/services/records';
 import { STATUS_LABELS, STAGE_LABELS } from '@/lib/labels';
 import FilterBar from '@/components/FilterBar';
+import SearchInput from '@/components/SearchInput';
 
 export default function Home() {
   const searchParams = useSearchParams();
   const status = searchParams.get('status') as RecordStatus | null;
   const stage = searchParams.get('stage') as RecordStage | null;
+  const search = searchParams.get('search');
 
   const [records, setRecords] = useState<TalentRecord[]>([]);
   const [loading, setLoading] = useState(true);
@@ -24,6 +26,7 @@ export default function Home() {
         const response = await getRecords({
           status: status ?? undefined,
           stage: stage ?? undefined,
+          search: search ?? undefined,
         });
         setRecords(response.data);
       } catch {
@@ -33,7 +36,7 @@ export default function Home() {
       }
     }
     load();
-  }, [status, stage]);
+  }, [status, stage, search]);
 
   return (
     <main className="p-8">
@@ -41,6 +44,7 @@ export default function Home() {
         Pipeline de Talento — Nexova
       </h1>
 
+      <SearchInput />
       <FilterBar />
 
       {loading && <p>Cargando candidaturas…</p>}
