@@ -1,12 +1,17 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import type { TalentRecord } from '@/types/record';
+import { useSearchParams } from 'next/navigation';
+import type { TalentRecord, RecordStatus, RecordStage } from '@/types/record';
 import { getRecords } from '@/services/records';
 import { STATUS_LABELS, STAGE_LABELS } from '@/lib/labels';
-
+import FilterBar from '@/components/FilterBar';
 
 export default function Home() {
+  const searchParams = useSearchParams();
+  const status = searchParams.get('status') as RecordStatus | null;
+  const stage = searchParams.get('stage') as RecordStage | null;
+
   const [records, setRecords] = useState<TalentRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -16,7 +21,10 @@ export default function Home() {
       try {
         setLoading(true);
         setError(null);
-        const response = await getRecords();
+        const response = await getRecords({
+          status: status ?? undefined,
+          stage: stage ?? undefined,
+        });
         setRecords(response.data);
       } catch {
         setError('No se han podido cargar las candidaturas.');
@@ -25,24 +33,32 @@ export default function Home() {
       }
     }
     load();
-  }, []);
-
-  if (loading) return <p className="p-8">Cargando candidaturas…</p>;
-  if (error) return <p className="p-8 text-red-600">{error}</p>;
+  }, [status, stage]);
 
   return (
     <main className="p-8">
       <h1 className="text-2xl font-bold mb-6">
         Pipeline de Talento — Nexova
       </h1>
-      <p className="mb-4 text-sm">{records.length} candidaturas</p>
-      <ul>
-        {records.map((record) => (
-          <li key={record.id} className="border-b py-2">
-              {record.full_name} — {record.position} — {STATUS_LABELS[record.status]} / {STAGE_LABELS[record.stage]}
-          </li>
-        ))}
-      </ul>
+
+      <FilterBar />
+
+      {loading && <p>Cargando candidaturas…</p>}
+      {error && <p className="text-red-600">{error}</p>}
+
+      {!loading && !error && (
+        <>
+          <p className="mb-4 text-sm">{records.length} candidaturas</p>
+          <ul>
+            {records.map((record) => (
+              <li key={record.id} className="border-b py-2">
+                {record.full_name} — {record.position} —{' '}
+                {STATUS_LABELS[record.status]} / {STAGE_LABELS[record.stage]}
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
     </main>
   );
 }
