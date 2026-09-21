@@ -7,6 +7,7 @@ import { getRecords } from '@/services/records';
 import { STATUS_LABELS, STAGE_LABELS } from '@/lib/labels';
 import FilterBar from '@/components/FilterBar';
 import SearchInput from '@/components/SearchInput';
+import Link from 'next/link';
 
 export default function Home() {
   const searchParams = useSearchParams();
@@ -55,10 +56,16 @@ export default function Home() {
           <p className="mb-4 text-sm">{records.length} candidaturas</p>
           <ul>
             {records.map((record) => (
-              <li key={record.id} className="border-b py-2">
-                {record.full_name} — {record.position} —{' '}
-                {STATUS_LABELS[record.status]} / {STAGE_LABELS[record.stage]}
-              </li>
+            <li key={record.id} className="border-b py-2">
+              <Link
+                 href={`/candidates/${record.id}`}
+                 className="text-blue-700 hover:underline"
+              >
+                 {record.full_name}
+              </Link>
+              {' — '}{record.position} —{' '}
+              {STATUS_LABELS[record.status]} / {STAGE_LABELS[record.stage]}
+            </li>
             ))}
           </ul>
         </>

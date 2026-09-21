@@ -1,4 +1,4 @@
-import type { RecordFilters, RecordsResponse } from '@/types/record';
+import type { RecordFilters, RecordsResponse, TalentRecord } from '@/types/record';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
@@ -22,5 +22,13 @@ export async function getRecords(
     throw new Error('No se han podido cargar las candidaturas.');
   }
 
+  return response.json();
+}
+
+export async function getRecordById(id: string): Promise<TalentRecord> {
+  const response = await fetch(`${API_URL}/records/${id}`);
+  if (!response.ok) {
+    throw new Error('No se ha podido cargar la candidatura.');
+  }
   return response.json();
 }
