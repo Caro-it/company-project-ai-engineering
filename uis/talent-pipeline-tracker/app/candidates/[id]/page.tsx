@@ -6,6 +6,7 @@ import Link from 'next/link';
 import type { TalentRecord, RecordStatus, RecordStage } from '@/types/record';
 import { getRecordById, patchRecord } from '@/services/records';
 import { STATUS_LABELS, STAGE_LABELS } from '@/lib/labels';
+import NotesSection from '@/components/NotesSection';
 
 export default function CandidateDetail() {
   const { id } = useParams<{ id: string }>();
@@ -67,7 +68,7 @@ export default function CandidateDetail() {
           <p>Años de experiencia: {record.experience_years}</p>
           <p>Fecha de aplicación: {new Date(record.applied_at).toLocaleDateString('es-ES')}</p>
           {record.linkedin_url && (<p><a href={record.linkedin_url} target="_blank" rel="noopener noreferrer" className="text-blue-700 hover:underline">LinkedIn (URL del perfil)</a></p>)}
-          <p><a href={record.cv_url} target="_blank" rel="noopener noreferrer" className="text-blue-700 hover:underline">Enlace al CV</a></p>
+          {record.cv_url && (<p><a href={record.cv_url} target="_blank" rel="noopener noreferrer" className="text-blue-700 hover:underline">Enlace al CV</a></p>)}
 
           <div className="flex gap-4 mt-6">
             <label className="flex flex-col text-sm">
@@ -87,8 +88,16 @@ export default function CandidateDetail() {
           {saving && <p className="mt-2 text-sm">Guardando...</p>}
           {saveMessage && <p className="mt-2 text-sm text-green-700">{saveMessage}</p>}
           {saveError && <p className="mt-2 text-sm text-red-600">{saveError}</p>}
+          <p className="mt-6"><Link href={`/candidates/${record.id}/edit`} className="text-blue-700 hover:underline">Editar datos de la candidatura</Link></p>
+          <NotesSection recordId={record.id} />
         </div>
       )}
     </main>
   );
 }
+
+
+
+
+
+

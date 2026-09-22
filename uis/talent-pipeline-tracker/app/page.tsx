@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
@@ -42,13 +42,14 @@ export default function Home() {
   return (
     <main className="p-8">
       <h1 className="text-2xl font-bold mb-6">
-        Pipeline de Talento — Nexova
+        Pipeline de Talento â€” Nexova
       </h1>
 
+      <p className="mb-4"><Link href="/candidates/new" className="text-blue-700 hover:underline">+ Registrar nueva candidatura</Link></p>
       <SearchInput />
       <FilterBar />
 
-      {loading && <p>Cargando candidaturas…</p>}
+      {loading && <p>Cargando candidaturasâ€¦</p>}
       {error && <p className="text-red-600">{error}</p>}
 
       {!loading && !error && (
@@ -63,7 +64,7 @@ export default function Home() {
               >
                  {record.full_name}
               </Link>
-              {' — '}{record.position} —{' '}
+              {' â€” '}{record.position} â€”{' '}
               {STATUS_LABELS[record.status]} / {STAGE_LABELS[record.stage]}
             </li>
             ))}
@@ -73,3 +74,6 @@ export default function Home() {
     </main>
   );
 }
+
+
+

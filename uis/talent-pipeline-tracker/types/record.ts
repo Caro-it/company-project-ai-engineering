@@ -53,3 +53,13 @@ export interface RecordFilters {
   limit?: number;
 }
 
+
+export interface RecordInput {
+  full_name: string;
+  email: string;
+  phone: string;
+  position: string;
+  experience_years: number;
+  linkedin_url: string | null;
+  cv_url: string | null;
+}
