@@ -1,5 +1,17 @@
 # Proyecto de Compañía - Ingeniería de IA — Plantilla para estudiantes
 
+> ## 🔗 Entrega Hito 3
+>
+> **Herramienta:** Talent Pipeline Tracker — gestión del pipeline de candidaturas del equipo de Operaciones de Selección de Nexova
+>
+> **Código:** [`uis/talent-pipeline-tracker/`](./uis/talent-pipeline-tracker/)
+>
+> **Stack:** Next.js 16 (App Router) · React 19 · TypeScript · Tailwind CSS 4
+>
+> **API:** `https://playground.4geeks.com/tracker/api/v1`
+>
+> Listado con filtros por estado y etapa mediante query params · búsqueda por nombre o email · detalle con actualización de estado y etapa (PATCH) · notas internas (GET/POST/DELETE) · alta (POST) y edición (PUT) con validación de campos
+
 > ## 🔗 Entrega Hito 1
 >
 > **Sitio publicado:** https://caro-it.github.io/company-project-ai-engineering/uis/website/index.html
