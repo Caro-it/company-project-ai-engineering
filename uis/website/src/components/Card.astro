@@ -1,0 +1,18 @@
+---
+// Tarjeta con borde superior teal: estilo común de servicios, "Por qué Nexova" y contacto.
+interface Props {
+  as?: 'article' | 'li';
+  class?: string;
+}
+
+const { as: Tag = 'article', class: extraClass } = Astro.props;
+---
+
+<Tag
+  class:list={[
+    'rounded-b-lg border border-t-4 border-slate-200 border-t-[#006992] bg-white p-6 shadow-md transition hover:shadow-lg',
+    extraClass,
+  ]}
+>
+  <slot />
+</Tag>

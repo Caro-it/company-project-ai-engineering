@@ -1,0 +1,43 @@
+---
+import '../styles/global.css';
+import SiteHeader from '../components/SiteHeader.astro';
+import SiteFooter from '../components/SiteFooter.astro';
+
+interface Props {
+  title: string;
+  description: string;
+  currentPage: 'inicio' | 'talento';
+}
+
+const { title, description, currentPage } = Astro.props;
+---
+
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>{title}</title>
+    <meta name="description" content={description} />
+    <slot name="head" />
+  </head>
+
+  <body class="bg-white text-slate-800 antialiased">
+    <a
+      href="#contenido-principal"
+      class="sr-only focus:not-sr-only focus:absolute focus:top-3 focus:left-3 focus:z-50 focus:rounded-md focus:bg-indigo-800 focus:px-4 focus:py-2 focus:text-white focus:outline-hidden focus:ring-2 focus:ring-indigo-400 focus:ring-offset-2"
+    >
+      Saltar al contenido principal
+    </a>
+
+    <SiteHeader currentPage={currentPage} />
+
+    <main id="contenido-principal">
+      <slot />
+    </main>
+
+    <SiteFooter />
+
+    <slot name="scripts" />
+  </body>
+</html>

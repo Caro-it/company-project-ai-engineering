@@ -1,0 +1,12 @@
+---
+// Contenedor del mensaje de error que rellena validation.js (id = "error-<campo>").
+interface Props {
+  forField: string;
+  as?: 'span' | 'p';
+  class?: string;
+}
+
+const { forField, as: Tag = 'span', class: extraClass = 'mt-1' } = Astro.props;
+---
+
+<Tag id={`error-${forField}`} class:list={['text-sm font-medium text-red-800', extraClass]} aria-live="polite"></Tag>

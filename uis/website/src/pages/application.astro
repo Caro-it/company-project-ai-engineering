@@ -1,0 +1,207 @@
+---
+// Textos literales: docs/CONTEXT-hito1-website.md. Los ids/names los usa public/validation.js.
+import BaseLayout from '../layouts/BaseLayout.astro';
+import FormFieldset from '../components/FormFieldset.astro';
+import TextField from '../components/TextField.astro';
+import SelectField from '../components/SelectField.astro';
+import RadioOption from '../components/RadioOption.astro';
+import FieldError from '../components/FieldError.astro';
+import { withBase } from '../lib/paths';
+
+const paises = ['España', 'Estados Unidos', 'Otro'];
+const sectores = ['Tecnología', 'Retail', 'Servicios Financieros', 'Consultoría', 'Otro'];
+const nivelesIngles = ['Básico', 'Intermedio', 'Avanzado', 'Nativo'];
+const disponibilidades = ['Inmediata', '1 mes', '2-3 meses', 'Solo explorando'];
+
+const focus = 'focus:ring-2 focus:ring-indigo-600 focus:ring-offset-2 focus:outline-hidden';
+---
+
+<BaseLayout
+  title="Banco de talento — Nexova"
+  description="Regístrate en el banco de talento de Nexova: comparte tus datos de contacto, experiencia profesional, sector de interés, nivel de inglés y disponibilidad."
+  currentPage="talento"
+>
+  <div class="mx-auto max-w-3xl px-4 py-10 sm:px-6 sm:py-14 lg:px-8 lg:py-16">
+    <h1 class="text-3xl font-bold tracking-tight text-[#001D4A] sm:text-4xl">Únete a nuestro banco de talento</h1>
+
+    <p class="mt-4 text-base leading-relaxed text-slate-700 sm:text-lg">
+      Comparte tu perfil profesional con nuestro equipo de selección. Los campos marcados con asterisco (*) son
+      obligatorios.
+    </p>
+
+    <!-- Aviso para empresas -->
+    <aside
+      class="mt-8 rounded-b-lg border border-t-4 border-slate-200 border-t-[#006992] bg-slate-100 p-4 sm:p-5"
+      aria-label="Aviso para empresas"
+    >
+      <p class="text-slate-800">
+        ¿Eres una empresa buscando talento? Escríbenos a
+        <a
+          href="mailto:contacto@nexova.com"
+          class={`rounded-sm font-semibold text-[#006992] no-underline hover:underline ${focus}`}
+          >contacto@nexova.com</a
+        >
+      </p>
+    </aside>
+
+    <!-- Resumen de errores (lo rellena validation.js) -->
+    <section
+      id="resumen-errores"
+      class="mt-8 hidden rounded-lg border border-red-300 bg-red-50 p-4 sm:p-5"
+      aria-live="polite"
+      tabindex="-1"
+      aria-labelledby="resumen-errores-titulo"
+    >
+      <h2 id="resumen-errores-titulo" class="text-lg font-semibold text-red-800">
+        Revisa los siguientes campos antes de enviar
+      </h2>
+      <ul id="resumen-errores-lista" class="mt-3 list-disc space-y-1 pl-5 text-red-800"></ul>
+    </section>
+
+    <!-- Mensaje de éxito (lo muestra validation.js) -->
+    <section
+      id="mensaje-exito"
+      class="mt-8 hidden rounded-lg border border-green-300 bg-green-50 p-4 sm:p-6"
+      role="status"
+      aria-live="polite"
+      tabindex="-1"
+      aria-labelledby="mensaje-exito-titulo"
+    >
+      <h2 id="mensaje-exito-titulo" class="text-lg font-bold text-green-900 sm:text-xl">
+        ¡Gracias por tu interés en Nexova!
+      </h2>
+      <p class="mt-3 leading-relaxed text-slate-800">
+        Hemos recibido tu información. Nuestro equipo de selección la revisará y te contactaremos en caso de que tu
+        perfil encaje con alguna de nuestras oportunidades actuales o futuras.
+      </p>
+      <p class="mt-3 leading-relaxed text-slate-800">
+        Mientras tanto, síguenos en LinkedIn para estar al día de nuestras vacantes y contenido sobre desarrollo
+        profesional.
+      </p>
+    </section>
+
+    <!-- ============ FORMULARIO ============ -->
+    <form id="formulario-talento" class="mt-10 space-y-8" novalidate>
+      <FormFieldset legend="Datos personales">
+        <div class="grid grid-cols-1 gap-5 md:grid-cols-2">
+          <TextField
+            id="nombre-completo"
+            label="Nombre completo"
+            type="text"
+            autocomplete="name"
+            required
+            class="md:col-span-2"
+          />
+          <TextField id="email" label="Email" type="email" autocomplete="email" required />
+          <TextField
+            id="telefono"
+            label="Teléfono"
+            type="tel"
+            autocomplete="tel"
+            placeholder="+34 612 345 678"
+            required
+          />
+          <SelectField id="pais" label="País de residencia" options={paises} class="md:col-span-2" />
+        </div>
+      </FormFieldset>
+
+      <FormFieldset legend="Perfil profesional">
+        <div class="grid grid-cols-1 gap-5 md:grid-cols-2">
+          <TextField
+            id="anios-experiencia"
+            label="Años de experiencia"
+            type="number"
+            min={0}
+            max={50}
+            step={1}
+            required
+          />
+          <SelectField id="sector" label="Sector de interés" options={sectores} />
+          <SelectField id="nivel-ingles" label="Nivel de inglés" options={nivelesIngles} />
+          <TextField
+            id="linkedin"
+            label="LinkedIn (URL del perfil)"
+            type="url"
+            placeholder="https://linkedin.com/in/tu-perfil"
+          />
+        </div>
+      </FormFieldset>
+
+      <!-- Disponibilidad: fieldset propio para agrupar los radios de forma accesible -->
+      <fieldset
+        id="disponibilidad"
+        role="radiogroup"
+        class="rounded-lg border border-slate-300 p-4 sm:p-6"
+        aria-required="true"
+        aria-labelledby="disponibilidad-titulo"
+        aria-describedby="error-disponibilidad"
+      >
+        <legend id="disponibilidad-titulo" class="px-2 text-lg font-semibold text-[#27476E] sm:text-xl">
+          Disponibilidad <span aria-hidden="true">*</span>
+        </legend>
+
+        <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          {
+            disponibilidades.map((value, index) => (
+              <RadioOption name="disponibilidad" value={value} required={index === 0} />
+            ))
+          }
+        </div>
+
+        <FieldError forField="disponibilidad" as="p" class="mt-2" />
+      </fieldset>
+
+      <FormFieldset legend="Información adicional">
+        <p class="flex flex-col">
+          <label for="comentarios" class="mb-1 font-medium text-slate-800">Comentarios adicionales</label>
+          <textarea
+            id="comentarios"
+            name="comentarios"
+            rows="5"
+            maxlength="500"
+            aria-describedby="contador-comentarios error-comentarios"
+            class="rounded-md border border-slate-400 px-3 py-2 text-[#001D4A] focus:border-indigo-600 focus:ring-2 focus:ring-indigo-600 focus:outline-hidden"
+          ></textarea>
+          <span id="contador-comentarios" class="mt-1 text-sm text-slate-700" aria-live="polite">
+            0 / 500 caracteres (quedan 500)
+          </span>
+          <FieldError forField="comentarios" />
+        </p>
+
+        <p class="mt-5 flex flex-wrap items-start gap-2">
+          <input
+            type="checkbox"
+            id="politica-datos"
+            name="politica-datos"
+            required
+            aria-required="true"
+            aria-describedby="error-politica-datos"
+            class={`mt-1 h-4 w-4 accent-[#006992] ${focus}`}
+          />
+          <label for="politica-datos" class="flex-1 text-slate-800">
+            Acepto política de datos <span aria-hidden="true">*</span>
+          </label>
+          <FieldError forField="politica-datos" class="w-full" />
+        </p>
+      </FormFieldset>
+
+      <!-- ---- Botones ---- -->
+      <div class="flex flex-col gap-3 sm:flex-row">
+        <button
+          type="submit"
+          class={`cursor-pointer rounded-md bg-[#001D4A] px-6 py-3 font-semibold text-white hover:bg-[#27476E] ${focus}`}
+        >
+          Enviar solicitud
+        </button>
+        <button
+          type="reset"
+          class={`cursor-pointer rounded-md border border-[#006992] bg-white px-6 py-3 font-semibold text-[#27476E] hover:bg-slate-100 ${focus}`}
+        >
+          Limpiar formulario
+        </button>
+      </div>
+    </form>
+  </div>
+
+  <script is:inline slot="scripts" src={withBase('validation.js')} defer></script>
+</BaseLayout>

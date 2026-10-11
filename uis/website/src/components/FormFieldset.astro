@@ -1,0 +1,12 @@
+---
+interface Props {
+  legend: string;
+}
+
+const { legend } = Astro.props;
+---
+
+<fieldset class="rounded-lg border border-slate-300 p-4 sm:p-6">
+  <legend class="px-2 text-lg font-semibold text-[#27476E] sm:text-xl">{legend}</legend>
+  <slot />
+</fieldset>

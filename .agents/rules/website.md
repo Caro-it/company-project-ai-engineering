@@ -24,6 +24,13 @@ globs:
 ## Archivos y URLs
 
 - Los nombres van en inglés: `index.html`, `application.html`, `validation.js`. Nunca `aplicacion.html` ni `validacion.js`.
+- La web es Astro 7:
+  - `src/pages/index.astro` genera `index.html` y `src/pages/application.astro` genera `application.html` (`build.format: 'file'`).
+  - `validation.js` vive en `public/` y no se reescribe.
+- Los componentes reutilizables están en `src/components/` y el layout común en `src/layouts/BaseLayout.astro`. Una sección o campo nuevo reutiliza un componente existente antes de crear otro.
+- Los enlaces internos y los assets usan `withBase()` (`src/lib/paths.ts`), nunca rutas absolutas escritas a mano:
+  - En local, la web vive en `http://localhost:4321/`.
+  - En GitHub Pages, el workflow define `WEBSITE_BASE=/company-project-ai-engineering/uis/website`.
 - El CTA del hero y el enlace "Talento" del menú apuntan a `application.html`.
 - Las URLs publicadas `…/uis/website/index.html` y `…/uis/website/application.html` no deben romperse.
 
@@ -94,7 +101,7 @@ globs:
 ## Comprobación rápida
 
 ```bash
-git grep -nE '<style|style=' -- uis/website ':!uis/website/node_modules'   # vacío
+git grep -nE '<style|style=' -- uis/website   # vacío
 git grep -nE 'Chile|Argentina|aplicacion\.html|validacion\.js' -- uis/website  # vacío
 node .agents/skills/verify-website-literals/scripts/check-literals.mjs      # OK: N/N
 ```
