@@ -12,4 +12,12 @@ Organiza `uis/` por **distintas áreas de la compañía** — cada subcarpeta ag
 - **Propósito principal**: centralizar en un único lugar todas las aplicaciones frontend que dan soporte a los casos de uso de la compañía.
 - **Recomendación**: documenta en este archivo (o en sub-READMEs) las aplicaciones que vayas añadiendo, su objetivo, tecnología usada y cómo ejecutarlas.
 
+## Aplicaciones de este repositorio
+
+| App | Objetivo | Stack | Arranque | Puerto |
+|---|---|---|---|---|
+| [`website/`](./website/README.md) | Web pública de Nexova y formulario de registro de talento (Hito 1) | Astro 7 + Tailwind 4 | `npm run dev` | 4321 |
+| [`backoffice/`](./backoffice/README.md) | App interna: bienvenida y dashboard vacío con datos del briefing | Next.js 16 + TypeScript + Tailwind 4 | `npm run dev` | 3001 |
+| [`talent-pipeline-tracker/`](./talent-pipeline-tracker/README.md) | Pipeline de candidaturas de Operaciones de Selección (Hito 3) | Next.js 16 + TypeScript + Tailwind 4 | `npm run dev` | 3000 |
+
 > _These instructions are also available in [English](./README.md)._
