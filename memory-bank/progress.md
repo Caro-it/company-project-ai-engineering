@@ -7,16 +7,27 @@ _Última actualización: 2026-10-11 · rama `feature/agent-memory-bank`_
 - **Hito 1:** `uis/website` publicada en GitHub Pages. El script de la skill `verify-website-literals` da 58/58 literales correctos.
 - **Hito 2:** `packages/shared` con tipos de dominio y utilidades; se verifica con `npm run typecheck`.
 - **Hito 3:** `uis/talent-pipeline-tracker` (listado con filtros, búsqueda, detalle con PATCH, notas, alta y edición). Ya está en `main`.
-- **Hito actual, Fase 1:** `memory-bank/` (este archivo, `projectbrief.md` y `techContext.md`), `AGENTS.md` raíz, `.agents/rules/` y `.agents/skills/verify-website-literals/`.
+- **Hito actual, Fase 1:** `memory-bank/`, `AGENTS.md` raíz, `CLAUDE.md` reducido a `@AGENTS.md`, `.agents/rules/` (`website`, que aplica por patrón de archivo, y `nexova-domain`, siempre activa), la skill `.agents/skills/verify-website-literals/` y `CONTEXT.es.md` reducido a una línea que remite a `CONTEXT.md`.
 
 ## En curso / próximos pasos
 
-1. Reducir el `CLAUDE.md` raíz a `@AGENTS.md`, una vez confirmado el mapa de migración.
-2. Sustituir `CONTEXT.es.md` por una línea que remita a `CONTEXT.md` (autorizado).
-3. **Fase 2:**
-   - Migrar `uis/website` a Astro + Tailwind (puerto 4321), solo después de confirmar el plan de GitHub Pages.
+1. **Fase 2:**
+   - Migrar `uis/website` a Astro + Tailwind 4 (puerto 4321, `base` solo en el build de despliegue) y añadir el workflow de GitHub Pages.
    - Crear `uis/backoffice` con Next.js 16 (puerto 3001) y su README.
-4. **Fase 3:** flujo pre-commit completo, arranque de las dos apps, commits pequeños, push y texto de la PR hacia `main`.
+2. **Fase 3:** flujo pre-commit completo, arranque de las dos apps, commits pequeños, push y texto de la PR hacia `main`.
+
+## Pasos manuales al hacer merge a `main` (GitHub Pages)
+
+Los hace la usuaria; el agente no toca la configuración de GitHub.
+
+1. Hacer merge de la PR a `main`.
+2. En GitHub, ir a **Settings → Pages → Build and deployment → Source** y elegir **"GitHub Actions"** en lugar de "Deploy from a branch".
+3. En **Actions**, lanzar a mano el workflow **"Deploy website to GitHub Pages"** (*Run workflow* sobre `main`) o esperar a que se ejecute con el push del merge.
+4. Comprobar que siguen respondiendo:
+   - https://caro-it.github.io/company-project-ai-engineering/uis/website/index.html
+   - https://caro-it.github.io/company-project-ai-engineering/uis/website/application.html
+   - https://caro-it.github.io/company-project-ai-engineering/packages/shared/index.html
+5. Volver a pasar PageSpeed Insights (móvil) y actualizar las cifras del README raíz si cambian.
 
 ## Pospuesto
 
