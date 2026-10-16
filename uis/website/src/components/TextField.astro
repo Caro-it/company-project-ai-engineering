@@ -1,0 +1,40 @@
+---
+import FieldError from './FieldError.astro';
+
+interface Props {
+  id: string;
+  label: string;
+  type: 'text' | 'email' | 'tel' | 'number' | 'url';
+  required?: boolean;
+  autocomplete?: string;
+  placeholder?: string;
+  min?: number;
+  max?: number;
+  step?: number;
+  class?: string;
+}
+
+const { id, label, type, required = false, autocomplete, placeholder, min, max, step, class: extraClass } = Astro.props;
+---
+
+<p class:list={['flex flex-col', extraClass]}>
+  <label for={id} class="mb-1 font-medium text-slate-800">
+    {label}
+    {required && <span aria-hidden="true">*</span>}
+  </label>
+  <input
+    type={type}
+    id={id}
+    name={id}
+    autocomplete={autocomplete}
+    placeholder={placeholder}
+    min={min}
+    max={max}
+    step={step}
+    required={required}
+    aria-required={required ? 'true' : undefined}
+    aria-describedby={`error-${id}`}
+    class="rounded-md border border-slate-400 px-3 py-2 text-[#001D4A] focus:border-indigo-600 focus:ring-2 focus:ring-indigo-600 focus:outline-hidden"
+  />
+  <FieldError forField={id} />
+</p>

@@ -1,0 +1,53 @@
+---
+import Card from './Card.astro';
+
+interface Props {
+  title: string;
+  href: string;
+  value: string;
+  icon: 'email' | 'location';
+  class?: string;
+}
+
+const { title, href, value, icon, class: extraClass } = Astro.props;
+---
+
+<Card as="li" class={extraClass}>
+  <h3 class="flex items-center gap-2 text-base font-semibold text-[#001D4A]">
+    <svg
+      class="h-5 w-5 shrink-0 text-[#006992]"
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      stroke-width="2"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+      aria-hidden="true"
+      focusable="false"
+    >
+      {
+        icon === 'email' ? (
+          <>
+            <rect x="2" y="4" width="20" height="16" rx="2" />
+            <path d="m2 7 10 6 10-6" />
+          </>
+        ) : (
+          <>
+            <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z" />
+            <circle cx="12" cy="10" r="3" />
+          </>
+        )
+      }
+    </svg>
+    {title}
+  </h3>
+  <address class="mt-2 not-italic">
+    <a
+      href={href}
+      class="rounded-sm font-medium text-[#006992] no-underline hover:underline focus:outline-hidden focus:ring-2 focus:ring-indigo-600 focus:ring-offset-2"
+    >
+      {value}
+    </a>
+  </address>
+</Card>

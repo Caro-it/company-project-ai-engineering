@@ -1,0 +1,142 @@
+---
+// Textos literales: docs/CONTEXT-hito1-website.md (no parafrasear).
+import BaseLayout from '../layouts/BaseLayout.astro';
+import SectionHeading from '../components/SectionHeading.astro';
+import ServiceCard from '../components/ServiceCard.astro';
+import HighlightCard from '../components/HighlightCard.astro';
+import ContactCard from '../components/ContactCard.astro';
+import { withBase } from '../lib/paths';
+
+const services = [
+  {
+    title: 'Headhunting Ejecutivo',
+    items: [
+      'Búsqueda y selección de perfiles ejecutivos y mandos medios',
+      'Proceso personalizado con garantía de reemplazo',
+    ],
+  },
+  {
+    title: 'Outsourcing de Atención al Cliente',
+    items: ['Equipos especializados para empresas tecnológicas', 'Formación continua y supervisión dedicada'],
+  },
+  {
+    title: 'Formación Corporativa',
+    items: ['Programas de soft skills y liderazgo', 'Cursos presenciales y en línea adaptados a cada organización'],
+    class: 'sm:col-span-2 lg:col-span-1',
+  },
+];
+
+const highlights = [
+  { title: '12 años de experiencia', text: 'en el mercado latinoamericano' },
+  { title: 'Presencia regional:', text: 'España y Estados Unidos' },
+  { title: '+500 procesos exitosos', text: 'de selección completados' },
+  { title: 'Especialización sectorial', text: 'en tecnología, retail y finanzas' },
+];
+
+const contacts = [
+  { title: 'Email', value: 'contacto@nexova.com', href: 'mailto:contacto@nexova.com', icon: 'email' as const },
+  { title: 'Valencia', value: '+34 960 123 456', href: 'tel:+34960123456', icon: 'location' as const },
+  {
+    title: 'Miami',
+    value: '+1 305 555 0191',
+    href: 'tel:+13055550191',
+    icon: 'location' as const,
+    class: 'sm:col-span-2 lg:col-span-1',
+  },
+];
+---
+
+<BaseLayout
+  title="Nexova — Consultora de recursos humanos y adquisición de talento"
+  description="Nexova es una consultora de recursos humanos y adquisición de talento con headhunting ejecutivo, outsourcing de atención al cliente y formación corporativa en España y Estados Unidos."
+  currentPage="inicio"
+>
+  <script type="application/ld+json" is:inline slot="head">
+    {
+      "@context": "https://schema.org",
+      "@type": "Organization",
+      "name": "Nexova",
+      "description": "Consultora de recursos humanos y adquisición de talento",
+      "url": "https://nexova.com",
+      "foundingDate": "2011",
+      "address": [
+        {
+          "@type": "PostalAddress",
+          "addressCountry": "ES",
+          "addressLocality": "Valencia",
+          "addressRegion": "Comunidad Valenciana"
+        },
+        {
+          "@type": "PostalAddress",
+          "addressCountry": "US",
+          "addressLocality": "Miami",
+          "addressRegion": "Florida"
+        }
+      ],
+      "contactPoint": {
+        "@type": "ContactPoint",
+        "telephone": "+34-960-123-456",
+        "contactType": "customer service",
+        "availableLanguage": ["Spanish", "English"]
+      },
+      "sameAs": [
+        "https://linkedin.com/company/nexova",
+        "https://instagram.com/nexova"
+      ]
+    }
+  </script>
+
+  <!-- ============ HERO ============ -->
+  <section id="inicio" aria-labelledby="hero-titulo" class="bg-[#001D4A]">
+    <div class="mx-auto max-w-6xl px-4 py-20 sm:px-6 md:py-28 lg:px-8">
+      <h1
+        id="hero-titulo"
+        class="max-w-3xl text-3xl leading-tight font-bold tracking-tight text-white sm:text-4xl lg:text-5xl"
+      >
+        Construimos equipos excepcionales para empresas en crecimiento
+      </h1>
+      <p class="mt-5 max-w-3xl text-base leading-relaxed text-blue-100 sm:text-lg lg:text-xl">
+        Consultora de recursos humanos y adquisición de talento con más de 10 años ayudando a empresas de
+        tecnología, retail y servicios financieros a encontrar y desarrollar el mejor talento.
+      </p>
+      <p class="mt-8">
+        <a
+          href={withBase('application.html')}
+          class="inline-block rounded-md bg-[#ECA400] px-6 py-3 text-base font-semibold text-[#001D4A] hover:bg-[#d89400] focus:ring-2 focus:ring-indigo-600 focus:ring-offset-2 focus:outline-hidden sm:text-lg"
+        >
+          Únete a nuestro banco de talento
+        </a>
+      </p>
+    </div>
+  </section>
+
+  <!-- ============ SERVICIOS ============ -->
+  <section id="servicios" aria-labelledby="servicios-titulo">
+    <div class="mx-auto max-w-6xl px-4 py-16 sm:px-6 md:py-20 lg:px-8">
+      <SectionHeading id="servicios-titulo">Servicios</SectionHeading>
+      <div class="mt-10 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+        {services.map((service) => <ServiceCard {...service} />)}
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ POR QUÉ NEXOVA ============ -->
+  <section id="por-que-nexova" aria-labelledby="por-que-titulo" class="bg-slate-100">
+    <div class="mx-auto max-w-6xl px-4 py-16 sm:px-6 md:py-20 lg:px-8">
+      <SectionHeading id="por-que-titulo">Por qué Nexova</SectionHeading>
+      <div class="mt-10 grid grid-cols-1 gap-6 md:grid-cols-2 lg:gap-8">
+        {highlights.map((highlight) => <HighlightCard {...highlight} />)}
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ CONTACTO ============ -->
+  <section id="contacto" aria-labelledby="contacto-titulo">
+    <div class="mx-auto max-w-6xl px-4 py-16 sm:px-6 md:py-20 lg:px-8">
+      <SectionHeading id="contacto-titulo">Contacto</SectionHeading>
+      <ul class="mt-8 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+        {contacts.map((contact) => <ContactCard {...contact} />)}
+      </ul>
+    </div>
+  </section>
+</BaseLayout>

@@ -1,0 +1,74 @@
+# Publica en GitHub Pages la web pública (Astro) y la página de pruebas del Hito 2,
+# manteniendo las URLs del Hito 1:
+#   /company-project-ai-engineering/uis/website/index.html
+#   /company-project-ai-engineering/uis/website/application.html
+#   /company-project-ai-engineering/packages/shared/index.html
+# Requiere Settings → Pages → Source = "GitHub Actions" (paso manual, ver memory-bank/progress.md).
+name: Deploy website to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            uis/website/package-lock.json
+            packages/shared/package-lock.json
+
+      - name: Build website (Astro)
+        working-directory: uis/website
+        env:
+          # Solo aquí se aplica el base; en local la web se sirve en "/".
+          WEBSITE_BASE: /company-project-ai-engineering/uis/website
+        run: |
+          npm ci
+          npm run build
+
+      - name: Verify briefing literals
+        run: node .agents/skills/verify-website-literals/scripts/check-literals.mjs uis/website/dist
+
+      - name: Build shared logic test page (Hito 2)
+        working-directory: packages/shared
+        run: |
+          npm ci
+          npm run build
+
+      - name: Assemble Pages site
+        run: |
+          mkdir -p _site/uis/website _site/packages/shared
+          cp -r uis/website/dist/. _site/uis/website/
+          cp packages/shared/index.html _site/packages/shared/
+          cp -r packages/shared/dist _site/packages/shared/dist
+
+      - uses: actions/upload-pages-artifact@v4
+        with:
+          path: _site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}uis/website/index.html
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
