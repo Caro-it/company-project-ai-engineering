@@ -1,4 +1,4 @@
-import Link from "next/link";
+import { NavLink } from "@/components/NavLink";
 import { AREAS, EMPRESA } from "@/lib/nexova";
 
 export function Sidebar() {
@@ -10,15 +10,12 @@ export function Sidebar() {
         </p>
 
         <nav aria-label="Secciones del backoffice" className="mt-6">
-          <ul className="flex flex-wrap gap-2 lg:flex-col lg:gap-1">
+                    <ul className="flex flex-wrap gap-2 lg:flex-col lg:gap-1">
             <li>
-              <Link
-                href="/"
-                aria-current="page"
-                className="block rounded-md bg-white/10 px-3 py-2 font-semibold text-white focus:ring-2 focus:ring-[#ECA400] focus:outline-hidden"
-              >
-                Inicio
-              </Link>
+              <NavLink href="/">Inicio</NavLink>
+            </li>
+            <li>
+              <NavLink href="/incidencias">Análisis de incidencias</NavLink>
             </li>
           </ul>
         </nav>
