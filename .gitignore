@@ -10,3 +10,4 @@ build/
 .venv/
 __pycache__/
 *.egg-info/
+scripts/results.csv
