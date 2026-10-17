@@ -8,7 +8,7 @@ app = FastAPI(title="Nexova API", version="0.1.0")
 # El backoffice (Next.js) corre en localhost:3000 durante el desarrollo
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],
+    allow_origins=["http://localhost:3000", "http://localhost:3001"],
     allow_methods=["GET", "POST"],
     allow_headers=["*"],
     expose_headers=["Content-Disposition"],
