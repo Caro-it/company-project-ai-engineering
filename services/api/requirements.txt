@@ -1,0 +1,4 @@
+fastapi>=0.143
+uvicorn>=0.54
+python-multipart>=0.0.32
+-e ../../packages/incidents_core
