@@ -1,18 +1,19 @@
 "use client";
 
+import { SupplierForm } from "@/components/SupplierForm";
 import { useEffect, useState } from "react";
 
 import {
-    CATEGORIES,
-    CATEGORY_LABELS,
-    COUNTRIES,
-    daysUntil,
-    listSuppliers,
-    updateRate,
-    updateStatus,
-    type Category,
-    type Country,
-    type Supplier,
+  CATEGORIES,
+  CATEGORY_LABELS,
+  COUNTRIES,
+  daysUntil,
+  listSuppliers,
+  updateRate,
+  updateStatus,
+  type Category,
+  type Country,
+  type Supplier,
 } from "@/lib/suppliers";
 
 const RENEWAL_WINDOW_DAYS = 60;
@@ -89,7 +90,7 @@ export function SuppliersDirectory() {
 
   return (
     <div className="space-y-6">
-      {/* Paso 20: aquí irá el formulario de alta */}
+      <SupplierForm onCreated={reload} />
 
       <section
         aria-labelledby="filtros-titulo"
