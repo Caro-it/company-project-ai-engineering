@@ -4,9 +4,10 @@
 
 - Desarrollo local en **Windows con PowerShell 5.1** (sin `&&`; usa `;` o `if ($?) { … }`). Git Bash también está disponible.
 - **Todos los archivos en UTF-8 sin BOM.** `Set-Content`/`Add-Content` de PowerShell 5.1 escriben ANSI y `Out-File` añade BOM, así que no se usan para generar archivos del repo.
-- Node 22 y npm 10. Python 3.14 (sin uso todavía).
-- Gestor de paquetes: **npm**, con un `package-lock.json` por proyecto. **No hay workspace en la raíz**: cada app se instala y ejecuta desde su carpeta o con `npm --prefix <carpeta> …`.
-- **Incoherencia conocida:** `.devcontainer/post-create.sh` prepara pnpm (corepack) y ejecuta `uv sync`, pero el repo usa npm y no hay `pyproject.toml`. El devcontainer está protegido y no se toca.
+- Node 22 y npm 10. Python 3.14 en el sistema; `services/api` usa su propio `.venv` con Python 3.12 (el proyecto exige `>=3.11`).
+- Gestor de paquetes JS: **npm**, con un `package-lock.json` por proyecto. **No hay workspace en la raíz**: cada app se instala y ejecuta desde su carpeta o con `npm --prefix <carpeta> …`.
+- Gestor de paquetes Python: **uv**, con `pyproject.toml` y `uv.lock` en `services/api`. Las dependencias se añaden con `uv add`, nunca con `pip install`. `requirements.txt` se genera con `uv export`.
+- **Incoherencia conocida:** `.devcontainer/post-create.sh` prepara pnpm (corepack) y ejecuta `uv sync` en la raíz, pero el repo usa npm y el único `pyproject.toml` está en `services/api`, no en la raíz. El devcontainer está protegido y no se toca.
 
 ## Apps y puertos
 
@@ -16,6 +17,7 @@
 | Backoffice | `uis/backoffice` | Next.js 16.3.8 App Router (Turbopack) + React 19.2 + TypeScript + Tailwind 4 | `npm run dev` | **3001** |
 | Talent Pipeline Tracker (Hito 3) | `uis/talent-pipeline-tracker` | Next.js 16.3.5 App Router + React 19.2 + TypeScript + Tailwind 4 | `npm run dev` | **3000** (no se toca) |
 | Página de pruebas de la lógica (Hito 2) | `packages/shared` | TypeScript 5.9 + `index.html` | `npm run build` y luego `npx http-server . -p 3000 -a 0.0.0.0` | 3000 |
+| API centralizada | `services/api` | FastAPI 0.143 + Uvicorn + TinyDB + pydantic-settings; auth JWT con python-jose y bcrypt (libpass) | `uvicorn app.main:app --reload --port 8000` (desde `services/api`, con el `.venv` activo) | **8000** |
 
 El devcontainer solo reenvía los puertos 3000, 8000 y 5678. Los puertos 3001 y 4321 hay que reenviarlos a mano en Codespaces.
 
@@ -69,11 +71,29 @@ El devcontainer solo reenvía los puertos 3000, 8000 y 5678. Los puertos 3001 y 
 - En Git Bash, las variables con rutas (`WEBSITE_BASE=/…`) se convierten a rutas de Windows. En local, para probar el base, usa `MSYS_NO_PATHCONV=1` (en PowerShell no pasa).
 
 - `uis/backoffice` usa el mismo stack que el tracker, con un layout propio de app interna distinto al de la web.
-- **Sin backend en este hito.** El backend previsto por el template es una única app FastAPI centralizada en `services/api` (ver `progress.md`).
+
+### Backend — `services/api`
+
+- **Una única app FastAPI centralizada** (`app/main.py`), con un router por módulo en `app/routers/`: `incidents`, `suppliers`, `auth`, `users` y `profiles`. Documentación interactiva en `http://localhost:8000/docs`.
+- **Persistencia con TinyDB** en `services/api/data/` (ignorada por git):
+  - `suppliers.json`: directorio de proveedores.
+  - `auth.json`: tablas `users` y `profiles`.
+  - Las rutas se resuelven con `Path(__file__)`, así que funcionan desde cualquier directorio de arranque.
+- La lógica de incidencias vive en `packages/incidents_core`, instalado en modo editable a través de `[tool.uv.sources]`.
+- **Configuración** con pydantic-settings, leída de `services/api/.env` (ignorado por git; plantilla en `.env.example`). `SECRET_KEY` es obligatoria.
+- **Autenticación (AUTH-01):**
+  - JWT stateless (HS256, 30 min por defecto) con `sub` = id del usuario.
+  - El id de usuario es un uuid4 en string, al que otros módulos se refieren como `user_uuid`.
+  - Contraseñas con bcrypt: mínimo 8 caracteres y máximo 72 bytes.
+  - Todas las rutas están protegidas salvo `/api/health`, `POST /auth/login` y `POST /users`. El detalle está en el README de la API.
+- **Capas:** routers (HTTP y permisos) → `app/services/` (acceso a TinyDB, sin `HTTPException`) → `app/database.py`.
+- **Estilo:** docstrings en español, `StrEnum` para los enumerados y `model_config = ConfigDict(extra="forbid")` en los modelos de entrada.
+- **Scripts** de `pyproject.toml`: `seed` (datos de ejemplo de proveedores) y `create-admin` (crea o promueve el admin).
+- CORS permitido para `localhost:3000` y `localhost:3001`.
 
 ## Restricciones técnicas
 
 - Los archivos protegidos se listan en [`AGENTS.md`](../AGENTS.md).
-- **No hay tests automatizados** en el repo. Las verificaciones disponibles son el `typecheck` de `packages/shared`, el `lint` y `build` de las apps Next.js, el `build` de Astro y el script de literales de `.agents/skills/verify-website-literals`.
+- **No hay tests automatizados** en el repo. Las verificaciones disponibles son el `typecheck` de `packages/shared`, el `lint` y `build` de las apps Next.js, el `build` de Astro y el script de literales de `.agents/skills/verify-website-literals`. `services/api` tampoco tiene tests: `fastapi.testclient` necesita `httpx2`, que no está instalado.
 - Algunos archivos del tracker se commitearon **con BOM UTF-8**. Como el tracker está protegido, la comprobación de BOM del flujo pre-commit lo excluye.
 - `gh` (GitHub CLI) no está instalado en la máquina local; las PR se abren desde la web de GitHub.
