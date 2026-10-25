@@ -41,12 +41,16 @@ _Última actualización: 2026-10-25 · rama `feature/auth-frontend`_
   - Sidebar con enlace "Mi perfil" y `LogoutButton` (`clearToken` + `router.replace("/login")`).
   - `npm run lint` y `npm run build` sin errores. Verificado a mano contra services/api: redirección sin sesión, validación del registro (contraseña corta y email duplicado), registro + login automático, proveedores e incidencias con Bearer, perfil, token manipulado → /login, logout y login fallido.
   - `uis/website` (Astro) no se toca: es pública y no tiene autenticación.
+- **Frontend `uis/talent-pipeline-tracker`, ticket AUTH-02 (login y rutas protegidas), misma rama, con confirmación explícita para tocar la carpeta protegida:**
+  - Protección contra la API de Nexova (`NEXT_PUBLIC_AUTH_API_URL`, por defecto `http://localhost:8000`, documentada en el README). Las llamadas a la API de 4Geeks (`services/records.ts` y `services/notes.ts`) no cambian y no llevan el token.
+  - `lib/auth.ts` y `lib/useTokenStatus.ts` copiados del backoffice (misma clave `nexova_token`; cada origen tiene su propio `localStorage`, así que el tracker tiene su propio `/login`). `lib/authApi.ts` con `login()` y `getMe()`; un 401 en `getMe()` borra el token y redirige a `/login`.
+  - `AuthGuard` en cliente: comprueba `exp` en local y lo confirma con una sola llamada a `GET /auth/me`, cuyo resultado comparte con la cabecera mediante `useMe()`. Si algo falla, borra el token y manda a `/login`.
+  - Route groups: `app/(app)/layout.tsx` con `AuthGuard` y una cabecera con el email del usuario y `LogoutButton`; inicio y `candidates/` se movieron a `(app)` sin cambiar sus URLs. `/login` en `app/(auth)/login`, con enlace al registro del backoffice (`http://localhost:3001/register`).
+  - Verificado a mano contra services/api: redirección sin sesión, login fallido con mensaje genérico, login correcto con listado, detalle, nueva y editar, token manipulado → /login, logout y enlace al registro del backoffice.
 
 ## En curso / próximos pasos
 
 - **AUTH-01:** abrir la PR de `feature/auth-api` hacia `main`.
-- **AUTH-02:**
-  - Integrar la autenticación en `uis/talent-pipeline-tracker`: pendiente. La carpeta está protegida, así que hace falta confirmación antes de tocarla.
 - **GitHub Pages (sin confirmar si ya se hizo):**
   1. Comprobar que siguen respondiendo:
      - https://caro-it.github.io/company-project-ai-engineering/uis/website/index.html
