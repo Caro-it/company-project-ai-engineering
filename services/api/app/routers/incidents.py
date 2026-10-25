@@ -1,12 +1,17 @@
-from fastapi import APIRouter, File, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from fastapi.responses import Response
 
+from app.deps import get_current_user
 from incidents_core.analysis import analyze_rows
 from incidents_core.constants import RULES
 from incidents_core.export import summary_to_csv
 from incidents_core.validation import parse_rows
 
-router = APIRouter(prefix="/api/incidents", tags=["incidents"])
+router = APIRouter(
+    prefix="/api/incidents",
+    tags=["incidents"],
+    dependencies=[Depends(get_current_user)],
+)
 
 MAX_FILE_SIZE = 50 * 1024 * 1024  # 50 MB
 

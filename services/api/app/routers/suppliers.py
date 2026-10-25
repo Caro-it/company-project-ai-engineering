@@ -1,10 +1,11 @@
 """Endpoints del Directorio de Proveedores de Nexova."""
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from tinydb import Query
 
 from app.database import suppliers_table
+from app.deps import get_current_user
 from app.models import (
     Category,
     Country,
@@ -14,7 +15,11 @@ from app.models import (
     SupplierCreate,
 )
 
-router = APIRouter(prefix="/suppliers", tags=["suppliers"])
+router = APIRouter(
+    prefix="/suppliers",
+    tags=["suppliers"],
+    dependencies=[Depends(get_current_user)],
+)
 
 
 def _now() -> str:
