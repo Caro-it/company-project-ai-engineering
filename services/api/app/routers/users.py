@@ -2,7 +2,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Response
 
 from app.auth_models import Role, UserCreate, UserOut, UserUpdate
-from app.deps import get_current_user, require_self_or_admin
+from app.deps import get_current_user, require_admin, require_self_or_admin
 from app.services.users import (
     EmailAlreadyExistsError,
     create_user,
@@ -44,7 +44,8 @@ def register_user(payload: UserCreate):
 
 
 @router.get("", response_model=list[UserOut])
-def read_users(current_user: dict = Depends(get_current_user)):
+def read_users(current_user: dict = Depends(require_admin)):
+    """Listado completo de usuarios: solo admin."""
     return [_to_user_out(doc) for doc in list_users()]
 
 

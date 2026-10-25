@@ -21,6 +21,7 @@ dependencies = [
 
 [project.scripts]
 seed = "app.seed:main"
+create-admin = "app.create_admin:main"
 
 [tool.setuptools]
 packages = ["app", "app.routers", "app.services"]

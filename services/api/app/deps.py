@@ -33,6 +33,13 @@ def get_current_user(token: str = Depends(oauth2_scheme)) -> dict:
     return user
 
 
+def require_admin(current_user: dict = Depends(get_current_user)) -> dict:
+    """403 si el usuario autenticado no es admin."""
+    if current_user["role"] != Role.ADMIN:
+        raise HTTPException(status_code=403, detail="Solo un admin puede acceder a este recurso")
+    return current_user
+
+
 def require_self_or_admin(target_id: str, current_user: dict) -> None:
     """403 si el usuario autenticado no es el dueño del recurso ni admin."""
     if current_user["id"] != target_id and current_user["role"] != Role.ADMIN:
