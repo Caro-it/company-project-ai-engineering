@@ -23,7 +23,7 @@ dependencies = [
 seed = "app.seed:main"
 
 [tool.setuptools]
-packages = ["app", "app.routers"]
+packages = ["app", "app.routers", "app.services"]
 
 [tool.uv.sources]
 incidents-core = { path = "../../packages/incidents_core", editable = true }

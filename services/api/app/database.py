@@ -1,4 +1,4 @@
-"""Inicialización de TinyDB para el Directorio de Proveedores."""
+"""Inicialización de TinyDB para el Directorio de Proveedores y la autenticación."""
 from pathlib import Path
 
 from tinydb import TinyDB
@@ -16,3 +16,17 @@ db = TinyDB(
 )
 
 suppliers_table = db.table("suppliers")
+
+# services/api/data/auth.json: usuarios y perfiles, separados de los proveedores
+AUTH_DB_PATH = DATA_DIR / "auth.json"
+
+auth_db = TinyDB(
+    AUTH_DB_PATH,
+    create_dirs=True,
+    encoding="utf-8",
+    ensure_ascii=False,
+    indent=2,
+)
+
+users_table = auth_db.table("users")
+profiles_table = auth_db.table("profiles")
