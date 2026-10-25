@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import { useCallback, useEffect, useState } from 'react';
 import type { Note } from '@/types/record';
@@ -32,9 +32,26 @@ export default function NotesSection({ recordId }: NotesSectionProps) {
     }
   }, [recordId]);
 
+  // Carga inicial sin setState síncrono en el efecto; el flag evita escribir el
+  // estado si cambia recordId o se desmonta antes de que llegue la respuesta
   useEffect(() => {
-    loadNotes();
-  }, [loadNotes]);
+    let cancelled = false;
+    getNotes(recordId)
+      .then((data) => {
+        if (cancelled) return;
+        setNotes(data);
+        setError(null);
+      })
+      .catch(() => {
+        if (!cancelled) setError('No se han podido cargar las notas.');
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [recordId]);
 
   async function handleAdd() {
     const text = content.trim();
