@@ -114,3 +114,18 @@ En las rutas `/users/{user_id}` el permiso se comprueba antes que la existencia:
 
 - **Un admin puede quitarse su propio rol o desactivarse** con `PUT /users/{user_id}`, y la API puede quedarse sin ningún admin. Para recuperarlo, ejecuta `create-admin` con su email: lo vuelve a promover a `admin` y lo reactiva.
 - Los tokens no se pueden revocar antes de que caduquen. Desactivar o borrar un usuario sí invalida sus tokens, porque cada petición comprueba que el usuario exista y esté activo.
+
+### Verificación manual
+
+| # | Prueba | Resultado | Captura |
+|---|---|---|---|
+| 1 | Rutas en `/docs` (candado = protegida) | — | [01a](../../docs/screenshots/auth-api/01a-docs-overview.png) · [01b](../../docs/screenshots/auth-api/01b-docs-overview.png) |
+| 2 | `GET /suppliers` sin token | 401 | [02](../../docs/screenshots/auth-api/02-suppliers-sin-token-401.png) |
+| 3 | `POST /users` con email duplicado | 409 | [03](../../docs/screenshots/auth-api/03-registro-duplicado-409.png) |
+| 4 | `POST /users` nuevo usuario | 201 | [04](../../docs/screenshots/auth-api/04-registro-201.png) |
+| 5 | Login + `GET /auth/me` | 200 | [05](../../docs/screenshots/auth-api/05-auth-me-200.png) |
+| 6 | `GET /suppliers` con token | 200 | [06](../../docs/screenshots/auth-api/06-suppliers-con-token-200.png) |
+| 7 | `GET /users` como usuario normal | 403 | [07](../../docs/screenshots/auth-api/07-users-no-admin-403.png) |
+| 8 | `GET /users/abc` como usuario normal | 403 | [08](../../docs/screenshots/auth-api/08-user-ajeno-403.png) |
+| 9 | `GET /users` como admin | 200 | [09](../../docs/screenshots/auth-api/09-users-admin-200.png) |
+| 10 | Token mal formado (`curl.exe`) | 401 | [10](../../docs/screenshots/auth-api/10-token-falso-401.png) |
