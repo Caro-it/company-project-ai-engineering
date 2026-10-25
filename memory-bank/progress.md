@@ -1,6 +1,6 @@
 # Progress
 
-_Última actualización: 2026-10-11 · rama `feature/agent-memory-bank`_
+_Última actualización: 2026-10-25 · rama `feature/auth-api`_
 
 ## Hecho
 
@@ -18,28 +18,32 @@ _Última actualización: 2026-10-11 · rama `feature/agent-memory-bank`_
   - Flujo pre-commit de `AGENTS.md` ejecutado antes de cada commit, sin fallos.
   - Website (4321) y backoffice (3001) arrancados con `npm run dev`: responden 200 y no hay errores en la consola del servidor.
   - Commits `feat:`/`chore:`/`docs:` subidos a `feature/agent-memory-bank`.
+  - PR #3 (`feature/agent-memory-bank`) mergeada en `main` el 2026-10-16.
+  - GitHub Pages se despliega con GitHub Actions (Settings → Pages → Source: "GitHub Actions").
+- **Backend `services/api`, ticket AUTH-01 (autenticación JWT stateless), rama `feature/auth-api`:**
+  - Configuración con pydantic-settings desde `services/api/.env` (`SECRET_KEY` obligatoria) y `.env.example`.
+  - Contraseñas con bcrypt (libpass) y tokens JWT con python-jose (`sub` = id del usuario, `exp`).
+  - Usuarios y perfiles en TinyDB, en `data/auth.json`, separados de `data/suppliers.json`. El id de usuario es un uuid4 en string, al que otros módulos se refieren como `user_uuid`.
+  - Capa de servicios en `app/services/` (`users.py`, `profiles.py`), sin `HTTPException`.
+  - Routers `/auth` (login y `me`), `/users` y `/profiles/me`. `incidents` y `suppliers` quedan protegidos; `/api/health` sigue siendo pública.
+  - `GET /users` es solo para admin. En `/users/{id}` el permiso (propio o admin) se comprueba antes que la existencia: 403, nunca 404, para un no-admin.
+  - Script `create-admin` (`app/create_admin.py`) para crear el primer admin o promover y reactivar uno existente.
+  - Sección "Autenticación" en `services/api/README.md`: variables, admin inicial, flujo en `/docs`, rutas, errores y limitaciones.
+  - Verificado a mano levantando uvicorn en proceso con TinyDB en memoria: 40 comprobaciones de rutas y códigos de estado, y los casos de `create-admin`.
 
 ## En curso / próximos pasos
 
-1. Abrir la PR de `feature/agent-memory-bank` hacia `main` (desde la web de GitHub) con las capturas de website y backoffice.
-2. Tras el merge, los pasos manuales de GitHub Pages (abajo).
-
-## Pasos manuales al hacer merge a `main` (GitHub Pages)
-
-Los hace la usuaria; el agente no toca la configuración de GitHub.
-
-1. Hacer merge de la PR a `main`.
-2. En GitHub, ir a **Settings → Pages → Build and deployment → Source** y elegir **"GitHub Actions"** en lugar de "Deploy from a branch".
-3. En **Actions**, lanzar a mano el workflow **"Deploy website to GitHub Pages"** (*Run workflow* sobre `main`) o esperar a que se ejecute con el push del merge.
-4. Comprobar que siguen respondiendo:
-   - https://caro-it.github.io/company-project-ai-engineering/uis/website/index.html
-   - https://caro-it.github.io/company-project-ai-engineering/uis/website/application.html
-   - https://caro-it.github.io/company-project-ai-engineering/packages/shared/index.html
-5. Volver a pasar PageSpeed Insights (móvil) y actualizar las cifras del README raíz si cambian.
+- **AUTH-01:** abrir la PR de `feature/auth-api` hacia `main`.
+- **GitHub Pages (sin confirmar si ya se hizo):**
+  1. Comprobar que siguen respondiendo:
+     - https://caro-it.github.io/company-project-ai-engineering/uis/website/index.html
+     - https://caro-it.github.io/company-project-ai-engineering/uis/website/application.html
+     - https://caro-it.github.io/company-project-ai-engineering/packages/shared/index.html
+  2. Volver a pasar PageSpeed Insights (móvil) y actualizar las cifras del README raíz si cambian.
 
 ## Pospuesto
 
-- **`services/api` (FastAPI centralizado) queda para el hito de backend.** En este hito no hay backend.
+- Nada pospuesto por ahora. `services/api` ya está en marcha (incidencias, proveedores y autenticación).
 
 ## Deuda técnica conocida
 
@@ -50,6 +54,11 @@ Los hace la usuaria; el agente no toca la configuración de GitHub.
 - `eslint-config-next@16` arrastra `braces` vulnerable (5 avisos *high*, solo en dependencias de desarrollo). `npm audit fix --force` bajaría a `eslint-config-next@14`, así que no se aplica.
 - Al pasar Pages a GitHub Actions, la raíz `https://caro-it.github.io/company-project-ai-engineering/` deja de mostrar el README (404). Si se quiere conservar, hay que añadir un `index.html` de redirección en el workflow.
 - El README raíz todavía dice que "no existe un `AGENTS.md` en la raíz" (texto del template).
+- **AUTH-01:**
+  - Un admin puede quitarse su propio rol o desactivarse, y la API puede quedarse sin admin. Se recupera con `create-admin` (documentado en el README de la API).
+  - Los JWT no se pueden revocar antes de que caduquen. Desactivar o borrar un usuario sí invalida sus tokens.
+  - El `Lock` que garantiza el email único solo protege dentro de un proceso. Con varios workers de uvicorn, TinyDB no es seguro: habrá que pasar a una base de datos real.
+  - `services/api` no tiene tests automatizados. `fastapi.testclient` (que reexporta el de Starlette 1.8) necesita `httpx2`; acepta `httpx` como alternativa obsoleta, con aviso de deprecación. Ninguno de los dos está instalado.
 
 ## Pendiente de confirmar con el mentor
 

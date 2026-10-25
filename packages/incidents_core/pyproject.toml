@@ -1,0 +1,12 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "incidents-core"
+version = "0.1.0"
+description = "Validación y métricas de incidencias de Nexova (compartido por script y API)"
+requires-python = ">=3.11"
+
+[tool.setuptools]
+packages = ["incidents_core"]

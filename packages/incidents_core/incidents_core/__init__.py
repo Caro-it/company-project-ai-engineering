@@ -1,0 +1,1 @@
+"""Lógica compartida del analizador de incidencias de Nexova."""
