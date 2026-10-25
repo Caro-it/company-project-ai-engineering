@@ -30,6 +30,7 @@ _Última actualización: 2026-10-25 · rama `feature/auth-frontend`_
   - Script `create-admin` (`app/create_admin.py`) para crear el primer admin o promover y reactivar uno existente.
   - Sección "Autenticación" en `services/api/README.md`: variables, admin inicial, flujo en `/docs`, rutas, errores y limitaciones.
   - Verificado a mano levantando uvicorn en proceso con TinyDB en memoria: 40 comprobaciones de rutas y códigos de estado, y los casos de `create-admin`.
+  - PR #7 (`feature/auth-api`) mergeada en `main` el 2026-10-25.
 - **Frontend `uis/backoffice`, ticket AUTH-02 (login, registro y perfil contra la API), rama `feature/auth-frontend` (creada desde `feature/auth-api`):**
   - Route groups: `app/layout.tsx` solo con `<html>`, `<body>` y el skip-link; `app/(panel)/layout.tsx` con `AuthGuard`, `Sidebar` y cabecera; `app/(auth)/layout.tsx` para login y registro. Inicio, `incidencias/` y `proveedores/` se movieron a `(panel)` sin cambiar sus URLs.
   - Token en `localStorage` (clave `nexova_token`) con `getToken`/`setToken`/`clearToken` e `isTokenValid()` en `lib/auth.ts`.
@@ -50,7 +51,6 @@ _Última actualización: 2026-10-25 · rama `feature/auth-frontend`_
 
 ## En curso / próximos pasos
 
-- **AUTH-01:** abrir la PR de `feature/auth-api` hacia `main`.
 - **GitHub Pages (sin confirmar si ya se hizo):**
   1. Comprobar que siguen respondiendo:
      - https://caro-it.github.io/company-project-ai-engineering/uis/website/index.html
