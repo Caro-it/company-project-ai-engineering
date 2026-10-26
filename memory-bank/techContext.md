@@ -76,6 +76,10 @@ El devcontainer solo reenvía los puertos 3000, 8000 y 5678. Los puertos 3001 y 
   - Cliente, valores del CONTEXT, etiquetas y diccionario de errores por `code` en `lib/incidents.ts`.
   - Componentes en `components/incidents/`. Los datos se cargan con el patrón "clave de petición": `loading = result.key !== requestKey`, sin `setState` síncrono dentro de `useEffect`, que la regla `react-hooks/set-state-in-effect` de `eslint-config-next` 16 rechaza.
   - Solo en español: no hay soporte bilingüe.
+  - **Tests e2e** con Playwright (`npm run test:e2e`, solo Chromium):
+    - Arrancan su propia API (puerto 8100, `NEXOVA_DATA_DIR` temporal con el seed, `CORS_ORIGINS` con el puerto 3100) y su propio build en `.next/e2e` (`NEXT_DIST_DIR`).
+    - Specs numerados que comparten BD, con `workers: 1`.
+    - Las capturas van a `docs/screenshots/incident-manager/`.
 
 ### Backend — `services/api`
 

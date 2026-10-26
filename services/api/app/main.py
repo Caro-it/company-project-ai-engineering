@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.config import settings
 from app.errors import register_error_handlers
 from app.routers import auth, incidents, profiles, suppliers, users
 
@@ -11,7 +12,7 @@ register_error_handlers(app)
 # El backoffice (Next.js) corre en localhost:3000 durante el desarrollo
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://localhost:3001"],
+    allow_origins=settings.CORS_ORIGINS,
     allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE"],
     allow_headers=["*"],
     expose_headers=["Content-Disposition"],

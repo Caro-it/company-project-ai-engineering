@@ -134,6 +134,8 @@ Se leen de `services/api/.env` (funciona desde cualquier directorio de arranque)
 | `EMAIL_FROM`                  | No          | `Nexova <onboarding@resend.dev>` | Remitente del email. `onboarding@resend.dev` solo entrega al email de tu cuenta de Resend; para otros destinatarios hace falta un dominio verificado |
 | `FRONTEND_URL`                | No          | `http://localhost:3001` | URL del backoffice con la que se construye el enlace `/reset-password?token=…` |
 | `RESET_TOKEN_EXPIRE_MINUTES`  | No          | `30`              | Minutos de validez del enlace de recuperación |
+| `CORS_ORIGINS`                | No          | `["http://localhost:3000","http://localhost:3001"]` | Orígenes permitidos por CORS, como lista JSON |
+| `NEXOVA_DATA_DIR`             | No          | `services/api/data` | Carpeta de los archivos de TinyDB. Variable de entorno del proceso (no se lee de `.env`); la usan los tests e2e del backoffice para trabajar con una BD temporal |
 
 Sin `SECRET_KEY` la API no arranca. Para generar una clave aleatoria:
 

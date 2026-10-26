@@ -102,6 +102,10 @@ _Última actualización: 2026-10-26 · rama `feature/incident-manager`_
   - **Fallo de concurrencia en TinyDB, corregido** (lo destaparon los tests e2e):
     - `/incidencias` pide el listado y el resumen a la vez. FastAPI ejecuta los endpoints síncronos en un pool de hilos, y `JSONStorage` de TinyDB comparte un único descriptor de archivo: las lecturas simultáneas se movían el cursor y fallaban con `JSONDecodeError` → 500 (23 de 200 peticiones concurrentes). Afectaba también a `auth.json` en la autenticación de cada petición.
     - Arreglo: `LockedJSONStorage` en `app/database.py`, con un lock por archivo en `read`/`write`. Tras el arreglo, 600 de 600 peticiones correctas. El test `tests/test_database.py` lo cubre: sin lock fallan 212 de 400 lecturas.
+  - Tests e2e del backoffice con Playwright (`npm run test:e2e`): 16 tests que pasan (1 de setup + 15), estables en ejecuciones repetidas.
+    - Usan su propia API (puerto 8100) con BD temporal y seed, y su propio build (`.next/e2e`, puerto 3100).
+    - La API gana dos variables opcionales para ello: `NEXOVA_DATA_DIR` y `CORS_ORIGINS`.
+    - Capturas en `docs/screenshots/incident-manager/`.
 
 - **GitHub Pages (sin confirmar si ya se hizo):**
   1. Comprobar que siguen respondiendo:

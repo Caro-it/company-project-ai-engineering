@@ -1,4 +1,5 @@
 """Inicialización de TinyDB para el Directorio de Proveedores, la autenticación y las incidencias."""
+import os
 from pathlib import Path
 from threading import Lock
 
@@ -28,8 +29,11 @@ class LockedJSONStorage(JSONStorage):
             super().write(data)
 
 
-# services/api/data/suppliers.json
-DATA_DIR = Path(__file__).resolve().parent.parent / "data"
+# services/api/data/ por defecto. NEXOVA_DATA_DIR permite usar otra carpeta
+# (los tests e2e del backoffice arrancan la API con una BD temporal propia)
+DATA_DIR = Path(
+    os.environ.get("NEXOVA_DATA_DIR") or Path(__file__).resolve().parent.parent / "data"
+)
 DB_PATH = DATA_DIR / "suppliers.json"
 
 db = TinyDB(

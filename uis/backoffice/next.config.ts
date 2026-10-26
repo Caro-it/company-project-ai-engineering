@@ -6,6 +6,8 @@ import type { NextConfig } from "next";
 const monorepoRoot = path.join(__dirname, "..", "..");
 
 const nextConfig: NextConfig = {
+  // NEXT_DIST_DIR solo lo usan los tests e2e (.next/e2e), para no pisar el build normal
+  distDir: process.env.NEXT_DIST_DIR || ".next",
   turbopack: { root: monorepoRoot },
   outputFileTracingRoot: monorepoRoot,
 };
