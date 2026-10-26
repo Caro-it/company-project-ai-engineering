@@ -83,7 +83,21 @@ _Última actualización: 2026-10-26 · rama `feature/incident-manager`_
     - Rutas en `app/routers/incidents.py`: `POST`/`GET /api/incidents`, `GET /summary` (declarada antes que `/{incident_id}`), `GET /{incident_id}` y `PATCH /{incident_id}/status`. `/analyze` y `/results/export` no cambian.
     - `app/errors.py`: los errores de validación de las rutas del gestor son 400 con `{"detail": "Datos no válidos", "code": "validation_error", "errors": [{field, code, message}]}` y mensajes en español. Por el soporte bilingüe, cada error lleva un `code` estable en inglés (`required`, `invalid_choice` con `allowed`, `empty_text`, `extra_field_not_allowed`, `invalid_json`…). Los errores propios usan `ApiError`: `not_found` e `invalid_transition` (con `from`, `to` y `allowed`). El resto de rutas, incluidas `/analyze` y `/results/export`, conserva el 422 de FastAPI. Cualquier excepción no controlada da 500 con mensaje genérico, de forma global. La captura un middleware HTTP registrado antes de `CORSMiddleware`, que queda por dentro de CORS: el 500 lleva `access-control-allow-origin` y el frontend puede leerlo. El traceback va al log con `logger.exception`, y el handler de `Exception` se mantiene como red de seguridad.
     - Verificado con `TestClient` y TinyDB en memoria, sin tocar `services/api/data/`: 33 casos correctos, comprobando también el `code` de cada error. Entre ellos: validación 400 por campo, lista y summary vacíos, summary tras el seed (27/56/13, 49/35/12, customer 96, central 96), filtros, 404, transiciones válidas e inválidas, 401, 500 sin traceback y con `access-control-allow-origin` para el origen del backoffice, y los 422 de `/users`, `/auth/login`, `/profiles/me` y `/analyze`. Ninguna respuesta contiene `customer_email` ni emails.
-  - Siguiente: frontend del gestor en el backoffice.
+  - Fase 3 (frontend en `uis/backoffice`):
+    - **Decisión: sin soporte bilingüe.** El CONTEXT pide respetarlo "si has implementado soporte bilingüe en hitos anteriores", y no existe en ningún app ni rama del repo. Todo el gestor está en español, como el resto del backoffice. Los errores de la API se traducen por `code` en un único diccionario en español (`lib/incidents.ts`), para que el bilingüe se pueda añadir en el futuro sin tocar la API. No hay selector de idioma ni hook de locale.
+    - Rutas:
+      - `/incidencias`: panel de resumen encima del listado (decisión de la usuaria), cada uno con su propia carga y su propio error.
+      - `/incidencias/nueva`: formulario.
+      - `/incidencias/analizador`: el analizador de CSV, movido con `git mv` sin tocar `IncidentsAnalyzer`.
+      - El Sidebar tiene una entrada para cada una.
+    - `lib/incidents.ts`: valores del CONTEXT (copia de `incident_model.py`), etiquetas de interfaz, `BRANCH_LABELS` literales, `IncidentApiError`, diccionario de errores por `code` y cliente de los endpoints.
+    - `components/incidents/`:
+      - `IncidentForm`: obligatorios en cliente, `branch` resaltada con `origin = branch`, `remote` en un `optgroup` aparte, `aria-busy`, errores junto a su campo y confirmación con `role="status"`.
+      - `IncidentsStats`: resumen.
+      - `IncidentsList`: filtros, estados de carga, error, vacío y vacío por filtros, y cambio de estado optimista con reversión.
+      - `IncidentsDashboard`: recarga el resumen tras un cambio de estado.
+    - `npm run lint`, `npx tsc --noEmit` y `npm run build` sin errores.
+    - Seed ejecutado en la BD de desarrollo (`services/api/data/incidents.json`, 96 incidencias), con autorización de la usuaria.
 
 - **GitHub Pages (sin confirmar si ya se hizo):**
   1. Comprobar que siguen respondiendo:
@@ -117,7 +131,8 @@ _Última actualización: 2026-10-26 · rama `feature/incident-manager`_
   - Restablecer o cambiar la contraseña no invalida los JWT ya emitidos: siguen valiendo hasta que caducan.
   - Con el remitente `onboarding@resend.dev`, Resend solo entrega al email de la cuenta de Resend. Para otros destinatarios hace falta verificar un dominio.
   - No hay límite de peticiones en `forgot-password`.
-- La sección "Estructura" de `uis/backoffice/README.md` está desactualizada desde AUTH-02 (no refleja los route groups `(auth)` y `(panel)`).
+- `uis/backoffice/lib/incidents.ts` copia los valores y `ALLOWED_TRANSITIONS` de `incidents_core/incident_model.py`. Si cambian en Python, hay que cambiarlos a mano en el backoffice.
+- Los títulos de pestaña (`metadata`) y todo el backoffice están solo en español; ver la decisión sobre el soporte bilingüe en la fase 3 del gestor.
 - **Gestor de incidencias:**
   - `scripts/analyze.py` falla en la consola de Windows (cp1252) al imprimir `├─`. Funciona con `PYTHONIOENCODING=utf-8` o `python -X utf8`. El seed solo imprime ASCII.
   - El seed inserta la incidencia y después su entrada en `incident_seed_log`, sin transacción. Si se corta entre las dos, la siguiente ejecución duplicaría esa incidencia.

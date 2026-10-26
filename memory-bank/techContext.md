@@ -71,6 +71,11 @@ El devcontainer solo reenvía los puertos 3000, 8000 y 5678. Los puertos 3001 y 
 - En Git Bash, las variables con rutas (`WEBSITE_BASE=/…`) se convierten a rutas de Windows. En local, para probar el base, usa `MSYS_NO_PATHCONV=1` (en PowerShell no pasa).
 
 - `uis/backoffice` usa el mismo stack que el tracker, con un layout propio de app interna distinto al de la web.
+- **Gestor de incidencias en `uis/backoffice`:**
+  - Rutas `/incidencias` (resumen + listado), `/incidencias/nueva` y `/incidencias/analizador`.
+  - Cliente, valores del CONTEXT, etiquetas y diccionario de errores por `code` en `lib/incidents.ts`.
+  - Componentes en `components/incidents/`. Los datos se cargan con el patrón "clave de petición": `loading = result.key !== requestKey`, sin `setState` síncrono dentro de `useEffect`, que la regla `react-hooks/set-state-in-effect` de `eslint-config-next` 16 rechaza.
+  - Solo en español: no hay soporte bilingüe.
 
 ### Backend — `services/api`
 
