@@ -17,6 +17,22 @@ uvicorn app.main:app --reload --port 8000
 
 Documentación interactiva: http://localhost:8000/docs
 
+## Tests
+
+Tests con pytest en `tests/`. `pytest` y `httpx2` (que necesita el `TestClient` de FastAPI) son dependencias de **desarrollo** (`uv add --dev`) y no entran en `requirements.txt`.
+
+```bash
+cd services/api
+uv run pytest            # o: .venv/Scripts/python -m pytest
+```
+
+- TinyDB se sustituye por almacenamiento en memoria en `tests/conftest.py`, antes de importar `app`. Los tests nunca leen ni escriben `data/`, y cada test empieza con las tablas vacías.
+- `SECRET_KEY` se fija en los tests: no dependen de `.env`.
+- Cobertura:
+  - `test_incident_model.py`: valores del CONTEXT, transiciones, mapas CSV → modelo y `csv_row_to_incident`.
+  - `test_seed.py`: 96 insertadas y 4 inválidas, totales 27/56/13 y 49/35/12, idempotencia, `ticket_id` solo en `incident_seed_log` y ningún email guardado ni impreso.
+  - `test_incidents_api.py`: endpoints, 400 por campo con su `code`, 404, transiciones, 401, 500 genérico con cabeceras CORS y traceback en el log, y el 422 intacto en `/users`, `/auth`, `/profiles` y `/analyze`.
+
 ## Endpoints
 
 | Método | Ruta                            | Descripción                                                                       |

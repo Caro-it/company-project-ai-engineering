@@ -29,3 +29,12 @@ packages = ["app", "app.routers", "app.services"]
 
 [tool.uv.sources]
 incidents-core = { path = "../../packages/shared/incidents_core", editable = true }
+
+[dependency-groups]
+dev = [
+    "httpx2>=2.16.0",
+    "pytest>=9.1.1",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

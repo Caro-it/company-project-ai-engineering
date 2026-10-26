@@ -98,6 +98,7 @@ _Última actualización: 2026-10-26 · rama `feature/incident-manager`_
       - `IncidentsDashboard`: recarga el resumen tras un cambio de estado.
     - `npm run lint`, `npx tsc --noEmit` y `npm run build` sin errores.
     - Seed ejecutado en la BD de desarrollo (`services/api/data/incidents.json`, 96 incidencias), con autorización de la usuaria.
+  - Tests del backend en `services/api/tests/` (`uv run pytest`): 43 tests que pasan, con TinyDB en memoria. `pytest` y `httpx2` como dependencias de desarrollo.
 
 - **GitHub Pages (sin confirmar si ya se hizo):**
   1. Comprobar que siguen respondiendo:
@@ -123,7 +124,7 @@ _Última actualización: 2026-10-26 · rama `feature/incident-manager`_
   - Un admin puede quitarse su propio rol o desactivarse, y la API puede quedarse sin admin. Se recupera con `create-admin` (documentado en el README de la API).
   - Los JWT no se pueden revocar antes de que caduquen. Desactivar o borrar un usuario sí invalida sus tokens.
   - El `Lock` que garantiza el email único solo protege dentro de un proceso. Con varios workers de uvicorn, TinyDB no es seguro: habrá que pasar a una base de datos real.
-  - `services/api` no tiene tests automatizados. `fastapi.testclient` (que reexporta el de Starlette 1.8) necesita `httpx2`; acepta `httpx` como alternativa obsoleta, con aviso de deprecación. Ninguno de los dos está en el proyecto. Para verificar a mano se instala `httpx` fuera del repo (`uv pip install --target <carpeta temporal> httpx` y `PYTHONPATH`), y TinyDB se sustituye por `MemoryStorage` antes de importar `app`.
+  - Los tests de `services/api` (pytest) cubren solo el gestor de incidencias y el seed. Auth, usuarios, perfiles y proveedores siguen sin tests automatizados.
 - **AUTH-02:**
   - `isTokenValid()` no verifica la firma del JWT: solo decodifica `exp`. Sirve para no mostrar el panel con un token caducado, pero cualquier token con un `exp` futuro pasa el `AuthGuard`. La validación real la hace la API, y su 401 hace que `apiFetch` cierre la sesión.
 

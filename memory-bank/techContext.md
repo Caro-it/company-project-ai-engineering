@@ -101,6 +101,6 @@ El devcontainer solo reenvía los puertos 3000, 8000 y 5678. Los puertos 3001 y 
 ## Restricciones técnicas
 
 - Los archivos protegidos se listan en [`AGENTS.md`](../AGENTS.md).
-- **No hay tests automatizados** en el repo. Las verificaciones disponibles son el `typecheck` de `packages/shared`, el `lint` y `build` de las apps Next.js, el `build` de Astro y el script de literales de `.agents/skills/verify-website-literals`. `services/api` tampoco tiene tests: `fastapi.testclient` necesita `httpx2`, que no está instalado.
+- **No hay tests automatizados** en el repo. Las verificaciones disponibles son el `typecheck` de `packages/shared`, el `lint` y `build` de las apps Next.js, el `build` de Astro y el script de literales de `.agents/skills/verify-website-literals`. `services/api` sí tiene tests (`uv run pytest` desde `services/api`): `pytest` y `httpx2` son dependencias de desarrollo (`[dependency-groups] dev`). `requirements.txt` se genera con `uv export --no-dev` para no incluirlas. Los tests usan TinyDB en memoria y nunca tocan `data/`.
 - Algunos archivos del tracker se commitearon **con BOM UTF-8**. Como el tracker está protegido, la comprobación de BOM del flujo pre-commit lo excluye.
 - `gh` (GitHub CLI) no está instalado en la máquina local; las PR se abren desde la web de GitHub.
