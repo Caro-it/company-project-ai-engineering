@@ -107,6 +107,13 @@ _Última actualización: 2026-10-26 · rama `feature/incident-manager`_
     - La API gana dos variables opcionales para ello: `NEXOVA_DATA_DIR` y `CORS_ORIGINS`.
     - Capturas en `docs/screenshots/incident-manager/`.
 
+- **Actualizar `next` en `uis/backoffice` (pendiente, en una rama aparte después del merge de `feature/incident-manager`):**
+  - El 2026-10-26, `npm audit` marca como **crítico** `next` 16.0.0–16.4.0, que incluye el 16.3.8 del backoffice. Avisos: RCE sin autenticar en la API de optimización de imágenes con SVG, DoS en el App Router con Server Actions y RCE sin autenticar en funciones `use cache` que devuelven typed arrays.
+  - Arreglo disponible: `next@16.4.3` (no es un salto de versión mayor). Actualizar también `eslint-config-next` a la misma versión.
+  - Decisión de la usuaria: no se actualiza en el PR del gestor de incidencias.
+  - Verificar después: `npm run lint`, `npm run build`, `npm run test:e2e` y una revisión manual del login y del panel.
+  - Revisar a la vez el tracker (`next@16.3.5`), que está protegido y necesita confirmación.
+
 - **GitHub Pages (sin confirmar si ya se hizo):**
   1. Comprobar que siguen respondiendo:
      - https://caro-it.github.io/company-project-ai-engineering/uis/website/index.html
@@ -123,7 +130,7 @@ _Última actualización: 2026-10-26 · rama `feature/incident-manager`_
 - `packages/shared/package.json` declara `"main": "index.ts"` y `"types": "index.ts"`, pero **ese `index.ts` no existe** en la raíz del paquete (solo existe `types/index.ts`, que es el placeholder del template). Por eso los tipos se importan por ruta relativa. `packages/shared/` está protegido.
 - El devcontainer prepara pnpm y uv; el repo usa npm (ver `techContext.md`).
 - Hay archivos de `uis/talent-pipeline-tracker` con BOM UTF-8 (protegido).
-- **`uis/talent-pipeline-tracker` usa `next@16.3.5`.** `npm audit` reporta vulnerabilidades críticas (RCE en `next/og`, SSRF en la optimización de imágenes, cache poisoning…) en el rango 16.0.0–16.3.7; se corrigen en 16.3.8. El tracker está protegido, así que actualizarlo requiere confirmación. El backoffice ya usa 16.3.8.
+- **`uis/talent-pipeline-tracker` usa `next@16.3.5`.** `npm audit` reporta vulnerabilidades críticas (RCE en `next/og`, SSRF en la optimización de imágenes, cache poisoning…) en el rango 16.0.0–16.3.7; se corrigen en 16.3.8. El tracker está protegido, así que actualizarlo requiere confirmación. El backoffice usa 16.3.8, que también es vulnerable desde el aviso del 2026-10-26 (ver "Actualizar `next`" en los próximos pasos).
 - `eslint-config-next@16` arrastra `braces` vulnerable (5 avisos *high*, solo en dependencias de desarrollo). `npm audit fix --force` bajaría a `eslint-config-next@14`, así que no se aplica.
 - Al pasar Pages a GitHub Actions, la raíz `https://caro-it.github.io/company-project-ai-engineering/` deja de mostrar el README (404). Si se quiere conservar, hay que añadir un `index.html` de redirección en el workflow.
 - El README raíz todavía dice que "no existe un `AGENTS.md` en la raíz" (texto del template).
