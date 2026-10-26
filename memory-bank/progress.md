@@ -1,6 +1,6 @@
 # Progress
 
-_Última actualización: 2026-10-25 · rama `feature/auth-api`_
+_Última actualización: 2026-10-25 · rama `feature/auth-frontend`_
 
 ## Hecho
 
@@ -30,10 +30,27 @@ _Última actualización: 2026-10-25 · rama `feature/auth-api`_
   - Script `create-admin` (`app/create_admin.py`) para crear el primer admin o promover y reactivar uno existente.
   - Sección "Autenticación" en `services/api/README.md`: variables, admin inicial, flujo en `/docs`, rutas, errores y limitaciones.
   - Verificado a mano levantando uvicorn en proceso con TinyDB en memoria: 40 comprobaciones de rutas y códigos de estado, y los casos de `create-admin`.
+  - PR #7 (`feature/auth-api`) mergeada en `main` el 2026-10-25.
+- **Frontend `uis/backoffice`, ticket AUTH-02 (login, registro y perfil contra la API), rama `feature/auth-frontend` (creada desde `feature/auth-api`):**
+  - Route groups: `app/layout.tsx` solo con `<html>`, `<body>` y el skip-link; `app/(panel)/layout.tsx` con `AuthGuard`, `Sidebar` y cabecera; `app/(auth)/layout.tsx` para login y registro. Inicio, `incidencias/` y `proveedores/` se movieron a `(panel)` sin cambiar sus URLs.
+  - Token en `localStorage` (clave `nexova_token`) con `getToken`/`setToken`/`clearToken` e `isTokenValid()` en `lib/auth.ts`.
+  - `AuthGuard` en cliente (sin middleware de Next): no pinta el panel hasta comprobar el token y, si no es válido, hace `router.replace("/login")`. El estado del token se lee con `useSyncExternalStore` (`lib/useTokenStatus.ts`).
+  - `apiFetch` (`lib/api.ts`) añade `Authorization: Bearer <token>`. Ante un 401 fuera de `/auth/login`, borra el token y redirige a `/login`. `lib/incidents.ts` y `lib/suppliers.ts` lo usan sin cambiar sus mensajes de error; `API_URL` pasa a `lib/api.ts`.
+  - Cliente de auth, usuarios y perfil en `lib/account.ts`. El login va en form-urlencoded (`username` = email).
+  - `/login` y `/register` accesibles (`label`, `aria-invalid`, errores en `role="alert"`). El registro hace `POST /users` y después login con las mismas credenciales. Los 422 se muestran por campo y el 409 en el campo email. Con un token válido, ambas páginas redirigen a `/`.
+  - `/account/profile`: email en solo lectura (`GET /auth/me`) y nombre, teléfono y dirección con `PUT /profiles/me`. Un campo vacío se envía como `null` para vaciarlo.
+  - Sidebar con enlace "Mi perfil" y `LogoutButton` (`clearToken` + `router.replace("/login")`).
+  - `npm run lint` y `npm run build` sin errores. Verificado a mano contra services/api: redirección sin sesión, validación del registro (contraseña corta y email duplicado), registro + login automático, proveedores e incidencias con Bearer, perfil, token manipulado → /login, logout y login fallido.
+  - `uis/website` (Astro) no se toca: es pública y no tiene autenticación.
+- **Frontend `uis/talent-pipeline-tracker`, ticket AUTH-02 (login y rutas protegidas), misma rama, con confirmación explícita para tocar la carpeta protegida:**
+  - Protección contra la API de Nexova (`NEXT_PUBLIC_AUTH_API_URL`, por defecto `http://localhost:8000`, documentada en el README). Las llamadas a la API de 4Geeks (`services/records.ts` y `services/notes.ts`) no cambian y no llevan el token.
+  - `lib/auth.ts` y `lib/useTokenStatus.ts` copiados del backoffice (misma clave `nexova_token`; cada origen tiene su propio `localStorage`, así que el tracker tiene su propio `/login`). `lib/authApi.ts` con `login()` y `getMe()`; un 401 en `getMe()` borra el token y redirige a `/login`.
+  - `AuthGuard` en cliente: comprueba `exp` en local y lo confirma con una sola llamada a `GET /auth/me`, cuyo resultado comparte con la cabecera mediante `useMe()`. Si algo falla, borra el token y manda a `/login`.
+  - Route groups: `app/(app)/layout.tsx` con `AuthGuard` y una cabecera con el email del usuario y `LogoutButton`; inicio y `candidates/` se movieron a `(app)` sin cambiar sus URLs. `/login` en `app/(auth)/login`, con enlace al registro del backoffice (`http://localhost:3001/register`).
+  - Verificado a mano contra services/api: redirección sin sesión, login fallido con mensaje genérico, login correcto con listado, detalle, nueva y editar, token manipulado → /login, logout y enlace al registro del backoffice.
 
 ## En curso / próximos pasos
 
-- **AUTH-01:** abrir la PR de `feature/auth-api` hacia `main`.
 - **GitHub Pages (sin confirmar si ya se hizo):**
   1. Comprobar que siguen respondiendo:
      - https://caro-it.github.io/company-project-ai-engineering/uis/website/index.html
@@ -59,6 +76,8 @@ _Última actualización: 2026-10-25 · rama `feature/auth-api`_
   - Los JWT no se pueden revocar antes de que caduquen. Desactivar o borrar un usuario sí invalida sus tokens.
   - El `Lock` que garantiza el email único solo protege dentro de un proceso. Con varios workers de uvicorn, TinyDB no es seguro: habrá que pasar a una base de datos real.
   - `services/api` no tiene tests automatizados. `fastapi.testclient` (que reexporta el de Starlette 1.8) necesita `httpx2`; acepta `httpx` como alternativa obsoleta, con aviso de deprecación. Ninguno de los dos está instalado.
+- **AUTH-02:**
+  - `isTokenValid()` no verifica la firma del JWT: solo decodifica `exp`. Sirve para no mostrar el panel con un token caducado, pero cualquier token con un `exp` futuro pasa el `AuthGuard`. La validación real la hace la API, y su 401 hace que `apiFetch` cierre la sesión.
 
 ## Pendiente de confirmar con el mentor
 

@@ -1,7 +1,5 @@
 // Cliente de la API de incidencias (services/api). Los tipos reflejan el JSON de analyze_rows.
-
-export const API_URL =
-  process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+import { apiFetch } from "@/lib/api";
 
 export interface IncidentsSummary {
   total_records: number;
@@ -37,7 +35,7 @@ async function errorMessage(res: Response): Promise<string> {
 async function request(path: string, init?: RequestInit): Promise<Response> {
   let res: Response;
   try {
-    res = await fetch(`${API_URL}${path}`, init);
+    res = await apiFetch(path, init);
   } catch {
     throw new Error(
       "No se pudo conectar con la API. Comprueba que está arrancada en el puerto 8000.",

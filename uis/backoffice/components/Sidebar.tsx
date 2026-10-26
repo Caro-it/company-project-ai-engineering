@@ -1,3 +1,4 @@
+import { LogoutButton } from "@/components/LogoutButton";
 import { NavLink } from "@/components/NavLink";
 import { AREAS, EMPRESA } from "@/lib/nexova";
 
@@ -20,6 +21,12 @@ export function Sidebar() {
             </li>
             <li>
               <NavLink href="/proveedores">Directorio de proveedores</NavLink>
+            </li>
+            <li>
+              <NavLink href="/account/profile">Mi perfil</NavLink>
+            </li>
+            <li>
+              <LogoutButton />
             </li>
           </ul>
         </nav>

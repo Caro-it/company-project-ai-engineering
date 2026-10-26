@@ -1,6 +1,6 @@
 // Cliente de la API del directorio de proveedores (services/api/app/routers/suppliers.py).
 // Fuente de verdad de campos y valores: docs/CONTEXT-suppliers-nexova.md
-import { API_URL } from "@/lib/incidents";
+import { apiFetch } from "@/lib/api";
 
 export const COUNTRIES = ["Spain", "USA"] as const;
 export type Country = (typeof COUNTRIES)[number];
@@ -82,7 +82,7 @@ async function errorMessage(res: Response): Promise<string> {
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   let res: Response;
   try {
-    res = await fetch(`${API_URL}${path}`, init);
+    res = await apiFetch(path, init);
   } catch {
     throw new Error(
       "No se pudo conectar con la API. ¿Está arrancada en el puerto 8000?",
