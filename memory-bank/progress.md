@@ -99,6 +99,9 @@ _Última actualización: 2026-10-26 · rama `feature/incident-manager`_
     - `npm run lint`, `npx tsc --noEmit` y `npm run build` sin errores.
     - Seed ejecutado en la BD de desarrollo (`services/api/data/incidents.json`, 96 incidencias), con autorización de la usuaria.
   - Tests del backend en `services/api/tests/` (`uv run pytest`): 43 tests que pasan, con TinyDB en memoria. `pytest` y `httpx2` como dependencias de desarrollo.
+  - **Fallo de concurrencia en TinyDB, corregido** (lo destaparon los tests e2e):
+    - `/incidencias` pide el listado y el resumen a la vez. FastAPI ejecuta los endpoints síncronos en un pool de hilos, y `JSONStorage` de TinyDB comparte un único descriptor de archivo: las lecturas simultáneas se movían el cursor y fallaban con `JSONDecodeError` → 500 (23 de 200 peticiones concurrentes). Afectaba también a `auth.json` en la autenticación de cada petición.
+    - Arreglo: `LockedJSONStorage` en `app/database.py`, con un lock por archivo en `read`/`write`. Tras el arreglo, 600 de 600 peticiones correctas. El test `tests/test_database.py` lo cubre: sin lock fallan 212 de 400 lecturas.
 
 - **GitHub Pages (sin confirmar si ya se hizo):**
   1. Comprobar que siguen respondiendo:
@@ -123,7 +126,7 @@ _Última actualización: 2026-10-26 · rama `feature/incident-manager`_
 - **AUTH-01:**
   - Un admin puede quitarse su propio rol o desactivarse, y la API puede quedarse sin admin. Se recupera con `create-admin` (documentado en el README de la API).
   - Los JWT no se pueden revocar antes de que caduquen. Desactivar o borrar un usuario sí invalida sus tokens.
-  - El `Lock` que garantiza el email único solo protege dentro de un proceso. Con varios workers de uvicorn, TinyDB no es seguro: habrá que pasar a una base de datos real.
+  - El `Lock` que garantiza el email único, y el de `LockedJSONStorage`, solo protegen dentro de un proceso. Con varios workers de uvicorn, TinyDB no es seguro: habrá que pasar a una base de datos real.
   - Los tests de `services/api` (pytest) cubren solo el gestor de incidencias y el seed. Auth, usuarios, perfiles y proveedores siguen sin tests automatizados.
 - **AUTH-02:**
   - `isTokenValid()` no verifica la firma del JWT: solo decodifica `exp`. Sirve para no mostrar el panel con un token caducado, pero cualquier token con un `exp` futuro pasa el `AuthGuard`. La validación real la hace la API, y su 401 hace que `apiFetch` cierre la sesión.

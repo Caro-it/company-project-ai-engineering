@@ -1,7 +1,32 @@
 """Inicialización de TinyDB para el Directorio de Proveedores, la autenticación y las incidencias."""
 from pathlib import Path
+from threading import Lock
 
 from tinydb import TinyDB
+from tinydb.storages import JSONStorage
+
+
+class LockedJSONStorage(JSONStorage):
+    """JSONStorage con un lock por archivo.
+
+    FastAPI ejecuta los endpoints síncronos en un pool de hilos y JSONStorage comparte un
+    único descriptor de archivo: dos lecturas a la vez se mueven el cursor la una a la otra
+    y json.load falla (JSONDecodeError → 500). Pasaba al cargar /incidencias, que pide el
+    listado y el resumen en paralelo. Solo protege dentro de un proceso.
+    """
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._lock = Lock()
+
+    def read(self):
+        with self._lock:
+            return super().read()
+
+    def write(self, data):
+        with self._lock:
+            super().write(data)
+
 
 # services/api/data/suppliers.json
 DATA_DIR = Path(__file__).resolve().parent.parent / "data"
@@ -9,6 +34,7 @@ DB_PATH = DATA_DIR / "suppliers.json"
 
 db = TinyDB(
     DB_PATH,
+    storage=LockedJSONStorage,
     create_dirs=True,
     encoding="utf-8",
     ensure_ascii=False,
@@ -22,6 +48,7 @@ AUTH_DB_PATH = DATA_DIR / "auth.json"
 
 auth_db = TinyDB(
     AUTH_DB_PATH,
+    storage=LockedJSONStorage,
     create_dirs=True,
     encoding="utf-8",
     ensure_ascii=False,
@@ -38,6 +65,7 @@ INCIDENTS_DB_PATH = DATA_DIR / "incidents.json"
 
 incidents_db = TinyDB(
     INCIDENTS_DB_PATH,
+    storage=LockedJSONStorage,
     create_dirs=True,
     encoding="utf-8",
     ensure_ascii=False,
