@@ -1,6 +1,6 @@
 # Progress
 
-_Última actualización: 2026-10-25 · rama `feature/auth-frontend`_
+_Última actualización: 2026-10-26 · rama `feature/password-reset`_
 
 ## Hecho
 
@@ -48,6 +48,26 @@ _Última actualización: 2026-10-25 · rama `feature/auth-frontend`_
   - `AuthGuard` en cliente: comprueba `exp` en local y lo confirma con una sola llamada a `GET /auth/me`, cuyo resultado comparte con la cabecera mediante `useMe()`. Si algo falla, borra el token y manda a `/login`.
   - Route groups: `app/(app)/layout.tsx` con `AuthGuard` y una cabecera con el email del usuario y `LogoutButton`; inicio y `candidates/` se movieron a `(app)` sin cambiar sus URLs. `/login` en `app/(auth)/login`, con enlace al registro del backoffice (`http://localhost:3001/register`).
   - Verificado a mano contra services/api: redirección sin sesión, login fallido con mensaje genérico, login correcto con listado, detalle, nueva y editar, token manipulado → /login, logout y enlace al registro del backoffice.
+- **Ticket AUTH-03 (recuperación y cambio de contraseña), rama `feature/password-reset`:**
+  - API:
+    - Variables `RESEND_API_KEY` (opcional: sin ella no se envía nada y queda un aviso en los logs), `EMAIL_FROM` (por defecto `onboarding@resend.dev`), `FRONTEND_URL` (por defecto `http://localhost:3001`) y `RESET_TOKEN_EXPIRE_MINUTES` (30). Documentadas en `.env.example` y en el README.
+    - Tabla `password_reset_tokens` en `auth.json`, con `user_id`, `token_hash` (sha256), `expires_at` y `used_at`. Su acceso está en `app/services/password_reset.py`. El email (HTML y texto) se envía con el SDK de resend desde `app/services/email.py`.
+    - `POST /auth/forgot-password` responde siempre 200 con el mismo mensaje. La búsqueda del usuario, el token y el envío van en `BackgroundTasks`, para que el tiempo de respuesta no delate si el email existe. Pedir un enlace invalida los anteriores, y los usuarios desactivados no reciben enlace.
+    - `POST /auth/reset-password`: 400 si el token no existe, ha caducado o ya se usó.
+    - `POST /auth/change-password`: protegida. 400 si la contraseña actual no es correcta, e invalida los enlaces pendientes.
+  - Backoffice:
+    - `forgotPassword`, `resetPassword` y `changePassword` en `lib/account.ts`, no en `lib/auth.ts`, para evitar el ciclo `auth → account → api → auth`.
+    - Páginas `/forgot-password`, `/reset-password` (con `useSearchParams` dentro de `<Suspense>`) y `/account/change-password`, con su enlace en el Sidebar.
+    - El login enlaza a "¿Olvidaste tu contraseña?" y muestra un aviso con `?reset=ok`: la página lee `searchParams`, así que `/login` pasa a ser dinámica.
+  - `npm run lint` y `npm run build` del backoffice sin errores. La API arranca con uvicorn. 22 comprobaciones de los tres endpoints en proceso, con TinyDB en memoria y el envío sustituido, y 10 con Invoke-RestMethod contra la API arrancada con uv.
+  - Prueba manual de extremo a extremo correcta (2026-10-26):
+    - email real recibido en la cuenta de Resend;
+    - el token anterior queda invalidado al pedir uno nuevo;
+    - reset por enlace, token de un solo uso y reset sin token;
+    - login con la contraseña nueva;
+    - change-password con sus validaciones;
+    - forgot-password sin `RESEND_API_KEY`: 200 y aviso en los logs.
+  - Siguiente paso: PR de `feature/password-reset` contra `main`.
 
 ## En curso / próximos pasos
 
@@ -78,6 +98,12 @@ _Última actualización: 2026-10-25 · rama `feature/auth-frontend`_
   - `services/api` no tiene tests automatizados. `fastapi.testclient` (que reexporta el de Starlette 1.8) necesita `httpx2`; acepta `httpx` como alternativa obsoleta, con aviso de deprecación. Ninguno de los dos está instalado.
 - **AUTH-02:**
   - `isTokenValid()` no verifica la firma del JWT: solo decodifica `exp`. Sirve para no mostrar el panel con un token caducado, pero cualquier token con un `exp` futuro pasa el `AuthGuard`. La validación real la hace la API, y su 401 hace que `apiFetch` cierre la sesión.
+
+- **AUTH-03:**
+  - Restablecer o cambiar la contraseña no invalida los JWT ya emitidos: siguen valiendo hasta que caducan.
+  - Con el remitente `onboarding@resend.dev`, Resend solo entrega al email de la cuenta de Resend. Para otros destinatarios hace falta verificar un dominio.
+  - No hay límite de peticiones en `forgot-password`.
+- La sección "Estructura" de `uis/backoffice/README.md` está desactualizada desde AUTH-02 (no refleja los route groups `(auth)` y `(panel)`).
 
 ## Pendiente de confirmar con el mentor
 

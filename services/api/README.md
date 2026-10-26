@@ -50,6 +50,10 @@ Se leen de `services/api/.env` (funciona desde cualquier directorio de arranque)
 | `SECRET_KEY`                  | Sí          | —                 | Clave con la que se firman los JWT   |
 | `ALGORITHM`                   | No          | `HS256`           | Algoritmo de firma                   |
 | `ACCESS_TOKEN_EXPIRE_MINUTES` | No          | `30`              | Minutos de validez del token         |
+| `RESEND_API_KEY`              | No          | —                 | Clave de [Resend](https://resend.com/api-keys) para enviar el email de recuperación. Sin ella no se envía nada y queda un aviso en los logs |
+| `EMAIL_FROM`                  | No          | `Nexova <onboarding@resend.dev>` | Remitente del email. `onboarding@resend.dev` solo entrega al email de tu cuenta de Resend; para otros destinatarios hace falta un dominio verificado |
+| `FRONTEND_URL`                | No          | `http://localhost:3001` | URL del backoffice con la que se construye el enlace `/reset-password?token=…` |
+| `RESET_TOKEN_EXPIRE_MINUTES`  | No          | `30`              | Minutos de validez del enlace de recuperación |
 
 Sin `SECRET_KEY` la API no arranca. Para generar una clave aleatoria:
 
@@ -84,6 +88,9 @@ El token caduca a los `ACCESS_TOKEN_EXPIRE_MINUTES` minutos; después hay que vo
 | GET      | `/api/health`                      | Pública                                          |
 | POST     | `/auth/login`                      | Pública (formulario: `username` = email)         |
 | POST     | `/users`                           | Pública (alta con rol `user`)                    |
+| POST     | `/auth/forgot-password`            | Pública                                          |
+| POST     | `/auth/reset-password`             | Pública (requiere el token del email)            |
+| POST     | `/auth/change-password`            | Protegida                                        |
 | GET      | `/auth/me`                         | Protegida                                        |
 | GET      | `/users`                           | Protegida, **solo admin**                        |
 | GET      | `/users/{user_id}`                 | Protegida, el propio usuario o admin             |
@@ -105,14 +112,24 @@ El token caduca a los `ACCESS_TOKEN_EXPIRE_MINUTES` minutos; después hay que vo
 | ------ | --------------------------------------------------------------------------------------------- |
 | 401    | Sin token, token inválido o caducado, usuario borrado o desactivado, o credenciales incorrectas |
 | 403    | El usuario no tiene permiso: no es admin en `GET /users`, accede a otro usuario sin ser admin, o intenta cambiar `role`/`is_active` sin ser admin |
+| 400    | `reset-password`: token inexistente, caducado o ya usado. `change-password`: la contraseña actual no es correcta |
 | 409    | El email ya está registrado (alta o cambio de email)                                          |
 | 422    | Datos no válidos: email incorrecto, contraseña de menos de 8 caracteres o más de 72 bytes, o campos no permitidos |
 
 En las rutas `/users/{user_id}` el permiso se comprueba antes que la existencia: un usuario que no es admin recibe 403 aunque el id no exista, así no puede averiguar qué ids hay. El login responde con el mismo mensaje tanto si el email no existe como si la contraseña es incorrecta.
 
+### Recuperación y cambio de contraseña (AUTH-03)
+
+- `POST /auth/forgot-password` (`{"email": "..."}`) responde **siempre** 200 con `"Si esa dirección está registrada, recibirás un enlace en breve"`. La búsqueda del usuario, el token y el envío se hacen en segundo plano (`BackgroundTasks`), así que ni la respuesta ni su tiempo delatan si el email existe. Si el envío falla, solo queda en los logs (sin el enlace).
+- El token es `secrets.token_urlsafe(32)`. En TinyDB (`data/auth.json`, tabla `password_reset_tokens`) solo se guarda su hash sha256, con `expires_at` y `used_at`. Pedir un enlace nuevo invalida los anteriores del mismo usuario. Los usuarios desactivados no reciben enlace.
+- El email (HTML y texto) lleva el enlace `{FRONTEND_URL}/reset-password?token=<token>`.
+- `POST /auth/reset-password` (`{"token": "...", "new_password": "..."}`) acepta el token una sola vez y antes de que caduque; si no, 400. La nueva contraseña sigue las mismas reglas que el alta (8 caracteres a 72 bytes).
+- `POST /auth/change-password` (`{"current_password": "...", "new_password": "..."}`) necesita el token de sesión. Si la contraseña actual no es correcta, 400 (no 401: la sesión sigue siendo válida). Al cambiarla se invalidan los enlaces de recuperación pendientes.
+
 ### Limitaciones conocidas
 
 - **Un admin puede quitarse su propio rol o desactivarse** con `PUT /users/{user_id}`, y la API puede quedarse sin ningún admin. Para recuperarlo, ejecuta `create-admin` con su email: lo vuelve a promover a `admin` y lo reactiva.
+- Restablecer o cambiar la contraseña **no invalida los JWT ya emitidos**: siguen valiendo hasta que caducan (la API es stateless).
 - Los tokens no se pueden revocar antes de que caduquen. Desactivar o borrar un usuario sí invalida sus tokens, porque cada petición comprueba que el usuario exista y esté activo.
 
 ### Verificación manual

@@ -1,5 +1,5 @@
 // Cliente de autenticación, usuarios y perfil de la API
-// (services/api/app/routers/auth.py, users.py y profiles.py).
+// (services/api/app/routers/auth.py, users.py y profiles.py), incluidas las contraseñas.
 import { apiFetch } from "@/lib/api";
 
 export interface ProfileData {
@@ -95,4 +95,43 @@ export function updateMyProfile(data: ProfileData): Promise<ProfileData> {
     headers: JSON_HEADERS,
     body: JSON.stringify(data),
   });
+}
+
+// --- Contraseñas (AUTH-03): las respuestas son { message } ---
+
+interface MessageResponse {
+  message: string;
+}
+
+// Siempre 200 con el mismo mensaje, exista o no el email
+export async function forgotPassword(email: string): Promise<string> {
+  const data = await request<MessageResponse>("/auth/forgot-password", {
+    method: "POST",
+    headers: JSON_HEADERS,
+    body: JSON.stringify({ email }),
+  });
+  return data.message;
+}
+
+// 400 si el token no existe, ha caducado o ya se usó
+export async function resetPassword(token: string, newPassword: string): Promise<string> {
+  const data = await request<MessageResponse>("/auth/reset-password", {
+    method: "POST",
+    headers: JSON_HEADERS,
+    body: JSON.stringify({ token, new_password: newPassword }),
+  });
+  return data.message;
+}
+
+// Con el token de sesión (apiFetch). 400 si la contraseña actual no es correcta
+export async function changePassword(
+  currentPassword: string,
+  newPassword: string,
+): Promise<string> {
+  const data = await request<MessageResponse>("/auth/change-password", {
+    method: "POST",
+    headers: JSON_HEADERS,
+    body: JSON.stringify({ current_password: currentPassword, new_password: newPassword }),
+  });
+  return data.message;
 }
