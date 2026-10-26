@@ -1,9 +1,12 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.errors import register_error_handlers
 from app.routers import auth, incidents, profiles, suppliers, users
 
 app = FastAPI(title="Nexova API", version="0.1.0")
+# Antes de CORSMiddleware: así el 500 de los errores no controlados pasa por CORS
+register_error_handlers(app)
 
 # El backoffice (Next.js) corre en localhost:3000 durante el desarrollo
 app.add_middleware(

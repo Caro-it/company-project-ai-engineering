@@ -32,6 +32,12 @@ class IncidentCreate(IncidentBase):
     model_config = ConfigDict(extra="forbid")
 
 
+class IncidentStatusUpdate(BaseModel):
+    """Entrada de PATCH /incidents/{id}/status. La transición la valida el servicio."""
+    model_config = ConfigDict(extra="forbid")
+    status: Status
+
+
 class Incident(IncidentBase):
     """Respuesta de la API: incluye los campos generados por el sistema."""
     id: str

@@ -78,7 +78,12 @@ _Última actualización: 2026-10-26 · rama `feature/incident-manager`_
     - `app/incident_models.py` (`IncidentCreate` sin status ni fechas, `Incident`) y `data/incidents.json` con las tablas `incidents` e `incident_seed_log`.
     - `scripts/seed_incidents.py`: idempotente por `ticket_id`, que se guarda en `incident_seed_log` y no en la incidencia. El informe solo muestra contadores y etiquetas.
     - Verificado sobre una TinyDB temporal (no la de desarrollo): open 27, resolved 56, discarded 13; technical_failure 49, process_error 35, client_complaint 12. La segunda ejecución inserta 0 y la salida no contiene emails.
-  - Fase 2: endpoints (CRUD, transiciones, `/api/incidents/summary`) y frontend.
+  - Fase 2 (endpoints en `services/api`) hecha, en el commit `feat(incidents): add incident management endpoints and error handling`, sin push:
+    - `app/services/incidents.py`: alta (siempre en `open`, uuid4, fechas UTC), listado con filtros y más recientes primero, detalle, `incidents_summary()` (todas las claves aunque valgan 0) y `change_status()` con `ALLOWED_TRANSITIONS`, `InvalidTransitionError` y un `Lock`.
+    - Rutas en `app/routers/incidents.py`: `POST`/`GET /api/incidents`, `GET /summary` (declarada antes que `/{incident_id}`), `GET /{incident_id}` y `PATCH /{incident_id}/status`. `/analyze` y `/results/export` no cambian.
+    - `app/errors.py`: los errores de validación de las rutas del gestor son 400 con `{"detail": "Datos no válidos", "code": "validation_error", "errors": [{field, code, message}]}` y mensajes en español. Por el soporte bilingüe, cada error lleva un `code` estable en inglés (`required`, `invalid_choice` con `allowed`, `empty_text`, `extra_field_not_allowed`, `invalid_json`…). Los errores propios usan `ApiError`: `not_found` e `invalid_transition` (con `from`, `to` y `allowed`). El resto de rutas, incluidas `/analyze` y `/results/export`, conserva el 422 de FastAPI. Cualquier excepción no controlada da 500 con mensaje genérico, de forma global. La captura un middleware HTTP registrado antes de `CORSMiddleware`, que queda por dentro de CORS: el 500 lleva `access-control-allow-origin` y el frontend puede leerlo. El traceback va al log con `logger.exception`, y el handler de `Exception` se mantiene como red de seguridad.
+    - Verificado con `TestClient` y TinyDB en memoria, sin tocar `services/api/data/`: 33 casos correctos, comprobando también el `code` de cada error. Entre ellos: validación 400 por campo, lista y summary vacíos, summary tras el seed (27/56/13, 49/35/12, customer 96, central 96), filtros, 404, transiciones válidas e inválidas, 401, 500 sin traceback y con `access-control-allow-origin` para el origen del backoffice, y los 422 de `/users`, `/auth/login`, `/profiles/me` y `/analyze`. Ninguna respuesta contiene `customer_email` ni emails.
+  - Siguiente: frontend del gestor en el backoffice.
 
 - **GitHub Pages (sin confirmar si ya se hizo):**
   1. Comprobar que siguen respondiendo:
@@ -104,7 +109,7 @@ _Última actualización: 2026-10-26 · rama `feature/incident-manager`_
   - Un admin puede quitarse su propio rol o desactivarse, y la API puede quedarse sin admin. Se recupera con `create-admin` (documentado en el README de la API).
   - Los JWT no se pueden revocar antes de que caduquen. Desactivar o borrar un usuario sí invalida sus tokens.
   - El `Lock` que garantiza el email único solo protege dentro de un proceso. Con varios workers de uvicorn, TinyDB no es seguro: habrá que pasar a una base de datos real.
-  - `services/api` no tiene tests automatizados. `fastapi.testclient` (que reexporta el de Starlette 1.8) necesita `httpx2`; acepta `httpx` como alternativa obsoleta, con aviso de deprecación. Ninguno de los dos está instalado.
+  - `services/api` no tiene tests automatizados. `fastapi.testclient` (que reexporta el de Starlette 1.8) necesita `httpx2`; acepta `httpx` como alternativa obsoleta, con aviso de deprecación. Ninguno de los dos está en el proyecto. Para verificar a mano se instala `httpx` fuera del repo (`uv pip install --target <carpeta temporal> httpx` y `PYTHONPATH`), y TinyDB se sustituye por `MemoryStorage` antes de importar `app`.
 - **AUTH-02:**
   - `isTokenValid()` no verifica la firma del JWT: solo decodifica `exp`. Sirve para no mostrar el panel con un token caducado, pero cualquier token con un `exp` futuro pasa el `AuthGuard`. La validación real la hace la API, y su 401 hace que `apiFetch` cierre la sesión.
 
