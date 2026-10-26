@@ -79,7 +79,8 @@ El devcontainer solo reenvía los puertos 3000, 8000 y 5678. Los puertos 3001 y 
   - `suppliers.json`: directorio de proveedores.
   - `auth.json`: tablas `users` y `profiles`.
   - Las rutas se resuelven con `Path(__file__)`, así que funcionan desde cualquier directorio de arranque.
-- La lógica de incidencias vive en `packages/shared/incidents_core`, instalado en modo editable a través de `[tool.uv.sources]`.
+- La lógica de incidencias vive en `packages/shared/incidents_core` (paquete Python dentro de `packages/shared`, movido con confirmación), instalado en modo editable a través de `[tool.uv.sources]`. `scripts/analyze.py` y `scripts/seed_incidents.py` se ejecutan con el `.venv` de `services/api`.
+- **Gestor de incidencias:** `data/incidents.json` con las tablas `incidents` (id uuid4) e `incident_seed_log` (idempotencia del seed). Valores, transiciones y mapas CSV → modelo en `incidents_core/incident_model.py`; modelos Pydantic en `app/incident_models.py` (tipos `Literal` compartidos, no `StrEnum`).
 - **Configuración** con pydantic-settings, leída de `services/api/.env` (ignorado por git; plantilla en `.env.example`). `SECRET_KEY` es obligatoria.
 - **Autenticación (AUTH-01):**
   - JWT stateless (HS256, 30 min por defecto) con `sub` = id del usuario.

@@ -1,4 +1,4 @@
-"""Inicialización de TinyDB para el Directorio de Proveedores y la autenticación."""
+"""Inicialización de TinyDB para el Directorio de Proveedores, la autenticación y las incidencias."""
 from pathlib import Path
 
 from tinydb import TinyDB
@@ -32,3 +32,19 @@ users_table = auth_db.table("users")
 profiles_table = auth_db.table("profiles")
 # Tokens de recuperación de contraseña: user_id, token_hash (sha256), expires_at, used_at
 password_reset_tokens_table = auth_db.table("password_reset_tokens")
+
+# services/api/data/incidents.json: gestor de incidencias
+INCIDENTS_DB_PATH = DATA_DIR / "incidents.json"
+
+incidents_db = TinyDB(
+    INCIDENTS_DB_PATH,
+    create_dirs=True,
+    encoding="utf-8",
+    ensure_ascii=False,
+    indent=2,
+)
+
+# id = uuid4 en string
+incidents_table = incidents_db.table("incidents")
+# Control de idempotencia del seed: ticket_id del CSV -> incident_id (no se guarda en la incidencia)
+incident_seed_log_table = incidents_db.table("incident_seed_log")

@@ -37,6 +37,20 @@ Documentación interactiva: http://localhost:8000/docs
 
 La lógica de validación y métricas vive en `packages/shared/incidents_core` y es la misma que usa `scripts/analyze.py`.
 
+### Gestor de incidencias: modelo y seed
+
+Fuente de verdad: `docs/CONTEXT-incident-manager-nexova.md`.
+
+- Valores permitidos (estados, orígenes, categorías y sedes), transiciones y mapas CSV → modelo en `incidents_core/incident_model.py`. Modelos Pydantic en `app/incident_models.py`.
+- Persistencia en `data/incidents.json`: tabla `incidents` (id = uuid4 en string) y tabla `incident_seed_log` (`ticket_id` → `incident_id`, para la idempotencia del seed).
+- Carga del histórico desde la raíz del repo (es idempotente, se puede repetir):
+
+  ```bash
+  services/api/.venv/Scripts/python scripts/seed_incidents.py   # usa scripts/incidents-nexova.csv
+  ```
+
+  Resultado esperado con una BD limpia: 100 filas leídas, 96 insertadas y 4 inválidas. La segunda ejecución inserta 0. El informe solo muestra contadores y etiquetas de reglas, nunca datos de los registros.
+
 ## Autenticación
 
 Autenticación JWT stateless (ticket AUTH-01). Los usuarios y sus perfiles se guardan en TinyDB, en `data/auth.json`, separados de los proveedores (`data/suppliers.json`). Las contraseñas se guardan con bcrypt y nunca salen en las respuestas.

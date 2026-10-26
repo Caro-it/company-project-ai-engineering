@@ -1,6 +1,6 @@
 # Progress
 
-_Última actualización: 2026-10-26 · rama `feature/password-reset`_
+_Última actualización: 2026-10-26 · rama `feature/incident-manager`_
 
 ## Hecho
 
@@ -67,9 +67,18 @@ _Última actualización: 2026-10-26 · rama `feature/password-reset`_
     - login con la contraseña nueva;
     - change-password con sus validaciones;
     - forgot-password sin `RESEND_API_KEY`: 200 y aviso en los logs.
-  - Siguiente paso: PR de `feature/password-reset` contra `main`.
+  - PR #9 (`feature/password-reset`) mergeada en `main`.
 
 ## En curso / próximos pasos
+
+- **Gestor de Incidencias Centralizado, rama `feature/incident-manager`.** Fuente de verdad: `docs/CONTEXT-incident-manager-nexova.md`.
+  - Fase 1 (capa de datos y seed) hecha, en dos commits (`refactor(shared)` y `feat(incidents)`), sin push:
+    - `packages/incidents_core` movido a `packages/shared/incidents_core` con `git mv`, con confirmación explícita. `pyproject.toml`, `uv.lock` y `requirements.txt` actualizados; este último estaba desactualizado desde AUTH-03 (le faltaba `resend`). `analyze.py` sigue dando 100 / 96 / 4 y la API arranca.
+    - `incidents_core/incident_model.py`: `Literal` y diccionarios valor → etiqueta (`STATUSES`, `ORIGINS`, `CATEGORIES`, `BRANCHES`), `ALLOWED_TRANSITIONS`, mapas CSV → modelo, `MAPPING_ERRORS` y `csv_row_to_incident()`.
+    - `app/incident_models.py` (`IncidentCreate` sin status ni fechas, `Incident`) y `data/incidents.json` con las tablas `incidents` e `incident_seed_log`.
+    - `scripts/seed_incidents.py`: idempotente por `ticket_id`, que se guarda en `incident_seed_log` y no en la incidencia. El informe solo muestra contadores y etiquetas.
+    - Verificado sobre una TinyDB temporal (no la de desarrollo): open 27, resolved 56, discarded 13; technical_failure 49, process_error 35, client_complaint 12. La segunda ejecución inserta 0 y la salida no contiene emails.
+  - Fase 2: endpoints (CRUD, transiciones, `/api/incidents/summary`) y frontend.
 
 - **GitHub Pages (sin confirmar si ya se hizo):**
   1. Comprobar que siguen respondiendo:
@@ -104,7 +113,12 @@ _Última actualización: 2026-10-26 · rama `feature/password-reset`_
   - Con el remitente `onboarding@resend.dev`, Resend solo entrega al email de la cuenta de Resend. Para otros destinatarios hace falta verificar un dominio.
   - No hay límite de peticiones en `forgot-password`.
 - La sección "Estructura" de `uis/backoffice/README.md` está desactualizada desde AUTH-02 (no refleja los route groups `(auth)` y `(panel)`).
+- **Gestor de incidencias:**
+  - `scripts/analyze.py` falla en la consola de Windows (cp1252) al imprimir `├─`. Funciona con `PYTHONIOENCODING=utf-8` o `python -X utf8`. El seed solo imprime ASCII.
+  - El seed inserta la incidencia y después su entrada en `incident_seed_log`, sin transacción. Si se corta entre las dos, la siguiente ejecución duplicaría esa incidencia.
+  - Ninguna descripción del CSV supera 120 caracteres (la más larga tiene 54), así que el truncado del título no se ejercita con los datos reales.
 
 ## Pendiente de confirmar con el mentor
 
 - El responsable de Ventas (Megan Clarke o Marcos Ibáñez); ver `projectbrief.md`.
+- Las etiquetas para mostrar de estados, orígenes y categorías del gestor de incidencias; ver `projectbrief.md`.
