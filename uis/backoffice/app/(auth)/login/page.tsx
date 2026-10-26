@@ -5,6 +5,8 @@ export const metadata: Metadata = {
   title: "Iniciar sesión — Nexova Solutions",
 };
 
-export default function LoginPage() {
-  return <LoginForm />;
+// ?reset=ok llega desde /reset-password tras cambiar la contraseña
+export default async function LoginPage({ searchParams }: PageProps<"/login">) {
+  const { reset } = await searchParams;
+  return <LoginForm resetOk={reset === "ok"} />;
 }

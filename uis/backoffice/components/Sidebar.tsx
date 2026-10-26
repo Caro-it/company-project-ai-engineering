@@ -26,6 +26,9 @@ export function Sidebar() {
               <NavLink href="/account/profile">Mi perfil</NavLink>
             </li>
             <li>
+              <NavLink href="/account/change-password">Cambiar contraseña</NavLink>
+            </li>
+            <li>
               <LogoutButton />
             </li>
           </ul>

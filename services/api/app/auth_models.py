@@ -85,3 +85,28 @@ class MeOut(BaseModel):
 class Token(BaseModel):
     access_token: str
     token_type: str = "bearer"
+
+
+class ForgotPasswordRequest(BaseModel):
+    """Entrada de POST /auth/forgot-password."""
+    model_config = ConfigDict(extra="forbid")
+    email: Email
+
+
+class ResetPasswordRequest(BaseModel):
+    """Entrada de POST /auth/reset-password. El token es el del enlace del email."""
+    model_config = ConfigDict(extra="forbid")
+    token: str = Field(min_length=1, max_length=256)
+    new_password: Password
+
+
+class ChangePasswordRequest(BaseModel):
+    """Entrada de POST /auth/change-password (usuario autenticado)."""
+    model_config = ConfigDict(extra="forbid")
+    current_password: str
+    new_password: Password
+
+
+class MessageOut(BaseModel):
+    """Respuesta con un mensaje para mostrar al usuario."""
+    message: str

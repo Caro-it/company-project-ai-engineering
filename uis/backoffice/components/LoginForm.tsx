@@ -30,7 +30,7 @@ const inputClass =
   "mt-1 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm aria-invalid:border-rose-500";
 const errorClass = "mt-1 text-xs text-rose-700";
 
-export function LoginForm() {
+export function LoginForm({ resetOk = false }: { resetOk?: boolean }) {
   const router = useRouter();
   const hasSession = useTokenStatus();
   const [email, setEmail] = useState("");
@@ -71,6 +71,12 @@ export function LoginForm() {
         Iniciar sesión
       </h1>
       <p className="mt-1 text-sm text-slate-600">Accede al panel interno con tu cuenta.</p>
+
+      {resetOk && (
+        <p role="status" className="mt-4 rounded-md bg-emerald-50 p-3 text-sm text-emerald-800">
+          Contraseña actualizada. Ya puedes iniciar sesión con la nueva.
+        </p>
+      )}
 
       <form
         noValidate
@@ -122,6 +128,14 @@ export function LoginForm() {
               {errors.password}
             </p>
           )}
+          <p className="mt-2 text-right text-sm">
+            <Link
+              href="/forgot-password"
+              className="font-medium text-[#006992] underline hover:no-underline"
+            >
+              ¿Olvidaste tu contraseña?
+            </Link>
+          </p>
         </div>
 
         {apiError && (
