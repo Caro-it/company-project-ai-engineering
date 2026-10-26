@@ -79,7 +79,7 @@ El devcontainer solo reenvía los puertos 3000, 8000 y 5678. Los puertos 3001 y 
   - `suppliers.json`: directorio de proveedores.
   - `auth.json`: tablas `users` y `profiles`.
   - Las rutas se resuelven con `Path(__file__)`, así que funcionan desde cualquier directorio de arranque.
-- La lógica de incidencias vive en `packages/incidents_core`, instalado en modo editable a través de `[tool.uv.sources]`.
+- La lógica de incidencias vive en `packages/shared/incidents_core`, instalado en modo editable a través de `[tool.uv.sources]`.
 - **Configuración** con pydantic-settings, leída de `services/api/.env` (ignorado por git; plantilla en `.env.example`). `SECRET_KEY` es obligatoria.
 - **Autenticación (AUTH-01):**
   - JWT stateless (HS256, 30 min por defecto) con `sub` = id del usuario.

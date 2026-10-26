@@ -35,7 +35,7 @@ Documentación interactiva: http://localhost:8000/docs
 | 415    | El fichero no es `.csv`                 |
 | 422    | Cabecera incorrecta o CSV sin registros |
 
-La lógica de validación y métricas vive en `packages/incidents_core` y es la misma que usa `scripts/analyze.py`.
+La lógica de validación y métricas vive en `packages/shared/incidents_core` y es la misma que usa `scripts/analyze.py`.
 
 ## Autenticación
 
