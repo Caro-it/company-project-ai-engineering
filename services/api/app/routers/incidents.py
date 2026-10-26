@@ -2,9 +2,20 @@ from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from fastapi.responses import Response
 
 from app.deps import get_current_user
+from app.errors import ApiError
+from app.incident_models import Incident, IncidentCreate, IncidentStatusUpdate
+from app.services.incidents import (
+    InvalidTransitionError,
+    change_status,
+    create_incident,
+    get_incident,
+    incidents_summary,
+    list_incidents,
+)
 from incidents_core.analysis import analyze_rows
 from incidents_core.constants import RULES
 from incidents_core.export import summary_to_csv
+from incidents_core.incident_model import Branch, Category, Origin, Status
 from incidents_core.validation import parse_rows
 
 router = APIRouter(
@@ -65,3 +76,58 @@ def export_results() -> Response:
         media_type="text/csv; charset=utf-8",
         headers={"Content-Disposition": 'attachment; filename="results.csv"'},
     )
+
+
+# --- Gestor de incidencias (docs/CONTEXT-incident-manager-nexova.md) ---
+# Los errores de validación de estas rutas son 400 (ver app/errors.py)
+
+
+def _not_found(incident_id: str) -> ApiError:
+    return ApiError(404, "not_found", f"Incidencia {incident_id} no encontrada")
+
+
+@router.post("", response_model=Incident, status_code=201)
+def create(payload: IncidentCreate):
+    """Alta de incidencia. Siempre empieza en open."""
+    return create_incident(payload)
+
+
+@router.get("", response_model=list[Incident])
+def read_incidents(
+    status: Status | None = None,
+    origin: Origin | None = None,
+    branch: Branch | None = None,
+    category: Category | None = None,
+):
+    """Listado con filtros opcionales. Con la BD vacía devuelve []."""
+    return list_incidents(status=status, origin=origin, branch=branch, category=category)
+
+
+# Antes de /{incident_id}: si no, "summary" se tomaría como un id
+@router.get("/summary")
+def read_summary() -> dict:
+    """Totales por status, category, origin y branch, con todas las claves aunque valgan 0."""
+    return incidents_summary()
+
+
+@router.get("/{incident_id}", response_model=Incident)
+def read_incident(incident_id: str):
+    incident = get_incident(incident_id)
+    if incident is None:
+        raise _not_found(incident_id)
+    return incident
+
+
+@router.patch("/{incident_id}/status", response_model=Incident)
+def update_status(incident_id: str, payload: IncidentStatusUpdate):
+    """Solo transiciones de ALLOWED_TRANSITIONS. Actualiza updated_at."""
+    try:
+        incident = change_status(incident_id, payload.status)
+    except InvalidTransitionError as error:
+        raise ApiError(
+            400, "invalid_transition", str(error),
+            **{"from": error.current, "to": error.new, "allowed": error.allowed},
+        ) from None
+    if incident is None:
+        raise _not_found(incident_id)
+    return incident

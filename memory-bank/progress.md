@@ -1,6 +1,6 @@
 # Progress
 
-_Última actualización: 2026-10-26 · rama `feature/password-reset`_
+_Última actualización: 2026-10-26 · rama `feature/incident-manager`_
 
 ## Hecho
 
@@ -67,9 +67,52 @@ _Última actualización: 2026-10-26 · rama `feature/password-reset`_
     - login con la contraseña nueva;
     - change-password con sus validaciones;
     - forgot-password sin `RESEND_API_KEY`: 200 y aviso en los logs.
-  - Siguiente paso: PR de `feature/password-reset` contra `main`.
+  - PR #9 (`feature/password-reset`) mergeada en `main`.
 
 ## En curso / próximos pasos
+
+- **Gestor de Incidencias Centralizado, rama `feature/incident-manager`.** Fuente de verdad: `docs/CONTEXT-incident-manager-nexova.md`.
+  - Fase 1 (capa de datos y seed) hecha, en dos commits (`refactor(shared)` y `feat(incidents)`), sin push:
+    - `packages/incidents_core` movido a `packages/shared/incidents_core` con `git mv`, con confirmación explícita. `pyproject.toml`, `uv.lock` y `requirements.txt` actualizados; este último estaba desactualizado desde AUTH-03 (le faltaba `resend`). `analyze.py` sigue dando 100 / 96 / 4 y la API arranca.
+    - `incidents_core/incident_model.py`: `Literal` y diccionarios valor → etiqueta (`STATUSES`, `ORIGINS`, `CATEGORIES`, `BRANCHES`), `ALLOWED_TRANSITIONS`, mapas CSV → modelo, `MAPPING_ERRORS` y `csv_row_to_incident()`.
+    - `app/incident_models.py` (`IncidentCreate` sin status ni fechas, `Incident`) y `data/incidents.json` con las tablas `incidents` e `incident_seed_log`.
+    - `scripts/seed_incidents.py`: idempotente por `ticket_id`, que se guarda en `incident_seed_log` y no en la incidencia. El informe solo muestra contadores y etiquetas.
+    - Verificado sobre una TinyDB temporal (no la de desarrollo): open 27, resolved 56, discarded 13; technical_failure 49, process_error 35, client_complaint 12. La segunda ejecución inserta 0 y la salida no contiene emails.
+  - Fase 2 (endpoints en `services/api`) hecha, en el commit `feat(incidents): add incident management endpoints and error handling`, sin push:
+    - `app/services/incidents.py`: alta (siempre en `open`, uuid4, fechas UTC), listado con filtros y más recientes primero, detalle, `incidents_summary()` (todas las claves aunque valgan 0) y `change_status()` con `ALLOWED_TRANSITIONS`, `InvalidTransitionError` y un `Lock`.
+    - Rutas en `app/routers/incidents.py`: `POST`/`GET /api/incidents`, `GET /summary` (declarada antes que `/{incident_id}`), `GET /{incident_id}` y `PATCH /{incident_id}/status`. `/analyze` y `/results/export` no cambian.
+    - `app/errors.py`: los errores de validación de las rutas del gestor son 400 con `{"detail": "Datos no válidos", "code": "validation_error", "errors": [{field, code, message}]}` y mensajes en español. Por el soporte bilingüe, cada error lleva un `code` estable en inglés (`required`, `invalid_choice` con `allowed`, `empty_text`, `extra_field_not_allowed`, `invalid_json`…). Los errores propios usan `ApiError`: `not_found` e `invalid_transition` (con `from`, `to` y `allowed`). El resto de rutas, incluidas `/analyze` y `/results/export`, conserva el 422 de FastAPI. Cualquier excepción no controlada da 500 con mensaje genérico, de forma global. La captura un middleware HTTP registrado antes de `CORSMiddleware`, que queda por dentro de CORS: el 500 lleva `access-control-allow-origin` y el frontend puede leerlo. El traceback va al log con `logger.exception`, y el handler de `Exception` se mantiene como red de seguridad.
+    - Verificado con `TestClient` y TinyDB en memoria, sin tocar `services/api/data/`: 33 casos correctos, comprobando también el `code` de cada error. Entre ellos: validación 400 por campo, lista y summary vacíos, summary tras el seed (27/56/13, 49/35/12, customer 96, central 96), filtros, 404, transiciones válidas e inválidas, 401, 500 sin traceback y con `access-control-allow-origin` para el origen del backoffice, y los 422 de `/users`, `/auth/login`, `/profiles/me` y `/analyze`. Ninguna respuesta contiene `customer_email` ni emails.
+  - Fase 3 (frontend en `uis/backoffice`):
+    - **Decisión: sin soporte bilingüe.** El CONTEXT pide respetarlo "si has implementado soporte bilingüe en hitos anteriores", y no existe en ningún app ni rama del repo. Todo el gestor está en español, como el resto del backoffice. Los errores de la API se traducen por `code` en un único diccionario en español (`lib/incidents.ts`), para que el bilingüe se pueda añadir en el futuro sin tocar la API. No hay selector de idioma ni hook de locale.
+    - Rutas:
+      - `/incidencias`: panel de resumen encima del listado (decisión de la usuaria), cada uno con su propia carga y su propio error.
+      - `/incidencias/nueva`: formulario.
+      - `/incidencias/analizador`: el analizador de CSV, movido con `git mv` sin tocar `IncidentsAnalyzer`.
+      - El Sidebar tiene una entrada para cada una.
+    - `lib/incidents.ts`: valores del CONTEXT (copia de `incident_model.py`), etiquetas de interfaz, `BRANCH_LABELS` literales, `IncidentApiError`, diccionario de errores por `code` y cliente de los endpoints.
+    - `components/incidents/`:
+      - `IncidentForm`: obligatorios en cliente, `branch` resaltada con `origin = branch`, `remote` en un `optgroup` aparte, `aria-busy`, errores junto a su campo y confirmación con `role="status"`.
+      - `IncidentsStats`: resumen.
+      - `IncidentsList`: filtros, estados de carga, error, vacío y vacío por filtros, y cambio de estado optimista con reversión.
+      - `IncidentsDashboard`: recarga el resumen tras un cambio de estado.
+    - `npm run lint`, `npx tsc --noEmit` y `npm run build` sin errores.
+    - Seed ejecutado en la BD de desarrollo (`services/api/data/incidents.json`, 96 incidencias), con autorización de la usuaria.
+  - Tests del backend en `services/api/tests/` (`uv run pytest`): 43 tests que pasan, con TinyDB en memoria. `pytest` y `httpx2` como dependencias de desarrollo.
+  - **Fallo de concurrencia en TinyDB, corregido** (lo destaparon los tests e2e):
+    - `/incidencias` pide el listado y el resumen a la vez. FastAPI ejecuta los endpoints síncronos en un pool de hilos, y `JSONStorage` de TinyDB comparte un único descriptor de archivo: las lecturas simultáneas se movían el cursor y fallaban con `JSONDecodeError` → 500 (23 de 200 peticiones concurrentes). Afectaba también a `auth.json` en la autenticación de cada petición.
+    - Arreglo: `LockedJSONStorage` en `app/database.py`, con un lock por archivo en `read`/`write`. Tras el arreglo, 600 de 600 peticiones correctas. El test `tests/test_database.py` lo cubre: sin lock fallan 212 de 400 lecturas.
+  - Tests e2e del backoffice con Playwright (`npm run test:e2e`): 16 tests que pasan (1 de setup + 15), estables en ejecuciones repetidas.
+    - Usan su propia API (puerto 8100) con BD temporal y seed, y su propio build (`.next/e2e`, puerto 3100).
+    - La API gana dos variables opcionales para ello: `NEXOVA_DATA_DIR` y `CORS_ORIGINS`.
+    - Capturas en `docs/screenshots/incident-manager/`.
+
+- **Actualizar `next` en `uis/backoffice` (pendiente, en una rama aparte después del merge de `feature/incident-manager`):**
+  - El 2026-10-26, `npm audit` marca como **crítico** `next` 16.0.0–16.4.0, que incluye el 16.3.8 del backoffice. Avisos: RCE sin autenticar en la API de optimización de imágenes con SVG, DoS en el App Router con Server Actions y RCE sin autenticar en funciones `use cache` que devuelven typed arrays.
+  - Arreglo disponible: `next@16.4.3` (no es un salto de versión mayor). Actualizar también `eslint-config-next` a la misma versión.
+  - Decisión de la usuaria: no se actualiza en el PR del gestor de incidencias.
+  - Verificar después: `npm run lint`, `npm run build`, `npm run test:e2e` y una revisión manual del login y del panel.
+  - Revisar a la vez el tracker (`next@16.3.5`), que está protegido y necesita confirmación.
 
 - **GitHub Pages (sin confirmar si ya se hizo):**
   1. Comprobar que siguen respondiendo:
@@ -87,15 +130,15 @@ _Última actualización: 2026-10-26 · rama `feature/password-reset`_
 - `packages/shared/package.json` declara `"main": "index.ts"` y `"types": "index.ts"`, pero **ese `index.ts` no existe** en la raíz del paquete (solo existe `types/index.ts`, que es el placeholder del template). Por eso los tipos se importan por ruta relativa. `packages/shared/` está protegido.
 - El devcontainer prepara pnpm y uv; el repo usa npm (ver `techContext.md`).
 - Hay archivos de `uis/talent-pipeline-tracker` con BOM UTF-8 (protegido).
-- **`uis/talent-pipeline-tracker` usa `next@16.3.5`.** `npm audit` reporta vulnerabilidades críticas (RCE en `next/og`, SSRF en la optimización de imágenes, cache poisoning…) en el rango 16.0.0–16.3.7; se corrigen en 16.3.8. El tracker está protegido, así que actualizarlo requiere confirmación. El backoffice ya usa 16.3.8.
+- **`uis/talent-pipeline-tracker` usa `next@16.3.5`.** `npm audit` reporta vulnerabilidades críticas (RCE en `next/og`, SSRF en la optimización de imágenes, cache poisoning…) en el rango 16.0.0–16.3.7; se corrigen en 16.3.8. El tracker está protegido, así que actualizarlo requiere confirmación. El backoffice usa 16.3.8, que también es vulnerable desde el aviso del 2026-10-26 (ver "Actualizar `next`" en los próximos pasos).
 - `eslint-config-next@16` arrastra `braces` vulnerable (5 avisos *high*, solo en dependencias de desarrollo). `npm audit fix --force` bajaría a `eslint-config-next@14`, así que no se aplica.
 - Al pasar Pages a GitHub Actions, la raíz `https://caro-it.github.io/company-project-ai-engineering/` deja de mostrar el README (404). Si se quiere conservar, hay que añadir un `index.html` de redirección en el workflow.
 - El README raíz todavía dice que "no existe un `AGENTS.md` en la raíz" (texto del template).
 - **AUTH-01:**
   - Un admin puede quitarse su propio rol o desactivarse, y la API puede quedarse sin admin. Se recupera con `create-admin` (documentado en el README de la API).
   - Los JWT no se pueden revocar antes de que caduquen. Desactivar o borrar un usuario sí invalida sus tokens.
-  - El `Lock` que garantiza el email único solo protege dentro de un proceso. Con varios workers de uvicorn, TinyDB no es seguro: habrá que pasar a una base de datos real.
-  - `services/api` no tiene tests automatizados. `fastapi.testclient` (que reexporta el de Starlette 1.8) necesita `httpx2`; acepta `httpx` como alternativa obsoleta, con aviso de deprecación. Ninguno de los dos está instalado.
+  - El `Lock` que garantiza el email único, y el de `LockedJSONStorage`, solo protegen dentro de un proceso. Con varios workers de uvicorn, TinyDB no es seguro: habrá que pasar a una base de datos real.
+  - Los tests de `services/api` (pytest) cubren solo el gestor de incidencias y el seed. Auth, usuarios, perfiles y proveedores siguen sin tests automatizados.
 - **AUTH-02:**
   - `isTokenValid()` no verifica la firma del JWT: solo decodifica `exp`. Sirve para no mostrar el panel con un token caducado, pero cualquier token con un `exp` futuro pasa el `AuthGuard`. La validación real la hace la API, y su 401 hace que `apiFetch` cierre la sesión.
 
@@ -103,8 +146,14 @@ _Última actualización: 2026-10-26 · rama `feature/password-reset`_
   - Restablecer o cambiar la contraseña no invalida los JWT ya emitidos: siguen valiendo hasta que caducan.
   - Con el remitente `onboarding@resend.dev`, Resend solo entrega al email de la cuenta de Resend. Para otros destinatarios hace falta verificar un dominio.
   - No hay límite de peticiones en `forgot-password`.
-- La sección "Estructura" de `uis/backoffice/README.md` está desactualizada desde AUTH-02 (no refleja los route groups `(auth)` y `(panel)`).
+- `uis/backoffice/lib/incidents.ts` copia los valores y `ALLOWED_TRANSITIONS` de `incidents_core/incident_model.py`. Si cambian en Python, hay que cambiarlos a mano en el backoffice.
+- Los títulos de pestaña (`metadata`) y todo el backoffice están solo en español; ver la decisión sobre el soporte bilingüe en la fase 3 del gestor.
+- **Gestor de incidencias:**
+  - `scripts/analyze.py` falla en la consola de Windows (cp1252) al imprimir `├─`. Funciona con `PYTHONIOENCODING=utf-8` o `python -X utf8`. El seed solo imprime ASCII.
+  - El seed inserta la incidencia y después su entrada en `incident_seed_log`, sin transacción. Si se corta entre las dos, la siguiente ejecución duplicaría esa incidencia.
+  - Ninguna descripción del CSV supera 120 caracteres (la más larga tiene 54), así que el truncado del título no se ejercita con los datos reales.
 
 ## Pendiente de confirmar con el mentor
 
 - El responsable de Ventas (Megan Clarke o Marcos Ibáñez); ver `projectbrief.md`.
+- Las etiquetas para mostrar de estados, orígenes y categorías del gestor de incidencias; ver `projectbrief.md`.
