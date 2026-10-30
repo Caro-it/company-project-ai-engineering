@@ -1,6 +1,7 @@
 """Analizador de incidencias de Nexova.
 Uso: python analyze.py <ruta_al_csv>
 """
+import csv
 import sys
 from pathlib import Path
 
@@ -110,13 +111,24 @@ def main(argv: list[str]) -> int:
         # Los mensajes de error nunca incluyen contenido de registros (emails)
         print(f"Error al leer el CSV: {error}", file=sys.stderr)
         return 1
+    except csv.Error:
+        print("Error al leer el CSV: el fichero está mal formado.", file=sys.stderr)
+        return 1
+    except OSError as error:
+        # Permisos, fichero bloqueado o borrado entre la comprobación y la lectura
+        print(f"Error: no se ha podido abrir '{path}' ({error.strerror}).", file=sys.stderr)
+        return 1
 
     summary = analyze_rows(rows)
     print_report(summary, path.name)
 
     if ask_export():
         output = Path("results.csv")
-        output.write_text(summary_to_csv(summary), encoding="utf-8")
+        try:
+            output.write_text(summary_to_csv(summary), encoding="utf-8")
+        except OSError as error:
+            print(f"Error: no se ha podido escribir '{output}' ({error.strerror}).", file=sys.stderr)
+            return 1
         print(f"Resultados exportados a {output.resolve()}")
     else:
         print("Exportación omitida.")
