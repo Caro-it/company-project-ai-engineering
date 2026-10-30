@@ -45,6 +45,18 @@ No se ha encontrado ningún hallazgo crítico: no hay secretos (`SECRET_KEY`, `R
 - Ninguna de las dos apps Next.js tiene páginas de error (`error.tsx`, `global-error.tsx` ni `not-found.tsx`).
 - El alta de usuarios revela si un email está registrado.
 
+
+## Estado de las correcciones
+
+_Actualizado: 2026-10-30._
+
+- **Backend (`services/api`), paso 2:** resueltos M18, M19, M21, B18, B19 y B20; A6 mitigado en parte. M20 (límite de 50 MB) y B21 (health check de BD corrupta) quedan fuera por decisión de la usuaria.
+  - Commits: `49e322e fix(api): structured error responses without sensitive data`, `cd050fb test(api): cover error handling cases` y `6869967 test(api): cover validation, corrupt records and reset token cases`.
+  - Tests: `uv run pytest` en `services/api` → 53 tests correctos (`tests/test_users_api.py` y `tests/test_error_handling.py` cubren estos arreglos).
+- **Frontends y scripts:** sin cambios todavía. Los hallazgos del tracker requieren confirmación (carpeta protegida).
+
+Los hallazgos resueltos llevan la marca ✅ en su fila; los mitigados en parte, ⚠️; los aplazados, ⏸️. La tabla del resumen recoge los hallazgos de la auditoría original.
+
 ---
 
 ## CRÍTICO
@@ -69,7 +81,7 @@ Ninguno.
 
 | # | Archivo:línea | Cat. | Problema | Corrección sugerida |
 |---|---|---|---|---|
-| A6 | `services/api/app/routers/users.py:41-42` + `services/api/app/services/users.py:29` | 5 | `POST /users` responde 409 con «Ya existe un usuario con el email X»: permite averiguar qué emails están registrados y repite el email en la respuesta (`str(error)`). Ocurre lo mismo en `PUT /users/{id}` (`users.py:70-71`), aunque ahí hace falta estar autenticado. | Responder siempre igual (p. ej. 201/202 con «Revisa tu correo») y avisar por email al titular, o como mínimo usar un `detail` genérico sin el email. |
+| A6 | `services/api/app/routers/users.py:41-42` + `services/api/app/services/users.py:29` | 5 | **⚠️ Mitigado en parte (`49e322e`):** el 409 ya no repite el email, ni en `POST /users` («No se ha podido crear la cuenta con esos datos») ni en `PUT /users/{id}` («No se ha podido actualizar el email»). Se mantiene el código 409 por decisión de la usuaria, así que el status sigue indicando que el email existe; queda además el mensaje del frontend (A2). `POST /users` responde 409 con «Ya existe un usuario con el email X»: permite averiguar qué emails están registrados y repite el email en la respuesta (`str(error)`). Ocurre lo mismo en `PUT /users/{id}` (`users.py:70-71`), aunque ahí hace falta estar autenticado. | Responder siempre igual (p. ej. 201/202 con «Revisa tu correo») y avisar por email al titular, o como mínimo usar un `detail` genérico sin el email. |
 
 ### Scripts
 
@@ -110,10 +122,10 @@ Ninguno.
 
 | # | Archivo:línea | Cat. | Problema | Corrección sugerida |
 |---|---|---|---|---|
-| M18 | `app/services/incidents.py:91-94`, `:74`, `:113` | 9 | Accesos directos `doc["status"]`, `doc["created_at"]` y `ALLOWED_TRANSITIONS[current]`: un solo registro corrupto en `incidents.json` hace que todo `/summary`, el listado o el cambio de estado devuelvan 500. | Usar `.get()` con fallback y saltar o registrar los documentos inválidos (con su id, no su contenido). |
-| M19 | `app/errors.py:101-102` (422 por defecto en auth, users y profiles) | 4, 5 | El 422 de FastAPI incluye `input` con el valor recibido: una contraseña que no cumple la validación (`auth_models.py:30`) vuelve tal cual en la respuesta y puede acabar en logs de proxy o del navegador. | En el handler, eliminar `input` (y `ctx`) de `exc.errors()` antes de responder, en todas las rutas. |
-| M20 | `app/routers/incidents.py:40-44` | 9 | `await file.read()` carga el fichero entero en memoria antes de comprobar el límite de 50 MB. | Comprobar el `Content-Length` o leer por bloques y cortar al superar el máximo. |
-| M21 | `app/routers/incidents.py:51-55` + `packages/shared/incidents_core/incidents_core/validation.py:20-25` | 1 | Solo se captura `ValueError`. Un `csv.Error` (byte NUL, campo demasiado grande) acaba en un 500 genérico en vez de un 422 con un mensaje útil. | Capturar también `csv.Error` y devolver un 422 con «El CSV está mal formado». |
+| M18 | `app/services/incidents.py:91-94`, `:74`, `:113` | 9 | **✅ Resuelto (`49e322e`):** `/summary` usa `.get()` y no suma valores ausentes o desconocidos; el listado omite los registros que no validan (aviso en el log con solo el id); el cambio de estado desde un estado corrupto da 400 `invalid_transition`. Pendiente: `GET /api/incidents/{id}` con un registro corrupto sigue dando 500. Accesos directos `doc["status"]`, `doc["created_at"]` y `ALLOWED_TRANSITIONS[current]`: un solo registro corrupto en `incidents.json` hace que todo `/summary`, el listado o el cambio de estado devuelvan 500. | Usar `.get()` con fallback y saltar o registrar los documentos inválidos (con su id, no su contenido). |
+| M19 | `app/errors.py:101-102` (422 por defecto en auth, users y profiles) | 4, 5 | **✅ Resuelto (`49e322e`):** el 422 de las rutas fuera del gestor devuelve solo `loc`, `msg` y `type`, sin `input` ni `ctx`. El 422 de FastAPI incluye `input` con el valor recibido: una contraseña que no cumple la validación (`auth_models.py:30`) vuelve tal cual en la respuesta y puede acabar en logs de proxy o del navegador. | En el handler, eliminar `input` (y `ctx`) de `exc.errors()` antes de responder, en todas las rutas. |
+| M20 | `app/routers/incidents.py:40-44` | 9 | **⏸️ Fuera de alcance por decisión de la usuaria (paso 2).** `await file.read()` carga el fichero entero en memoria antes de comprobar el límite de 50 MB. | Comprobar el `Content-Length` o leer por bloques y cortar al superar el máximo. |
+| M21 | `app/routers/incidents.py:51-55` + `packages/shared/incidents_core/incidents_core/validation.py:20-25` | 1 | **✅ Resuelto (`49e322e`):** `csv.Error` → 422 «El fichero CSV está mal formado y no se ha podido leer.». Solo se captura `ValueError`. Un `csv.Error` (byte NUL, campo demasiado grande) acaba en un 500 genérico en vez de un 422 con un mensaje útil. | Capturar también `csv.Error` y devolver un 422 con «El CSV está mal formado». |
 
 ### Scripts
 
@@ -157,10 +169,10 @@ Ninguno.
 
 | # | Archivo:línea | Cat. | Problema | Corrección sugerida |
 |---|---|---|---|---|
-| B18 | `app/routers/auth.py:94-98` | 9 | `consume_reset_token` marca el token como usado antes de `update_user`: si la escritura falla, el enlace queda gastado y la contraseña sin cambiar. | Marcar el token como usado después de actualizar, dentro del mismo lock, o revertir si falla. |
-| B19 | `app/routers/auth.py:74` | 3 | `create_reset_token` va fuera del try: si TinyDB falla, la tarea en segundo plano muere y solo queda el traceback de Starlette, sin contexto. La respuesta al usuario sigue siendo correcta. | Incluirlo en el try y usar `logger.exception` con el `user_id`. |
-| B20 | `app/routers/users.py:33`, `suppliers.py:37`, `incidents.py:86` | 4 | Los 404 repiten en el `detail` el id recibido. Es inocuo, pero refleja la entrada del usuario. | `detail` fijo («Usuario no encontrado») y el id solo en los logs. |
-| B21 | `app/database.py:39-80` | 9 | Si un JSON de `data/` se corrompe, cada petición falla con un 500 genérico y no hay ningún aviso al arrancar. | Health check que lea las tablas y un log claro de «BD corrupta: <archivo>» (sin contenido). |
+| B18 | `app/routers/auth.py:94-98` | 9 | **✅ Resuelto (`49e322e`):** `consume_reset_token` aplica el cambio dentro de su lock y marca el token como usado solo si ha ido bien. `consume_reset_token` marca el token como usado antes de `update_user`: si la escritura falla, el enlace queda gastado y la contraseña sin cambiar. | Marcar el token como usado después de actualizar, dentro del mismo lock, o revertir si falla. |
+| B19 | `app/routers/auth.py:74` | 3 | **✅ Resuelto (`49e322e`):** `create_reset_token` va dentro del try y el log lleva solo el `user_id`. `create_reset_token` va fuera del try: si TinyDB falla, la tarea en segundo plano muere y solo queda el traceback de Starlette, sin contexto. La respuesta al usuario sigue siendo correcta. | Incluirlo en el try y usar `logger.exception` con el `user_id`. |
+| B20 | `app/routers/users.py:33`, `suppliers.py:37`, `incidents.py:86` | 4 | **✅ Resuelto (`49e322e`):** «Usuario no encontrado», «Proveedor no encontrado» e «Incidencia no encontrada». Los 404 repiten en el `detail` el id recibido. Es inocuo, pero refleja la entrada del usuario. | `detail` fijo («Usuario no encontrado») y el id solo en los logs. |
+| B21 | `app/database.py:39-80` | 9 | **⏸️ Fuera de alcance por decisión de la usuaria (paso 2).** Si un JSON de `data/` se corrompe, cada petición falla con un 500 genérico y no hay ningún aviso al arrancar. | Health check que lea las tablas y un log claro de «BD corrupta: <archivo>» (sin contenido). |
 
 ### Scripts
 
@@ -186,10 +198,10 @@ Ninguno.
 
 ## Prioridad recomendada
 
-1. **A6 + A2:** quitar la enumeración de emails en el alta (backend y frontend a la vez).
+1. **A2 (+ resto de A6):** quitar la enumeración de emails en el alta del frontend. En el backend el detail ya es neutro; queda decidir si el 409 se sustituye por una respuesta idéntica.
 2. **A1 + A3:** páginas de error y `not-found` en las dos apps.
 3. **M1–M3, A4, M9, M10:** un cliente HTTP con parseo seguro, timeout y una única función de mensajes amigables por app.
-4. **M18, M19, M21:** robustez del backend ante datos corruptos, `input` en los 422 y `csv.Error`.
+4. ~~**M18, M19, M21:** robustez del backend ante datos corruptos, `input` en los 422 y `csv.Error`.~~ Hecho en `49e322e`.
 5. El resto, por módulo, cuando se toque cada archivo.
 
 > Nota: `uis/talent-pipeline-tracker/` es una entrega cerrada (carpeta protegida). Sus correcciones requieren confirmación explícita antes de aplicarse.

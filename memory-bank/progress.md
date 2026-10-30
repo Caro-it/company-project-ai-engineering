@@ -1,6 +1,6 @@
 # Progress
 
-_Última actualización: 2026-10-26 · rama `feature/incident-manager`_
+_Última actualización: 2026-10-30 · rama `feature/error-handling-audit`_
 
 ## Hecho
 
@@ -107,6 +107,19 @@ _Última actualización: 2026-10-26 · rama `feature/incident-manager`_
     - La API gana dos variables opcionales para ello: `NEXOVA_DATA_DIR` y `CORS_ORIGINS`.
     - Capturas en `docs/screenshots/incident-manager/`.
 
+- **Auditoría de gestión de errores, rama `feature/error-handling-audit` (sin push):**
+  - Paso 1: informe en `docs/ERROR_HANDLING_AUDIT.md` (commit `1d9c55b`). Cubre backoffice, tracker, `services/api` y scripts: 0 críticos, 6 altos, 23 medios y 26 bajos. Solo lectura; los frontends los revisaron subagentes y se verificaron a mano los hallazgos principales.
+  - Paso 2, solo `services/api` (commit `49e322e`):
+    - 422 fuera del gestor de incidencias con solo `loc`, `msg` y `type`: nunca `input` (podía devolver la contraseña). El formato `{"detail": [...]}` no cambia, así que el backoffice sigue leyendo los errores por campo.
+    - 409 con detail neutro en `POST /users` («No se ha podido crear la cuenta con esos datos») y `PUT /users/{id}` («No se ha podido actualizar el email»). Se mantiene el código 409 por decisión de la usuaria.
+    - 404 con detail fijo, sin el id recibido (usuarios, proveedores, incidencias).
+    - `app/services/incidents.py` tolera registros corruptos: `/summary` con `.get()`, el listado omite los que no validan (log con solo el id) y una transición desde un estado corrupto da 400 `invalid_transition`.
+    - `csv.Error` en `/api/incidents/analyze` → 422 con mensaje legible.
+    - Reset de contraseña: `consume_reset_token(token, apply)` aplica el cambio dentro de su lock y marca el token como usado solo si ha ido bien. `create_reset_token` va dentro del try y el log lleva solo el `user_id`.
+  - Tests (commits `cd050fb` y `6869967`): `tests/test_users_api.py` y `tests/test_error_handling.py`. `uv run pytest` → 53 tests correctos. Los 7 de `test_error_handling.py` fallan contra el código anterior a los arreglos.
+  - Fuera de alcance por decisión de la usuaria: límite de 50 MB leído antes de comprobar el tamaño (M20) y health check de BD corrupta (B21).
+  - Próximo: corregir los frontends (A1–A5, M1–M17…). El tracker está protegido y necesita confirmación. También los scripts (M22, M23, B22–B26) y el 500 de `GET /api/incidents/{id}` con un registro corrupto.
+
 - **Actualizar `next` en `uis/backoffice` (pendiente, en una rama aparte después del merge de `feature/incident-manager`):**
   - El 2026-10-26, `npm audit` marca como **crítico** `next` 16.0.0–16.4.0, que incluye el 16.3.8 del backoffice. Avisos: RCE sin autenticar en la API de optimización de imágenes con SVG, DoS en el App Router con Server Actions y RCE sin autenticar en funciones `use cache` que devuelven typed arrays.
   - Arreglo disponible: `next@16.4.3` (no es un salto de versión mayor). Actualizar también `eslint-config-next` a la misma versión.
@@ -138,7 +151,7 @@ _Última actualización: 2026-10-26 · rama `feature/incident-manager`_
   - Un admin puede quitarse su propio rol o desactivarse, y la API puede quedarse sin admin. Se recupera con `create-admin` (documentado en el README de la API).
   - Los JWT no se pueden revocar antes de que caduquen. Desactivar o borrar un usuario sí invalida sus tokens.
   - El `Lock` que garantiza el email único, y el de `LockedJSONStorage`, solo protegen dentro de un proceso. Con varios workers de uvicorn, TinyDB no es seguro: habrá que pasar a una base de datos real.
-  - Los tests de `services/api` (pytest) cubren solo el gestor de incidencias y el seed. Auth, usuarios, perfiles y proveedores siguen sin tests automatizados.
+  - Los tests de `services/api` (pytest) cubren el gestor de incidencias, el seed y los casos de gestión de errores (409 de usuarios, 422 sin `input`, reset de contraseña). El resto de auth, usuarios, perfiles y proveedores sigue sin tests automatizados.
 - **AUTH-02:**
   - `isTokenValid()` no verifica la firma del JWT: solo decodifica `exp`. Sirve para no mostrar el panel con un token caducado, pero cualquier token con un `exp` futuro pasa el `AuthGuard`. La validación real la hace la API, y su 401 hace que `apiFetch` cierre la sesión.
 
