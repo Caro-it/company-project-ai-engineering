@@ -11,7 +11,8 @@ export default function NewCandidate() {
 
   async function handleCreate(input: RecordInput) {
     const created = await createRecord(input);
-    router.push(`/candidates/${created.id}`);
+    // Sin id no se puede abrir la ficha (evita /candidates/undefined): se vuelve al listado
+    router.push(created?.id ? `/candidates/${created.id}` : '/');
   }
 
   return (

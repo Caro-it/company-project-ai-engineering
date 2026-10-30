@@ -15,8 +15,35 @@ export interface Me {
   } | null;
 }
 
+// Error de la API de Nexova con su status (0 = sin conexión), para que la UI
+// distinga un 401 de un fallo de red o del servidor. message es siempre un texto fijo.
+export class AuthApiError extends Error {
+  constructor(
+    message: string,
+    readonly status: number,
+  ) {
+    super(message);
+    this.name = "AuthApiError";
+  }
+}
+
 const NETWORK_ERROR =
-  "No se pudo conectar con la API de Nexova. ¿Está arrancada en el puerto 8000?";
+  "No se pudo conectar con el servidor. Inténtalo de nuevo en unos minutos.";
+const INVALID_RESPONSE = "Respuesta inesperada del servidor. Inténtalo de nuevo.";
+
+function statusText(status: number): string {
+  if (status === 429) return "Demasiados intentos. Espera un momento e inténtalo de nuevo.";
+  if (status >= 500) return "Ha ocurrido un error en el servidor. Inténtalo de nuevo en unos minutos.";
+  return "No se ha podido completar la operación. Inténtalo de nuevo.";
+}
+
+async function readJson<T>(res: Response): Promise<T> {
+  try {
+    return (await res.json()) as T;
+  } catch {
+    throw new AuthApiError(INVALID_RESPONSE, res.status);
+  }
+}
 
 // El login es OAuth2 password flow: form-urlencoded con username = email
 export async function login(email: string, password: string): Promise<string> {
@@ -27,12 +54,15 @@ export async function login(email: string, password: string): Promise<string> {
       body: new URLSearchParams({ username: email, password }),
     });
   } catch {
-    throw new Error(NETWORK_ERROR);
+    throw new AuthApiError(NETWORK_ERROR, 0);
   }
   // Mensaje genérico: no se distingue si falla el email o la contraseña
-  if (res.status === 401) throw new Error("Email o contraseña incorrectos.");
-  if (!res.ok) throw new Error(`Error ${res.status} al iniciar sesión.`);
-  const data: { access_token: string } = await res.json();
+  if (res.status === 401) throw new AuthApiError("Email o contraseña incorrectos.", 401);
+  if (!res.ok) throw new AuthApiError(statusText(res.status), res.status);
+  const data = await readJson<{ access_token?: unknown } | null>(res);
+  if (typeof data?.access_token !== "string" || !data.access_token) {
+    throw new AuthApiError(INVALID_RESPONSE, res.status);
+  }
   return data.access_token;
 }
 
@@ -44,13 +74,13 @@ export async function getMe(): Promise<Me> {
       headers: { Authorization: `Bearer ${getToken() ?? ""}` },
     });
   } catch {
-    throw new Error(NETWORK_ERROR);
+    throw new AuthApiError(NETWORK_ERROR, 0);
   }
   if (res.status === 401) {
     clearToken();
     window.location.replace("/login");
-    throw new Error("La sesión no es válida.");
+    throw new AuthApiError("La sesión no es válida.", 401);
   }
-  if (!res.ok) throw new Error(`Error ${res.status} al comprobar la sesión.`);
-  return res.json() as Promise<Me>;
+  if (!res.ok) throw new AuthApiError(statusText(res.status), res.status);
+  return readJson<Me>(res);
 }

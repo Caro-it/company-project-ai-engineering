@@ -1,7 +1,8 @@
-﻿'use client';
+'use client';
 
 import { useState } from 'react';
 import type { RecordInput } from '@/types/record';
+import { errorMessage } from '@/services/apiClient';
 
 interface RecordFormProps {
   initialValues?: RecordInput;
@@ -64,8 +65,7 @@ export default function RecordForm({ initialValues, submitLabel, onSubmit }: Rec
       await onSubmit(values);
       setMessage('Datos guardados correctamente.');
     } catch (err) {
-      const detail = err instanceof Error ? err.message : '';
-      setSendError(`No se han podido guardar los datos. ${detail}`);
+      setSendError(`No se han podido guardar los datos. ${errorMessage(err)}`);
     } finally {
       setSending(false);
     }

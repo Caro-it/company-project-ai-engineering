@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { Note } from '@/types/record';
 import { getNotes, addNote, deleteNote } from '@/services/notes';
+import { errorMessage } from '@/services/apiClient';
+import { formatDate } from '@/lib/labels';
 
 interface NotesSectionProps {
   recordId: string;
@@ -25,8 +27,8 @@ export default function NotesSection({ recordId }: NotesSectionProps) {
       setError(null);
       const data = await getNotes(recordId);
       setNotes(data);
-    } catch {
-      setError('No se han podido cargar las notas.');
+    } catch (err) {
+      setError(`No se han podido cargar las notas. ${errorMessage(err)}`);
     } finally {
       setLoading(false);
     }
@@ -42,8 +44,8 @@ export default function NotesSection({ recordId }: NotesSectionProps) {
         setNotes(data);
         setError(null);
       })
-      .catch(() => {
-        if (!cancelled) setError('No se han podido cargar las notas.');
+      .catch((err) => {
+        if (!cancelled) setError(`No se han podido cargar las notas. ${errorMessage(err)}`);
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -69,8 +71,7 @@ export default function NotesSection({ recordId }: NotesSectionProps) {
       setMessage('Nota añadida.');
       await loadNotes();
     } catch (err) {
-      const detail = err instanceof Error ? err.message : '';
-      setActionError(`No se ha podido añadir la nota. ${detail}`);
+      setActionError(`No se ha podido añadir la nota. ${errorMessage(err)}`);
     } finally {
       setAdding(false);
     }
@@ -86,8 +87,7 @@ export default function NotesSection({ recordId }: NotesSectionProps) {
       setNotes((prev) => prev.filter((note) => note.id !== noteId));
       setMessage('Nota eliminada.');
     } catch (err) {
-      const detail = err instanceof Error ? err.message : '';
-      setActionError(`No se ha podido eliminar la nota. ${detail}`);
+      setActionError(`No se ha podido eliminar la nota. ${errorMessage(err)}`);
     } finally {
       setDeletingId(null);
     }
@@ -98,7 +98,14 @@ export default function NotesSection({ recordId }: NotesSectionProps) {
       <h3 className="text-lg font-bold mb-2">Notas internas</h3>
 
       {loading && <p>Cargando notas...</p>}
-      {error && <p className="text-red-600">{error}</p>}
+      {error && !loading && (
+        <div role="alert" className="text-red-600">
+          <p>{error}</p>
+          <button onClick={loadNotes} className="mt-2 bg-blue-700 text-white px-4 py-2">
+            Reintentar
+          </button>
+        </div>
+      )}
 
       {!loading && !error && notes.length === 0 && (
         <p className="text-sm text-gray-600">Esta candidatura no tiene notas.</p>
@@ -110,7 +117,7 @@ export default function NotesSection({ recordId }: NotesSectionProps) {
             <li key={note.id} className="border-b py-2 flex justify-between gap-4 max-w-2xl">
               <div>
                 <p>{note.content}</p>
-                <p className="text-xs text-gray-500">{new Date(note.created_at).toLocaleString('es-ES')}</p>
+                <p className="text-xs text-gray-500">{formatDate(note.created_at, true)}</p>
               </div>
               <button onClick={() => handleDelete(note.id)} disabled={deletingId === note.id} className="text-red-600 text-sm hover:underline disabled:opacity-50">
                 {deletingId === note.id ? 'Eliminando...' : 'Eliminar'}
