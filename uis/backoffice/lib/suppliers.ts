@@ -1,6 +1,7 @@
 // Cliente de la API del directorio de proveedores (services/api/app/routers/suppliers.py).
 // Fuente de verdad de campos y valores: docs/CONTEXT-suppliers-nexova.md
-import { apiFetch } from "@/lib/api";
+// Errores: ApiError de lib/account (texto fijo por status y campos que fallaron en un 422).
+import { request } from "@/lib/account";
 
 export const COUNTRIES = ["Spain", "USA"] as const;
 export type Country = (typeof COUNTRIES)[number];
@@ -58,38 +59,6 @@ export type SupplierCreate = Omit<Supplier, "id" | "updated_at">;
 export interface SupplierFilters {
   country?: Country | "";
   category?: Category | "";
-}
-
-// FastAPI devuelve "detail" como texto (404) o como lista de errores de Pydantic (422)
-async function errorMessage(res: Response): Promise<string> {
-  try {
-    const data = await res.json();
-    if (typeof data?.detail === "string") return data.detail;
-    if (Array.isArray(data?.detail)) {
-      return data.detail
-        .map((e: { loc?: (string | number)[]; msg?: string }) => {
-          const field = e.loc?.filter((p) => p !== "body").join(".");
-          return field ? `${field}: ${e.msg}` : e.msg;
-        })
-        .join(" · ");
-    }
-  } catch {
-    // respuesta sin JSON: usamos el mensaje genérico
-  }
-  return `Error ${res.status} al procesar la petición.`;
-}
-
-async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  let res: Response;
-  try {
-    res = await apiFetch(path, init);
-  } catch {
-    throw new Error(
-      "No se pudo conectar con la API. ¿Está arrancada en el puerto 8000?",
-    );
-  }
-  if (!res.ok) throw new Error(await errorMessage(res));
-  return res.json() as Promise<T>;
 }
 
 const JSON_HEADERS = { "Content-Type": "application/json" };

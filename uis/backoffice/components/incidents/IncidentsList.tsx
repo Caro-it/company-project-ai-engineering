@@ -322,7 +322,7 @@ function IncidentRow({
 }) {
   const [busy, setBusy] = useState(false);
   const [rowError, setRowError] = useState<string | null>(null);
-  const next = ALLOWED_TRANSITIONS[incident.status];
+  const next = ALLOWED_TRANSITIONS[incident.status] ?? [];
   const selectId = `estado-${incident.id}`;
 
   // Actualización optimista: se pinta el estado nuevo y, si la API falla, se vuelve atrás
@@ -354,13 +354,13 @@ function IncidentRow({
         )}
       </td>
       <td className="px-4 py-3 align-top whitespace-nowrap">
-        {CATEGORY_LABELS[incident.category]}
+        {CATEGORY_LABELS[incident.category] ?? incident.category}
       </td>
       <td className="px-4 py-3 align-top whitespace-nowrap">
-        {ORIGIN_LABELS[incident.origin]}
+        {ORIGIN_LABELS[incident.origin] ?? incident.origin}
       </td>
       <td className="px-4 py-3 align-top whitespace-nowrap">
-        {BRANCH_LABELS[incident.branch]}
+        {BRANCH_LABELS[incident.branch] ?? incident.branch}
       </td>
       <td className="px-4 py-3 align-top whitespace-nowrap">
         {formatIncidentDate(incident.created_at)}
@@ -368,9 +368,9 @@ function IncidentRow({
       <td className="px-4 py-3 align-top whitespace-nowrap">
         <span
           data-testid="incident-status"
-          className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${STATUS_BADGE[incident.status]}`}
+          className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${STATUS_BADGE[incident.status] ?? ""}`}
         >
-          {STATUS_LABELS[incident.status]}
+          {STATUS_LABELS[incident.status] ?? incident.status}
         </span>
       </td>
       <td className="px-4 py-3 align-top">
