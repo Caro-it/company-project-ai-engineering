@@ -1,3 +1,5 @@
+import csv
+
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from fastapi.responses import Response
 
@@ -53,6 +55,12 @@ async def analyze_incidents(file: UploadFile = File(...)) -> dict:
     except ValueError as error:
         # Los mensajes de parse_rows nunca incluyen datos de registros
         raise HTTPException(status_code=422, detail=str(error)) from None
+    except csv.Error:
+        # p. ej. un campo que supera el límite del módulo csv. Sin el mensaje original
+        raise HTTPException(
+            status_code=422,
+            detail="El fichero CSV está mal formado y no se ha podido leer.",
+        ) from None
 
     summary = analyze_rows(rows)
     _last_summary = summary
@@ -82,8 +90,9 @@ def export_results() -> Response:
 # Los errores de validación de estas rutas son 400 (ver app/errors.py)
 
 
-def _not_found(incident_id: str) -> ApiError:
-    return ApiError(404, "not_found", f"Incidencia {incident_id} no encontrada")
+def _not_found() -> ApiError:
+    # Detail fijo: no se repite el id recibido
+    return ApiError(404, "not_found", "Incidencia no encontrada")
 
 
 @router.post("", response_model=Incident, status_code=201)
@@ -114,7 +123,7 @@ def read_summary() -> dict:
 def read_incident(incident_id: str):
     incident = get_incident(incident_id)
     if incident is None:
-        raise _not_found(incident_id)
+        raise _not_found()
     return incident
 
 
@@ -129,5 +138,5 @@ def update_status(incident_id: str, payload: IncidentStatusUpdate):
             **{"from": error.current, "to": error.new, "allowed": error.allowed},
         ) from None
     if incident is None:
-        raise _not_found(incident_id)
+        raise _not_found()
     return incident

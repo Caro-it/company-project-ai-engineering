@@ -2,7 +2,8 @@
 
 - Validación: en las rutas del Gestor de Incidencias → 400 con errores por campo y
   mensajes en español. En el resto (auth, users, profiles, suppliers, analyze) se
-  mantiene el 422 por defecto de FastAPI, del que depende el frontend de AUTH-02.
+  mantiene el formato del 422 de FastAPI, del que depende el frontend de AUTH-02,
+  pero solo con loc, msg y type: nunca "input", que puede contener contraseñas.
 - Errores propios del gestor (ApiError: 404, transición inválida) → JSON con "code".
 - Excepciones no controladas → 500 con mensaje genérico, sin traceback. Las captura
   un middleware que queda por dentro de CORSMiddleware, para que el 500 lleve las
@@ -14,7 +15,6 @@ traduzca; "message"/"detail" en español queda como respaldo.
 import logging
 
 from fastapi import FastAPI, Request
-from fastapi.exception_handlers import request_validation_exception_handler
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
@@ -97,9 +97,19 @@ def _describe(field: str, error_type: str) -> dict:
     return {"code": "invalid_value", "message": f"{name} no es válid{ending}"}
 
 
+def _safe_errors(exc: RequestValidationError) -> list[dict]:
+    """Errores de Pydantic con solo loc, msg y type: sin "input" (puede ser una
+    contraseña) ni "ctx"."""
+    return [
+        {"loc": list(error["loc"]), "msg": error["msg"], "type": error["type"]}
+        for error in exc.errors()
+    ]
+
+
 async def validation_error_handler(request: Request, exc: RequestValidationError):
     if not _is_incident_manager_path(request.url.path):
-        return await request_validation_exception_handler(request, exc)
+        # Mismo formato que el 422 de FastAPI ({"detail": [...]}), sin el valor enviado
+        return JSONResponse(status_code=422, content={"detail": _safe_errors(exc)})
 
     errors = []
     for error in exc.errors():

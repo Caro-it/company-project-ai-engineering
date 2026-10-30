@@ -71,13 +71,15 @@ def _start_password_reset(email: str) -> None:
     user = get_user_by_email(email)
     if user is None or not user["is_active"]:
         return
-    token = create_reset_token(user["id"])
-    reset_url = f"{settings.FRONTEND_URL.rstrip('/')}/reset-password?token={token}"
     try:
+        token = create_reset_token(user["id"])
+        reset_url = f"{settings.FRONTEND_URL.rstrip('/')}/reset-password?token={token}"
         send_password_reset_email(user["email"], reset_url)
     except Exception:
-        # Sin el enlace en el log: el token en claro no debe quedar escrito
-        logger.exception("No se pudo enviar el email de recuperación al usuario %s", user["id"])
+        # Solo el user_id: el token en claro y el enlace no deben quedar escritos
+        logger.exception(
+            "No se pudo generar o enviar el enlace de recuperación al usuario %s", user["id"]
+        )
 
 
 @router.post("/forgot-password", response_model=MessageOut)
@@ -90,12 +92,17 @@ def forgot_password(data: ForgotPasswordRequest, background_tasks: BackgroundTas
 
 @router.post("/reset-password", response_model=MessageOut)
 def reset_password(data: ResetPasswordRequest):
-    """400 si el token no existe, ha caducado o ya se usó, o si el usuario ya no está activo."""
-    user_id = consume_reset_token(data.token)
-    user = get_user_by_id(user_id) if user_id else None
-    if user is None or not user["is_active"]:
+    """400 si el token no existe, ha caducado o ya se usó, o si el usuario ya no está activo.
+    El token se marca como usado después de cambiar la contraseña, no antes."""
+
+    def apply_new_password(user_id: str) -> bool:
+        user = get_user_by_id(user_id)
+        if user is None or not user["is_active"]:
+            return False
+        return update_user(user["id"], UserUpdate(password=data.new_password)) is not None
+
+    if not consume_reset_token(data.token, apply_new_password):
         raise HTTPException(status_code=400, detail=INVALID_RESET_TOKEN)
-    update_user(user["id"], UserUpdate(password=data.new_password))
     return MessageOut(message="Contraseña actualizada. Ya puedes iniciar sesión.")
 
 
