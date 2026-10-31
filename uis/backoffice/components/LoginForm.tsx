@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
-import { ApiError, login } from "@/lib/account";
+import { ApiError, errorMessage, login } from "@/lib/account";
 import { setToken } from "@/lib/auth";
 import { useTokenStatus } from "@/lib/useTokenStatus";
 
@@ -23,7 +23,7 @@ function loginErrorText(e: unknown): string {
   if (e instanceof ApiError && e.status === 401) {
     return "Email o contraseña incorrectos. Revísalos e inténtalo de nuevo.";
   }
-  return e instanceof Error ? e.message : "Error inesperado.";
+  return errorMessage(e);
 }
 
 const inputClass =

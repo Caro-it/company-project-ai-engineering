@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 
-import { getMe, updateMyProfile, type ProfileData } from "@/lib/account";
+import { errorMessage, getMe, updateMyProfile, type ProfileData } from "@/lib/account";
 
 type Field = keyof ProfileData;
 type FormState = Record<Field, string>;
@@ -21,10 +21,6 @@ function toForm(profile: ProfileData | null): FormState {
   };
 }
 
-function errorText(e: unknown): string {
-  return e instanceof Error ? e.message : "Error inesperado.";
-}
-
 const baseInputClass = "mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm";
 const inputClass = `${baseInputClass} bg-white`;
 // Solo lectura: aspecto bloqueado (sin bg-white, que chocaría con bg-slate-100)
@@ -38,17 +34,18 @@ export function ProfileForm() {
   const [saveError, setSaveError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
     getMe()
       .then((me) => {
         if (cancelled) return;
-        setEmail(me.email);
-        setForm(toForm(me.profile));
+        setEmail(me?.email ?? null);
+        setForm(toForm(me?.profile ?? null));
       })
       .catch((e) => {
-        if (!cancelled) setLoadError(errorText(e));
+        if (!cancelled) setLoadError(errorMessage(e));
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -56,7 +53,13 @@ export function ProfileForm() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [reloadKey]);
+
+  function reload() {
+    setLoading(true);
+    setLoadError(null);
+    setReloadKey((k) => k + 1);
+  }
 
   async function handleSubmit() {
     setSaveError(null);
@@ -72,7 +75,7 @@ export function ProfileForm() {
       setForm(toForm(saved));
       setSuccess("Perfil guardado correctamente.");
     } catch (e) {
-      setSaveError(errorText(e));
+      setSaveError(errorMessage(e));
     } finally {
       setSaving(false);
     }
@@ -88,12 +91,19 @@ export function ProfileForm() {
 
   if (loadError) {
     return (
-      <p
+      <div
         role="alert"
-        className="rounded-md border border-rose-200 bg-rose-50 p-3 text-sm text-rose-800"
+        className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800"
       >
-        No se pudo cargar tu perfil: {loadError}
-      </p>
+        <span>No se pudo cargar tu perfil. {loadError}</span>
+        <button
+          type="button"
+          onClick={reload}
+          className="rounded-md bg-rose-700 px-3 py-1.5 font-medium text-white hover:bg-rose-800"
+        >
+          Reintentar
+        </button>
+      </div>
     );
   }
 

@@ -1,6 +1,5 @@
 ﻿import type { RecordFilters, RecordsResponse, TalentRecord } from '@/types/record';
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL;
+import { apiFetch, readJson } from '@/services/apiClient';
 
 export async function getRecords(filters: RecordFilters = {}): Promise<RecordsResponse> {
   const params = new URLSearchParams();
@@ -9,31 +8,23 @@ export async function getRecords(filters: RecordFilters = {}): Promise<RecordsRe
   if (filters.search) params.set('search', filters.search);
   params.set('limit', String(filters.limit ?? 100));
 
-  const response = await fetch(`${API_URL}/records?${params.toString()}`);
-  if (!response.ok) {
-    throw new Error('No se han podido cargar las candidaturas.');
-  }
-  return response.json();
+  const response = await apiFetch(`/records?${params.toString()}`);
+  return readJson<RecordsResponse>(response);
 }
 
+// Un 404 llega como ApiError con status 404: la página muestra «Esta candidatura no existe»
 export async function getRecordById(id: string): Promise<TalentRecord> {
-  const response = await fetch(`${API_URL}/records/${id}`);
-  if (!response.ok) {
-    throw new Error('No se ha podido cargar la candidatura.');
-  }
-  return response.json();
+  const response = await apiFetch(`/records/${id}`);
+  return readJson<TalentRecord>(response);
 }
 
 export async function patchRecord(
   id: string,
   changes: Partial<Pick<TalentRecord, 'status' | 'stage'>>
 ): Promise<void> {
-  const response = await fetch(`${API_URL}/records/${id}`, {
+  await apiFetch(`/records/${id}`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(changes),
   });
-  if (!response.ok) {
-    throw new Error(`Error ${response.status}`);
-  }
 }

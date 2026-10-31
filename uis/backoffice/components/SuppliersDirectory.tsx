@@ -15,6 +15,7 @@ import {
   type Country,
   type Supplier,
 } from "@/lib/suppliers";
+import { ApiError, errorMessage } from "@/lib/account";
 
 const RENEWAL_WINDOW_DAYS = 60;
 
@@ -24,7 +25,9 @@ const COUNTRY_LABELS: Record<Country, string> = {
 };
 
 function errorText(e: unknown): string {
-  return e instanceof Error ? e.message : "Error inesperado.";
+  // El único 422 de las filas es una tarifa no positiva (monthly_rate gt=0)
+  if (e instanceof ApiError && e.status === 422) return "La tarifa debe ser mayor que 0.";
+  return errorMessage(e);
 }
 
 function formatMoney(amount: number, currency: string): string {
@@ -33,17 +36,20 @@ function formatMoney(amount: number, currency: string): string {
   );
 }
 
+// Una fecha vacía o mal formada se muestra como «—» en vez de romper la tabla
 function formatDateTime(iso: string): string {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return "—";
   return new Intl.DateTimeFormat("es-ES", {
     dateStyle: "short",
     timeStyle: "short",
-  }).format(new Date(iso));
+  }).format(date);
 }
 
-function formatDate(date: string): string {
-  return new Intl.DateTimeFormat("es-ES", { dateStyle: "medium" }).format(
-    new Date(`${date}T00:00:00`),
-  );
+function formatDate(value: string): string {
+  const date = new Date(`${value}T00:00:00`);
+  if (Number.isNaN(date.getTime())) return "—";
+  return new Intl.DateTimeFormat("es-ES", { dateStyle: "medium" }).format(date);
 }
 
 export function SuppliersDirectory() {
@@ -64,7 +70,9 @@ export function SuppliersDirectory() {
         setError(null);
       })
       .catch((e) => {
-        if (!cancelled) setError(errorText(e));
+        if (cancelled) return;
+        setSuppliers([]);
+        setError(errorMessage(e));
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -156,7 +164,7 @@ export function SuppliersDirectory() {
           )}
 
           <p className="ml-auto text-sm text-slate-500" aria-live="polite">
-            {loading ? "Cargando…" : `${suppliers.length} proveedores`}
+            {loading ? "Cargando…" : error ? "" : `${suppliers.length} proveedores`}
           </p>
         </div>
       </section>
@@ -301,17 +309,17 @@ function SupplierRow({
       </td>
 
       <td className="px-4 py-3 align-top whitespace-nowrap">
-        {COUNTRY_LABELS[supplier.country]}
+        {COUNTRY_LABELS[supplier.country] ?? supplier.country}
       </td>
 
       <td className="px-4 py-3 align-top">
         <ul className="flex flex-wrap gap-1">
-          {supplier.categories.map((c) => (
+          {(supplier.categories ?? []).map((c) => (
             <li
               key={c}
               className="rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-700"
             >
-              {CATEGORY_LABELS[c]}
+              {CATEGORY_LABELS[c] ?? c}
             </li>
           ))}
         </ul>

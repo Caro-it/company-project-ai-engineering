@@ -17,6 +17,22 @@ uvicorn app.main:app --reload --port 8000
 
 Documentación interactiva: http://localhost:8000/docs
 
+## Tests
+
+Tests con pytest en `tests/`. `pytest` y `httpx2` (que necesita el `TestClient` de FastAPI) son dependencias de **desarrollo** (`uv add --dev`) y no entran en `requirements.txt`.
+
+```bash
+cd services/api
+uv run pytest            # o: .venv/Scripts/python -m pytest
+```
+
+- TinyDB se sustituye por almacenamiento en memoria en `tests/conftest.py`, antes de importar `app`. Los tests nunca leen ni escriben `data/`, y cada test empieza con las tablas vacías.
+- `SECRET_KEY` se fija en los tests: no dependen de `.env`.
+- Cobertura:
+  - `test_incident_model.py`: valores del CONTEXT, transiciones, mapas CSV → modelo y `csv_row_to_incident`.
+  - `test_seed.py`: 96 insertadas y 4 inválidas, totales 27/56/13 y 49/35/12, idempotencia, `ticket_id` solo en `incident_seed_log` y ningún email guardado ni impreso.
+  - `test_incidents_api.py`: endpoints, 400 por campo con su `code`, 404, transiciones, 401, 500 genérico con cabeceras CORS y traceback en el log, y el 422 intacto en `/users`, `/auth`, `/profiles` y `/analyze`.
+
 ## Endpoints
 
 | Método | Ruta                            | Descripción                                                                       |
@@ -24,6 +40,11 @@ Documentación interactiva: http://localhost:8000/docs
 | GET    | `/api/health`                   | Comprobación de estado                                                            |
 | POST   | `/api/incidents/analyze`        | Recibe un CSV (`multipart/form-data`, campo `file`) y devuelve el resumen en JSON |
 | GET    | `/api/incidents/results/export` | Descarga el último análisis como CSV                                              |
+| POST   | `/api/incidents`                | Crea una incidencia (siempre en `open`). 201                                      |
+| GET    | `/api/incidents`                | Lista, de más reciente a más antigua. Filtros opcionales: `status`, `origin`, `branch`, `category` |
+| GET    | `/api/incidents/summary`        | Totales por `status`, `category`, `origin` y `branch`, con todas las claves aunque valgan 0 |
+| GET    | `/api/incidents/{incident_id}`  | Detalle de una incidencia                                                         |
+| PATCH  | `/api/incidents/{incident_id}/status` | Cambia el estado (body `{"status": ...}`) si la transición está permitida; actualiza `updated_at` |
 
 ## Errores
 
@@ -35,7 +56,66 @@ Documentación interactiva: http://localhost:8000/docs
 | 415    | El fichero no es `.csv`                 |
 | 422    | Cabecera incorrecta o CSV sin registros |
 
-La lógica de validación y métricas vive en `packages/incidents_core` y es la misma que usa `scripts/analyze.py`.
+Los códigos anteriores son los del analizador (`/analyze` y `/results/export`), que conserva el 422 de FastAPI. Los errores del gestor de incidencias están en la sección siguiente.
+
+La lógica de validación y métricas vive en `packages/shared/incidents_core` y es la misma que usa `scripts/analyze.py`.
+
+### Gestor de incidencias: modelo y seed
+
+Fuente de verdad: `docs/CONTEXT-incident-manager-nexova.md`.
+
+- Valores permitidos (estados, orígenes, categorías y sedes), transiciones y mapas CSV → modelo en `incidents_core/incident_model.py`. Modelos Pydantic en `app/incident_models.py`.
+- Persistencia en `data/incidents.json`: tabla `incidents` (id = uuid4 en string) y tabla `incident_seed_log` (`ticket_id` → `incident_id`, para la idempotencia del seed).
+- Carga del histórico desde la raíz del repo (es idempotente, se puede repetir):
+
+  ```bash
+  services/api/.venv/Scripts/python scripts/seed_incidents.py   # usa scripts/incidents-nexova.csv
+  ```
+
+  Resultado esperado con una BD limpia: 100 filas leídas, 96 insertadas y 4 inválidas. La segunda ejecución inserta 0. El informe solo muestra contadores y etiquetas de reglas, nunca datos de los registros.
+
+  Tras el seed, `GET /api/incidents/summary` da: `open` 27, `resolved` 56, `discarded` 13; `technical_failure` 49, `process_error` 35, `client_complaint` 12; `customer` 96; `central` 96.
+
+### Gestor de incidencias: transiciones y errores
+
+Transiciones permitidas (`ALLOWED_TRANSITIONS`): `open → in_progress | discarded` e `in_progress → resolved | discarded`. `resolved` y `discarded` son finales.
+
+Cada error lleva un `code` estable en inglés para que el frontend bilingüe (español e inglés) muestre su propio texto. `detail` y `message` van en español y sirven de respaldo.
+
+| HTTP | `code` | Caso | Campos extra |
+| ---- | ------ | ---- | ------------ |
+| 400 | `validation_error` | Datos no válidos en el body o en un filtro | `errors` (ver abajo) |
+| 400 | `invalid_transition` | Transición no permitida, p. ej. `No se puede pasar de «resolved» a «open»: «resolved» es un estado final` | `from`, `to`, `allowed` (estados a los que sí se puede pasar; `[]` si es final) |
+| 401 | — | Sin token o token no válido (respuesta de autenticación de siempre) | — |
+| 404 | `not_found` | `Incidencia <id> no encontrada` | — |
+| 500 | `internal_error` | `Error interno del servidor`, sin traceback (el traceback queda en el log de uvicorn). Lleva las cabeceras CORS, así que el frontend puede leerlo | — |
+
+Los errores de validación de estas rutas son **400, no 422**, con un error por campo:
+
+```json
+{
+  "detail": "Datos no válidos",
+  "code": "validation_error",
+  "errors": [
+    {"field": "title", "code": "required", "message": "El título es obligatorio"},
+    {"field": "branch", "code": "invalid_choice", "message": "La sede no tiene un valor permitido. Valores válidos: central, valencia_operations, miami_office, remote", "allowed": ["central", "valencia_operations", "miami_office", "remote"]}
+  ]
+}
+```
+
+| `code` de campo | Caso | `field` |
+| --------------- | ---- | ------- |
+| `required` | Falta un campo obligatorio | el campo |
+| `empty_text` | `title` o `description` vacíos o solo con espacios | el campo |
+| `invalid_choice` | Valor fuera de los permitidos (`status`, `category`, `origin`, `branch`, también en los filtros). Incluye `allowed` | el campo |
+| `extra_field_not_allowed` | Campo que no se puede enviar, p. ej. `status` o `id` en el alta | el campo |
+| `invalid_type` | Se esperaba un texto | el campo |
+| `invalid_value` | Cualquier otro valor no válido | el campo |
+| `invalid_json` | El cuerpo no es un JSON válido | `body` |
+| `invalid_body` | El cuerpo no es un objeto JSON | `body` |
+| `missing_body` | Falta el cuerpo de la petición | `body` |
+
+El cambio a 400 lo hace `app/errors.py` filtrando por ruta: solo afecta a las rutas del gestor. `/auth`, `/users`, `/profiles`, `/suppliers`, `/analyze` y `/results/export` siguen devolviendo el 422 de FastAPI, del que depende el frontend de AUTH-02. La captura de los 500 sí es global: un middleware HTTP registrado antes de `CORSMiddleware` (en `main.py`, `register_error_handlers(app)` va antes de `add_middleware`), para que la respuesta pase por CORS.
 
 ## Autenticación
 
@@ -54,6 +134,8 @@ Se leen de `services/api/.env` (funciona desde cualquier directorio de arranque)
 | `EMAIL_FROM`                  | No          | `Nexova <onboarding@resend.dev>` | Remitente del email. `onboarding@resend.dev` solo entrega al email de tu cuenta de Resend; para otros destinatarios hace falta un dominio verificado |
 | `FRONTEND_URL`                | No          | `http://localhost:3001` | URL del backoffice con la que se construye el enlace `/reset-password?token=…` |
 | `RESET_TOKEN_EXPIRE_MINUTES`  | No          | `30`              | Minutos de validez del enlace de recuperación |
+| `CORS_ORIGINS`                | No          | `["http://localhost:3000","http://localhost:3001"]` | Orígenes permitidos por CORS, como lista JSON |
+| `NEXOVA_DATA_DIR`             | No          | `services/api/data` | Carpeta de los archivos de TinyDB. Variable de entorno del proceso (no se lee de `.env`); la usan los tests e2e del backoffice para trabajar con una BD temporal |
 
 Sin `SECRET_KEY` la API no arranca. Para generar una clave aleatoria:
 
@@ -99,6 +181,10 @@ El token caduca a los `ACCESS_TOKEN_EXPIRE_MINUTES` minutos; después hay que vo
 | GET, PUT | `/profiles/me`                     | Protegida, solo el propio perfil                 |
 | POST     | `/api/incidents/analyze`           | Protegida                                        |
 | GET      | `/api/incidents/results/export`    | Protegida                                        |
+| GET, POST | `/api/incidents`                  | Protegida                                        |
+| GET      | `/api/incidents/summary`           | Protegida                                        |
+| GET      | `/api/incidents/{incident_id}`     | Protegida                                        |
+| PATCH    | `/api/incidents/{incident_id}/status` | Protegida                                     |
 | GET, POST | `/suppliers`                      | Protegida                                        |
 | GET, DELETE | `/suppliers/{supplier_id}`      | Protegida                                        |
 | PATCH    | `/suppliers/{supplier_id}/rate`    | Protegida                                        |
