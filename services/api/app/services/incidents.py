@@ -67,6 +67,17 @@ def create_incident(data: IncidentCreate) -> dict:
     return incident
 
 
+def _is_valid(doc: dict, context: str) -> bool:
+    """Valida el documento contra Incident. Si está corrupto, lo avisa en el log con solo
+    su id (nunca su contenido) para que no tumbe la respuesta."""
+    try:
+        Incident.model_validate(dict(doc))
+    except ValidationError:
+        logger.warning("Incidencia con datos no válidos omitida %s: %s", context, doc.get("id"))
+        return False
+    return True
+
+
 def list_incidents(
     status: str | None = None,
     origin: str | None = None,
@@ -80,19 +91,24 @@ def list_incidents(
     docs = incidents_table.search(I.fragment(active)) if active else incidents_table.all()
     incidents = []
     for doc in docs:
-        try:
-            Incident.model_validate(dict(doc))
-        except ValidationError:
-            # Un registro corrupto no tumba el listado: se omite y se avisa (solo el id)
-            logger.warning("Incidencia con datos no válidos omitida del listado: %s", doc.get("id"))
-            continue
-        incidents.append(dict(doc))
+        # Un registro corrupto no tumba el listado: se omite y se avisa (solo el id)
+        if _is_valid(doc, "del listado"):
+            incidents.append(dict(doc))
     return sorted(incidents, key=lambda d: d.get("created_at") or "", reverse=True)
 
 
 def get_incident(incident_id: str) -> dict | None:
+    """Documento tal cual, aunque esté corrupto (change_status lo necesita así)."""
     doc = incidents_table.get(I.id == incident_id)
     return dict(doc) if doc is not None else None
+
+
+def get_valid_incident(incident_id: str) -> dict | None:
+    """Para el detalle: None si no existe o si está corrupto, igual que el listado lo omite."""
+    incident = get_incident(incident_id)
+    if incident is None or not _is_valid(incident, "del detalle"):
+        return None
+    return incident
 
 
 def incidents_summary() -> dict:

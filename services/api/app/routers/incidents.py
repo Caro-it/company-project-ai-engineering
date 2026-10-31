@@ -10,7 +10,7 @@ from app.services.incidents import (
     InvalidTransitionError,
     change_status,
     create_incident,
-    get_incident,
+    get_valid_incident,
     incidents_summary,
     list_incidents,
 )
@@ -121,7 +121,8 @@ def read_summary() -> dict:
 
 @router.get("/{incident_id}", response_model=Incident)
 def read_incident(incident_id: str):
-    incident = get_incident(incident_id)
+    """Un registro corrupto se trata como inexistente (404), como en el listado."""
+    incident = get_valid_incident(incident_id)
     if incident is None:
         raise _not_found()
     return incident

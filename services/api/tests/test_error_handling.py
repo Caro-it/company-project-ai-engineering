@@ -71,6 +71,21 @@ def test_list_skips_corrupt_records(client, auth_headers):
     assert [incident["id"] for incident in res.json()] == [created["id"]]
 
 
+def test_detail_of_corrupt_record_is_404_and_logs_only_the_id(client, auth_headers, caplog):
+    insert_corrupt_incidents()
+
+    for incident_id in ("estado-raro", "sin-campos"):
+        caplog.clear()
+        with caplog.at_level("WARNING", logger="app.services.incidents"):
+            res = client.get(f"{BASE}/{incident_id}", headers=auth_headers)
+        assert res.status_code == 404
+        assert res.json() == {"detail": "Incidencia no encontrada", "code": "not_found"}
+        # El log lleva el id y nada del contenido del registro
+        assert incident_id in caplog.text
+        assert "zombi" not in caplog.text
+        assert "Incompleta" not in caplog.text
+
+
 def test_transition_from_corrupt_status_is_400(client, auth_headers):
     insert_corrupt_incidents()
 
