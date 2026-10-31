@@ -137,7 +137,7 @@ _Última actualización: 2026-10-30 · rama `feature/error-handling-audit`_
     - `create_admin` comprueba `update_user`.
   - Paso 5: revisión de `console.*`, `print` y `logger.*`: ninguno expone datos sensibles, sin cambios.
   - Fuera de alcance por decisión de la usuaria: JWT en cookie `HttpOnly` (M7/B17), actualizar Next y `pandas_clean.py` (B26). Aplazados por no ser de 1-2 líneas: B6, B7, B9, B16; B1 y B25 en parte; M22 y B24 no se pidieron.
-  - Pendiente: `GET /api/incidents/{id}` con un registro corrupto sigue dando 500 (resto de M18).
+  - Paso 6 (commit `ef0213e`): `GET /api/incidents/{id}` con un registro corrupto da 404 `not_found` y un aviso en el log con solo el id (`get_valid_incident`). `get_incident` sigue devolviendo el documento en bruto porque `change_status` lo necesita para responder 400 `invalid_transition`. `uv run pytest` → 54 tests correctos.
 
 - **Actualizar `next` en `uis/backoffice` (pendiente, en una rama aparte después del merge de `feature/incident-manager`):**
   - El 2026-10-26, `npm audit` marca como **crítico** `next` 16.0.0–16.4.0, que incluye el 16.3.8 del backoffice. Avisos: RCE sin autenticar en la API de optimización de imágenes con SVG, DoS en el App Router con Server Actions y RCE sin autenticar en funciones `use cache` que devuelven typed arrays.
