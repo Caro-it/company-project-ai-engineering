@@ -39,3 +39,6 @@ dev = [
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+
+[tool.coverage.run]
+include = ["app/routers/auth.py", "app/deps.py", "app/security.py", "app/services/password_reset.py", "app/services/users.py"]
