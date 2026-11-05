@@ -62,7 +62,8 @@ def test_me_usuario_borrado_despues_es_401(client):
 
 def test_me_token_expirado_es_401(client):
     user_id = register(client)
-    expired = make_token({"sub": user_id, "exp": datetime.now(timezone.utc) - timedelta(seconds=1)})
+    past = datetime.now(timezone.utc) - timedelta(seconds=1)
+    expired = make_token({"sub": user_id, "exp": past})
     fresh = make_token({"sub": user_id, "exp": future_exp()})
 
     assert me(client, expired).status_code == 401

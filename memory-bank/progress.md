@@ -1,6 +1,6 @@
 # Progress
 
-_Última actualización: 2026-10-30 · rama `feature/error-handling-audit`_
+_Última actualización: 2026-11-05 · rama `feature/auth-tests`_
 
 ## Hecho
 
@@ -68,6 +68,12 @@ _Última actualización: 2026-10-30 · rama `feature/error-handling-audit`_
     - change-password con sus validaciones;
     - forgot-password sin `RESEND_API_KEY`: 200 y aviso en los logs.
   - PR #9 (`feature/password-reset`) mergeada en `main`.
+- **Ticket AUTH-088 (batería de tests de autenticación) y extras API-042 y FE-019, rama `feature/auth-tests`, commits locales sin push:**
+  - Plan, comandos, casos añadidos, bugs y cobertura en `services/api/TESTING.md`.
+  - pytest: `test_login`, `test_token`, `test_register`, `test_password_reset`, `test_change_password` (AUTH-088), `test_suppliers_api` y `test_profiles_api` (API-042). 118 tests correctos.
+  - Cobertura del módulo de auth: 94 % (objetivo 70 %). Proveedores y perfiles: 100 % (objetivo 60 %).
+  - **Bug corregido:** la API aceptaba JWT sin `exp`. Detectado por `test_me_token_sin_exp_es_401` (commit `65433eb`, falla contra el código anterior) y corregido con `options={"require_exp": True}` en `app/deps.py` (commit `2491a37`).
+  - Jest en `uis/backoffice` (`npm test`): `auth.test.ts`, `api.test.ts`, `errors.test.ts`, 51 tests. `lib/auth.ts` al 100 %. Ningún `xfail` ni `test.failing`.
 
 ## En curso / próximos pasos
 
@@ -170,7 +176,7 @@ _Última actualización: 2026-10-30 · rama `feature/error-handling-audit`_
   - Un admin puede quitarse su propio rol o desactivarse, y la API puede quedarse sin admin. Se recupera con `create-admin` (documentado en el README de la API).
   - Los JWT no se pueden revocar antes de que caduquen. Desactivar o borrar un usuario sí invalida sus tokens.
   - El `Lock` que garantiza el email único, y el de `LockedJSONStorage`, solo protegen dentro de un proceso. Con varios workers de uvicorn, TinyDB no es seguro: habrá que pasar a una base de datos real.
-  - Los tests de `services/api` (pytest) cubren el gestor de incidencias, el seed y los casos de gestión de errores (409 de usuarios, 422 sin `input`, reset de contraseña). El resto de auth, usuarios, perfiles y proveedores sigue sin tests automatizados.
+  - Los tests de `services/api` (pytest) cubren el gestor de incidencias, el seed, la gestión de errores, la autenticación (AUTH-088), proveedores y perfiles (API-042). `GET/PUT/DELETE /users` y los permisos de admin (`require_admin`, `require_self_or_admin`) siguen sin tests propios.
 - **AUTH-02:**
   - `isTokenValid()` no verifica la firma del JWT: solo decodifica `exp`. Sirve para no mostrar el panel con un token caducado, pero cualquier token con un `exp` futuro pasa el `AuthGuard`. La validación real la hace la API, y su 401 hace que `apiFetch` cierre la sesión.
 

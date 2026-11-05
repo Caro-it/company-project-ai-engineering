@@ -62,7 +62,9 @@ def test_editar_perfil_solo_cambia_los_campos_enviados(client, auth_headers):
     client.put(BASE, json={"phone": "600"}, headers=auth_headers)
 
     profile = owner_profile()
-    assert (profile["name"], profile["phone"], profile["address"]) == ("Ana", "600", "Calle Mayor 1")
+    assert profile["name"] == "Ana"
+    assert profile["phone"] == "600"
+    assert profile["address"] == "Calle Mayor 1"
 
 
 def test_editar_perfil_con_null_explicito_vacia_el_campo(client, auth_headers):

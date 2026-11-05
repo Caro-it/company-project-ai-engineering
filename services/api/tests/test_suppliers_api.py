@@ -1,5 +1,7 @@
 """Directorio de Proveedores (/suppliers, API-042): qué se guarda, qué se rechaza y
 qué cambia en cada operación. Todas las rutas exigen sesión."""
+from datetime import datetime, timezone
+
 import pytest
 
 from app.database import suppliers_table
@@ -45,14 +47,16 @@ def stored(supplier_id: int) -> dict | None:
 
 
 def test_alta_proveedor_valido_se_guarda_con_fecha_de_actualizacion(client, auth_headers):
+    before = datetime.now(timezone.utc)
+
     res = client.post(BASE, json=SPAIN_ATS, headers=auth_headers)
 
     assert res.status_code == 201
     doc = stored(res.json()["id"])
     assert doc["name"] == "Talentia ATS"
     assert doc["monthly_rate"] == 1200.0
-    # updated_at lo pone el sistema, no el cliente
-    assert doc["updated_at"]
+    # updated_at lo pone el sistema en el momento del alta, no el cliente
+    assert before <= datetime.fromisoformat(doc["updated_at"]) <= datetime.now(timezone.utc)
 
 
 def test_alta_con_moneda_que_no_corresponde_al_pais_se_rechaza(client, auth_headers):
@@ -144,7 +148,9 @@ def test_cambio_de_tarifa_actualiza_la_tarifa_y_la_fecha(client, auth_headers, c
     supplier_id = create(SPAIN_ATS)
     suppliers_table.update({"updated_at": OLD_TIMESTAMP}, doc_ids=[supplier_id])
 
-    res = client.patch(f"{BASE}/{supplier_id}/rate", json={"monthly_rate": 1500.5}, headers=auth_headers)
+    res = client.patch(
+        f"{BASE}/{supplier_id}/rate", json={"monthly_rate": 1500.5}, headers=auth_headers
+    )
 
     assert res.status_code == 200
     doc = stored(supplier_id)
