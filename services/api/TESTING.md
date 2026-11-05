@@ -16,6 +16,7 @@ uv run pytest tests/test_login.py -v   # una sola suite
 - No hace falta `.env`: `tests/conftest.py` fija un `SECRET_KEY` de prueba.
 - TinyDB se sustituye por almacenamiento **en memoria** antes de importar la app: los tests nunca tocan `services/api/data/`.
 - Cada test empieza con la BD vacía (fixture `clean_db`, autouse).
+- Fixtures compartidas en `tests/conftest.py`: `client`, `auth_headers` (usuario `qa@example.com` con su token), `register_user(email, password, **extra)` → id del usuario creado por la API, y `login_ok(email, password)` → si esas credenciales consiguen un token.
 - El envío de emails (Resend) se sustituye con `monkeypatch`: los tests no envían correos reales.
 
 ### Cobertura de proveedores y perfiles (API-042)

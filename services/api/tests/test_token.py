@@ -15,12 +15,6 @@ EMAIL = "token@example.com"
 PASSWORD = "Password123"
 
 
-def register(client, **extra) -> str:
-    payload = {"email": EMAIL, "password": PASSWORD, **extra}
-    assert client.post("/users", json=payload).status_code == 201
-    return get_user_by_email(EMAIL)["id"]
-
-
 def make_token(claims: dict, key: str | None = None) -> str:
     return jwt.encode(claims, key or settings.SECRET_KEY, algorithm=settings.ALGORITHM)
 
@@ -34,8 +28,8 @@ def me(client, token: str | None):
     return client.get("/auth/me", headers=headers)
 
 
-def test_me_token_valido_devuelve_el_usuario_del_token(client):
-    user_id = register(client, name="Ana Pérez")
+def test_me_token_valido_devuelve_el_usuario_del_token(client, register_user):
+    user_id = register_user(EMAIL, PASSWORD, name="Ana Pérez")
     token = make_token({"sub": user_id, "exp": future_exp()})
 
     res = me(client, token)
@@ -49,8 +43,8 @@ def test_me_token_valido_devuelve_el_usuario_del_token(client):
     assert body["profile"]["name"] == "Ana Pérez"
 
 
-def test_me_usuario_borrado_despues_es_401(client):
-    user_id = register(client)
+def test_me_usuario_borrado_despues_es_401(client, register_user):
+    user_id = register_user(EMAIL, PASSWORD)
     token = make_token({"sub": user_id, "exp": future_exp()})
     assert me(client, token).status_code == 200
 
@@ -60,8 +54,8 @@ def test_me_usuario_borrado_despues_es_401(client):
     assert me(client, token).status_code == 401
 
 
-def test_me_token_expirado_es_401(client):
-    user_id = register(client)
+def test_me_token_expirado_es_401(client, register_user):
+    user_id = register_user(EMAIL, PASSWORD)
     past = datetime.now(timezone.utc) - timedelta(seconds=1)
     expired = make_token({"sub": user_id, "exp": past})
     fresh = make_token({"sub": user_id, "exp": future_exp()})
@@ -70,16 +64,16 @@ def test_me_token_expirado_es_401(client):
     assert me(client, fresh).status_code == 200
 
 
-def test_me_token_firmado_con_otra_clave_es_401(client):
-    user_id = register(client)
+def test_me_token_firmado_con_otra_clave_es_401(client, register_user):
+    user_id = register_user(EMAIL, PASSWORD)
     claims = {"sub": user_id, "exp": future_exp()}
 
     assert me(client, make_token(claims, key="otra-clave-que-no-es-la-buena")).status_code == 401
     assert me(client, make_token(claims)).status_code == 200
 
 
-def test_me_token_malformado_o_sin_cabecera_es_401(client):
-    user_id = register(client)
+def test_me_token_malformado_o_sin_cabecera_es_401(client, register_user):
+    user_id = register_user(EMAIL, PASSWORD)
 
     assert me(client, "abc").status_code == 401
     assert me(client, None).status_code == 401
@@ -87,15 +81,15 @@ def test_me_token_malformado_o_sin_cabecera_es_401(client):
     assert me(client, make_token({"sub": user_id, "exp": future_exp()})).status_code == 200
 
 
-def test_me_token_sin_sub_es_401(client):
-    user_id = register(client)
+def test_me_token_sin_sub_es_401(client, register_user):
+    user_id = register_user(EMAIL, PASSWORD)
 
     assert me(client, make_token({"exp": future_exp()})).status_code == 401
     assert me(client, make_token({"sub": user_id, "exp": future_exp()})).status_code == 200
 
 
-def test_me_usuario_desactivado_despues_del_login_es_401(client):
-    register(client)
+def test_me_usuario_desactivado_despues_del_login_es_401(client, register_user):
+    register_user(EMAIL, PASSWORD)
     login = client.post("/auth/login", data={"username": EMAIL, "password": PASSWORD})
     token = login.json()["access_token"]
     assert me(client, token).status_code == 200
@@ -105,8 +99,8 @@ def test_me_usuario_desactivado_despues_del_login_es_401(client):
     assert me(client, token).status_code == 401
 
 
-def test_me_token_sin_exp_es_401(client):
-    user_id = register(client)
+def test_me_token_sin_exp_es_401(client, register_user):
+    user_id = register_user(EMAIL, PASSWORD)
     # Firma correcta y usuario real: lo único que falta es la caducidad
     without_exp = make_token({"sub": user_id})
     with_exp = make_token({"sub": user_id, "exp": future_exp()})

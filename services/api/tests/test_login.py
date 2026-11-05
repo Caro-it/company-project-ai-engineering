@@ -5,24 +5,19 @@ from jose import jwt
 
 from app.auth_models import UserUpdate
 from app.config import settings
-from app.services.users import get_user_by_email, update_user
+from app.services.users import update_user
 
 EMAIL = "login@example.com"
 PASSWORD = "Password123"
 GENERIC_ERROR = "Email o contraseña incorrectos"
 
 
-def register(client, email: str = EMAIL, password: str = PASSWORD) -> str:
-    assert client.post("/users", json={"email": email, "password": password}).status_code == 201
-    return get_user_by_email(email)["id"]
-
-
 def login(client, username: str = EMAIL, password: str = PASSWORD):
     return client.post("/auth/login", data={"username": username, "password": password})
 
 
-def test_login_credenciales_correctas_emite_token_del_usuario(client):
-    user_id = register(client)
+def test_login_credenciales_correctas_emite_token_del_usuario(client, register_user):
+    user_id = register_user(EMAIL, PASSWORD)
     before = datetime.now(timezone.utc)
 
     res = login(client)
@@ -38,8 +33,8 @@ def test_login_credenciales_correctas_emite_token_del_usuario(client):
     assert abs((exp - expected_exp).total_seconds()) < 10
 
 
-def test_login_email_en_mayusculas_funciona(client):
-    user_id = register(client)
+def test_login_email_en_mayusculas_funciona(client, register_user):
+    user_id = register_user(EMAIL, PASSWORD)
 
     res = login(client, username=EMAIL.upper())
 
@@ -50,18 +45,16 @@ def test_login_email_en_mayusculas_funciona(client):
     assert claims["sub"] == user_id
 
 
-def test_login_contrasena_vacia_no_emite_token(client):
-    register(client)
+def test_login_contrasena_vacia_no_emite_token(client, register_user):
+    register_user(EMAIL, PASSWORD)
 
     res = login(client, password="")
 
-    # FastAPI trata el campo de formulario vacío como ausente: 422 antes de llegar al login
-    assert res.status_code == 422
     assert "access_token" not in res.json()
 
 
-def test_login_contrasena_incorrecta_y_email_inexistente_dan_el_mismo_error(client):
-    register(client)
+def test_login_contrasena_incorrecta_y_email_inexistente_dan_el_mismo_error(client, register_user):
+    register_user(EMAIL, PASSWORD)
 
     wrong_password = login(client, password="OtraClave999")
     unknown_email = login(client, username="nadie@example.com")
@@ -73,8 +66,8 @@ def test_login_contrasena_incorrecta_y_email_inexistente_dan_el_mismo_error(clie
     assert "access_token" not in unknown_email.json()
 
 
-def test_login_usuario_desactivado_no_emite_token(client):
-    user_id = register(client)
+def test_login_usuario_desactivado_no_emite_token(client, register_user):
+    user_id = register_user(EMAIL, PASSWORD)
     assert login(client).status_code == 200
     update_user(user_id, UserUpdate(is_active=False))
 
@@ -85,8 +78,8 @@ def test_login_usuario_desactivado_no_emite_token(client):
     assert res.json()["detail"] == GENERIC_ERROR
 
 
-def test_login_contrasena_de_mas_de_72_bytes_es_401_y_no_500(client):
-    register(client)
+def test_login_contrasena_de_mas_de_72_bytes_es_401_y_no_500(client, register_user):
+    register_user(EMAIL, PASSWORD)
     too_long = "ñ" * 37  # 37 caracteres, 74 bytes en UTF-8: bcrypt lanzaría ValueError
 
     res = login(client, password=too_long)

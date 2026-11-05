@@ -33,10 +33,8 @@ def sent_emails(monkeypatch) -> list[dict]:
 
 
 @pytest.fixture
-def user_id(client) -> str:
-    res = client.post("/users", json={"email": EMAIL, "password": OLD_PASSWORD})
-    assert res.status_code == 201
-    return res.json()["id"]
+def user_id(register_user) -> str:
+    return register_user(EMAIL, OLD_PASSWORD)
 
 
 def token_from(email: dict) -> str:
@@ -52,12 +50,7 @@ def reset(client, token: str, new_password: str = NEW_PASSWORD):
     return client.post("/auth/reset-password", json={"token": token, "new_password": new_password})
 
 
-def login_ok(client, password: str) -> bool:
-    res = client.post("/auth/login", data={"username": EMAIL, "password": password})
-    return res.status_code == 200
-
-
-def test_reset_flujo_completo_cambia_la_contrasena(client, sent_emails, user_id):
+def test_reset_flujo_completo_cambia_la_contrasena(client, sent_emails, user_id, login_ok):
     res = client.post("/auth/forgot-password", json={"email": EMAIL})
 
     assert res.status_code == 200
@@ -66,18 +59,18 @@ def test_reset_flujo_completo_cambia_la_contrasena(client, sent_emails, user_id)
     token = token_from(sent_emails[0])
 
     assert reset(client, token).status_code == 200
-    assert not login_ok(client, OLD_PASSWORD)
-    assert login_ok(client, NEW_PASSWORD)
+    assert not login_ok(EMAIL, OLD_PASSWORD)
+    assert login_ok(EMAIL, NEW_PASSWORD)
 
 
-def test_reset_dos_enlaces_seguidos_solo_vale_el_ultimo(client, sent_emails, user_id):
+def test_reset_dos_enlaces_seguidos_solo_vale_el_ultimo(client, sent_emails, user_id, login_ok):
     first = request_link(client, sent_emails)
     last = request_link(client, sent_emails)
 
     assert reset(client, first).status_code == 400
-    assert login_ok(client, OLD_PASSWORD)
+    assert login_ok(EMAIL, OLD_PASSWORD)
     assert reset(client, last).status_code == 200
-    assert login_ok(client, NEW_PASSWORD)
+    assert login_ok(EMAIL, NEW_PASSWORD)
 
 
 def test_reset_email_no_registrado_misma_respuesta_y_no_envia(client, sent_emails, user_id):
@@ -90,7 +83,7 @@ def test_reset_email_no_registrado_misma_respuesta_y_no_envia(client, sent_email
     assert [email["to"] for email in sent_emails] == [EMAIL]
 
 
-def test_reset_token_reutilizado_falla_la_segunda_vez(client, sent_emails, user_id):
+def test_reset_token_reutilizado_falla_la_segunda_vez(client, sent_emails, user_id, login_ok):
     token = request_link(client, sent_emails)
     assert reset(client, token).status_code == 200
 
@@ -98,22 +91,22 @@ def test_reset_token_reutilizado_falla_la_segunda_vez(client, sent_emails, user_
 
     assert res.status_code == 400
     # La segunda petición no ha cambiado nada: sigue valiendo la del primer reset
-    assert login_ok(client, NEW_PASSWORD)
-    assert not login_ok(client, "TerceraClave789")
+    assert login_ok(EMAIL, NEW_PASSWORD)
+    assert not login_ok(EMAIL, "TerceraClave789")
 
 
-def test_reset_token_caducado_falla(client, sent_emails, user_id):
+def test_reset_token_caducado_falla(client, sent_emails, user_id, login_ok):
     token = request_link(client, sent_emails)
     past = (datetime.now(timezone.utc) - timedelta(minutes=1)).isoformat()
     password_reset_tokens_table.update({"expires_at": past}, Query().user_id == user_id)
 
     assert reset(client, token).status_code == 400
-    assert login_ok(client, OLD_PASSWORD)
+    assert login_ok(EMAIL, OLD_PASSWORD)
 
 
-def test_reset_token_inventado_falla(client, sent_emails, user_id):
+def test_reset_token_inventado_falla(client, sent_emails, user_id, login_ok):
     assert reset(client, "token-que-nunca-se-ha-emitido").status_code == 400
-    assert login_ok(client, OLD_PASSWORD)
+    assert login_ok(EMAIL, OLD_PASSWORD)
 
 
 def test_reset_email_en_mayusculas_recibe_el_enlace(client, sent_emails, user_id):

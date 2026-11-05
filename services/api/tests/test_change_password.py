@@ -16,26 +16,23 @@ def change(client, headers, current: str = PASSWORD, new: str = NEW_PASSWORD):
     )
 
 
-def login_ok(client, password: str) -> bool:
-    res = client.post("/auth/login", data={"username": EMAIL, "password": password})
-    return res.status_code == 200
-
-
-def test_cambio_con_contrasena_actual_correcta_cambia_la_contrasena(client, auth_headers):
+def test_cambio_con_contrasena_actual_correcta_cambia_la_contrasena(
+    client, auth_headers, login_ok
+):
     assert change(client, auth_headers).status_code == 200
 
-    assert login_ok(client, NEW_PASSWORD)
-    assert not login_ok(client, PASSWORD)
+    assert login_ok(EMAIL, NEW_PASSWORD)
+    assert not login_ok(EMAIL, PASSWORD)
 
 
-def test_cambio_a_contrasena_de_menos_de_8_caracteres_se_rechaza(client, auth_headers):
+def test_cambio_a_contrasena_de_menos_de_8_caracteres_se_rechaza(client, auth_headers, login_ok):
     assert change(client, auth_headers, new="corta77").status_code == 422
 
-    assert login_ok(client, PASSWORD)
-    assert not login_ok(client, "corta77")
+    assert login_ok(EMAIL, PASSWORD)
+    assert not login_ok(EMAIL, "corta77")
 
 
-def test_cambio_invalida_un_enlace_de_recuperacion_pedido_antes(client, auth_headers):
+def test_cambio_invalida_un_enlace_de_recuperacion_pedido_antes(client, auth_headers, login_ok):
     reset_token = create_reset_token(get_user_by_email(EMAIL)["id"])
     assert change(client, auth_headers).status_code == 200
 
@@ -44,21 +41,21 @@ def test_cambio_invalida_un_enlace_de_recuperacion_pedido_antes(client, auth_hea
     )
 
     assert res.status_code == 400
-    assert login_ok(client, NEW_PASSWORD)
-    assert not login_ok(client, "DelEnlace789")
+    assert login_ok(EMAIL, NEW_PASSWORD)
+    assert not login_ok(EMAIL, "DelEnlace789")
 
 
-def test_cambio_con_contrasena_actual_incorrecta_no_cambia_nada(client, auth_headers):
+def test_cambio_con_contrasena_actual_incorrecta_no_cambia_nada(client, auth_headers, login_ok):
     res = change(client, auth_headers, current="NoEsLaMia000")
 
     # 400 y no 401: la sesión sigue siendo válida, lo incorrecto es el dato
     assert res.status_code == 400
-    assert login_ok(client, PASSWORD)
-    assert not login_ok(client, NEW_PASSWORD)
+    assert login_ok(EMAIL, PASSWORD)
+    assert not login_ok(EMAIL, NEW_PASSWORD)
 
 
-def test_cambio_sin_token_es_401_y_no_cambia_nada(client, auth_headers):
+def test_cambio_sin_token_es_401_y_no_cambia_nada(client, auth_headers, login_ok):
     assert change(client, headers={}).status_code == 401
 
-    assert login_ok(client, PASSWORD)
-    assert not login_ok(client, NEW_PASSWORD)
+    assert login_ok(EMAIL, PASSWORD)
+    assert not login_ok(EMAIL, NEW_PASSWORD)
