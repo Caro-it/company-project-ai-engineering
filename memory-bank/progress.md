@@ -1,6 +1,6 @@
 # Progress
 
-_Última actualización: 2026-11-05 · rama `feature/auth-tests`_
+_Última actualización: 2026-11-09 · rama `feature/inventory-orm`_
 
 ## Hecho
 
@@ -74,6 +74,14 @@ _Última actualización: 2026-11-05 · rama `feature/auth-tests`_
   - Cobertura del módulo de auth: 94 % (objetivo 70 %). Proveedores y perfiles: 100 % (objetivo 60 %).
   - **Bug corregido:** la API aceptaba JWT sin `exp`. Detectado por `test_me_token_sin_exp_es_401` (commit `65433eb`, falla contra el código anterior) y corregido con `options={"require_exp": True}` en `app/deps.py` (commit `2491a37`).
   - Jest en `uis/backoffice` (`npm test`): `auth.test.ts`, `api.test.ts`, `errors.test.ts`, 51 tests. `lib/auth.ts` al 100 %. Ningún `xfail` ni `test.failing`.
+
+- **Hito 5 — Backend: inventario con ORM y doble base de datos (ticket NXV-0201), rama `feature/inventory-orm` (sale de `feature/performance-audit`; PR #10 y #11 sin mergear).** Fuente de verdad: `docs/CONTEXT-inventory-nexova.md` (copia literal de `05-backend-development/nexova-BRIEFING.es.md` del syllabus).
+  - TinyDB sigue para auth; inventario (`Asset`, `AssetEntry`, `AssetExit`) en Supabase con SQLModel. `DATABASE_URL` obligatoria en `services/api/.env`.
+  - `app/models.py` (ORM) y `app/schemas.py` (Pydantic) separados; `app/models.py` de proveedores renombrado a `app/supplier_models.py`.
+  - Router `/inventory` con auth en todas las rutas, stock calculado en la consulta, 400 literal del BRIEFING antes de escribir, `FOR UPDATE` en salidas, FK y `CHECK` en la BD, sin N+1.
+  - `uv run seed-inventory` (idempotente). Stock sembrado: 12 / 8 / 0 / 4 / 16 / 0.
+  - `uv run pytest`: 148 tests correctos (30 de inventario), también contra PostgreSQL 16 local con `TEST_DATABASE_URL`. Prueba manual con uvicorn + PostgreSQL: seed, stock, 400 y 422.
+  - Pendiente de la usuaria: poner su `DATABASE_URL` real y lanzar `seed-inventory` contra Supabase.
 
 ## En curso / próximos pasos
 
@@ -192,6 +200,9 @@ _Última actualización: 2026-11-05 · rama `feature/auth-tests`_
   - Ninguna descripción del CSV supera 120 caracteres (la más larga tiene 54), así que el truncado del título no se ejercita con los datos reales.
 
 ## Pendiente de confirmar con el mentor
+
+- Inventario: el BRIEFING propone `services/main.py`, `services/models.py`… y el router en `services/routers/inventory.py`; en este monorepo la API vive en `services/api/app/`, así que los archivos están en `services/api/app/` con los mismos nombres.
+- Inventario: el BRIEFING no dice si los GET son públicos; se han protegido todos (el backoffice siempre llama con Bearer).
 
 - El responsable de Ventas (Megan Clarke o Marcos Ibáñez); ver `projectbrief.md`.
 - Las etiquetas para mostrar de estados, orígenes y categorías del gestor de incidencias; ver `projectbrief.md`.
