@@ -16,6 +16,10 @@ class Settings(BaseSettings):
 
     # Obligatoria: sin valor por defecto, la API no arranca si falta
     SECRET_KEY: str
+    # Inventario (Hito 5): cadena PostgreSQL de Supabase (Transaction pooler, URI).
+    # Obligatoria como SECRET_KEY: sin ella la API no arranca
+    DATABASE_URL: str
+
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
 
