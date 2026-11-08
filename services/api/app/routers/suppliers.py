@@ -6,7 +6,7 @@ from tinydb import Query
 
 from app.database import suppliers_table
 from app.deps import get_current_user
-from app.models import (
+from app.supplier_models import (
     Category,
     Country,
     RateUpdate,

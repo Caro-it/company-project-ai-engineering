@@ -7,7 +7,7 @@ from datetime import datetime, timezone
 from tinydb import Query
 
 from app.database import suppliers_table
-from app.models import SupplierCreate
+from app.supplier_models import SupplierCreate
 
 SUPPLIERS_SEED = [
     {
