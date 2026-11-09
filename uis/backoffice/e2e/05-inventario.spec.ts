@@ -230,7 +230,7 @@ test("historial: entradas y salidas distinguidas, con activo, fecha y user_uuid"
   page,
 }) => {
   await page.goto("/inventory/orders");
-  await expect(page.getByRole("heading", { name: "Historial de órdenes", level: 1 })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Historial de entradas y salidas", level: 1 })).toBeVisible();
 
   const rows = page.getByTestId("order-row");
   // 8 del seed + la salida y la entrada de los tests anteriores

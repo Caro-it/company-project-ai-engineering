@@ -22,7 +22,7 @@ export default function InventoryProductsPage() {
           Registrar salida de activos
         </Link>
         <Link href="/inventory/orders" className="text-[#006992] underline underline-offset-2">
-          Historial de órdenes
+          Historial de entradas y salidas
         </Link>
       </p>
       <div className="mt-6">

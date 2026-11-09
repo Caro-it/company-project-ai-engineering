@@ -40,7 +40,7 @@ export function Sidebar() {
               <NavLink href="/inventory/orders/outbound">Salida de activos</NavLink>
             </li>
             <li>
-              <NavLink href="/inventory/orders">Historial de órdenes</NavLink>
+              <NavLink href="/inventory/orders">Historial de entradas y salidas</NavLink>
             </li>
             <li>
               <NavLink href="/account/profile">Mi perfil</NavLink>

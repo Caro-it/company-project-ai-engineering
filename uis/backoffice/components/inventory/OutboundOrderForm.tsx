@@ -142,7 +142,7 @@ export function OutboundOrderForm() {
         <div role="status" className="rounded-md bg-emerald-50 p-3 text-sm text-emerald-800">
           {success}{" "}
           <Link href="/inventory/orders" className="font-medium underline underline-offset-2">
-            Ver el historial de órdenes
+            Ver el historial de entradas y salidas
           </Link>
         </div>
       )}
