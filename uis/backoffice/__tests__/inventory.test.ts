@@ -127,11 +127,53 @@ describe("toInventoryError", () => {
     expect(error.message).not.toMatch(/Value error/);
   });
 
-  test.each([401, 404, 409, 500])("un %i usa el texto fijo del backoffice", async (status) => {
-    const error = await toInventoryError(fakeResponse(status, { detail: "texto interno" }));
+  test("un 404 con detail muestra el detail de la API", async () => {
+    const detail = "Asset 99 not found";
+    const error = await toInventoryError(fakeResponse(404, { detail }));
 
-    expect(error.message).toBe(statusErrorMessage(status));
+    expect(error.status).toBe(404);
+    expect(error.message).toBe(detail);
     expect(error.isInsufficientStock).toBe(false);
+  });
+
+  test("un 409 con detail muestra el detail de la API", async () => {
+    const detail = "An asset with SKU 'NXV-IT-001' already exists.";
+    const error = await toInventoryError(fakeResponse(409, { detail }));
+
+    expect(error.status).toBe(409);
+    expect(error.message).toBe(detail);
+  });
+
+  test("un 500 con detail usa el texto fijo, nunca el detail", async () => {
+    const error = await toInventoryError(
+      fakeResponse(500, { detail: "sqlalchemy.exc.OperationalError: connection refused" }),
+    );
+
+    expect(error.message).toBe(statusErrorMessage(500));
+    expect(error.message).not.toMatch(/sqlalchemy/);
+  });
+
+  test("un 401 con detail usa el texto fijo de sesión caducada", async () => {
+    const error = await toInventoryError(fakeResponse(401, { detail: "Could not validate credentials" }));
+
+    expect(error.message).toBe(statusErrorMessage(401));
+  });
+
+  test("un 404 sin JSON cae en el texto fijo", async () => {
+    const error = await toInventoryError(fakeResponse(404, new SyntaxError("Unexpected token <")));
+
+    expect(error.status).toBe(404);
+    expect(error.message).toBe(statusErrorMessage(404));
+  });
+
+  test.each([
+    ["vacío", ""],
+    ["solo espacios", "   "],
+    ["no es texto", { reason: "x" }],
+  ])("un 409 con detail %s cae en el texto fijo", async (_case, detail) => {
+    const error = await toInventoryError(fakeResponse(409, { detail }));
+
+    expect(error.message).toBe(statusErrorMessage(409));
   });
 
   test("un 400 sin JSON cae en el texto fijo", async () => {

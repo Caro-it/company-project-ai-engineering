@@ -6,11 +6,14 @@
 // y manda a /login ante un 401.
 //
 // Errores: siempre un InventoryError (subclase de ApiError de lib/account).
-// - 400 de negocio (stock insuficiente, oficina que no corresponde): se muestra el detail
-//   de la API, porque es un mensaje redactado a propósito para el usuario. Es la única
-//   excepción a la política del backoffice de no mostrar nunca el detail.
-// - 422: qué campos fallaron (fieldErrors) y, si es un error de modelo, su motivo.
-// - Resto (401, 404, 409, 5xx, red, timeout): texto fijo de statusErrorMessage.
+// - 4xx salvo 401 y 422 (400 de negocio como el stock insuficiente, 404, 409…): se muestra
+//   el detail de la API si es un texto no vacío, porque /inventory lo redacta para el
+//   usuario. Es una excepción, limitada al inventario, a la política del backoffice de no
+//   mostrar el detail. Sin detail de texto (o sin JSON): texto fijo de statusErrorMessage.
+// - 422: qué campos fallaron (fieldErrors) y, si es un error de modelo, su motivo; nunca
+//   el texto de Pydantic.
+// - 401, 5xx, red y timeout: siempre el texto fijo de statusErrorMessage (el detail de un
+//   5xx puede ser técnico).
 import {
   API_URL,
   GENERIC_ERROR,
@@ -89,7 +92,7 @@ export class InventoryError extends ApiError {
     message: string,
     status: number,
     fieldErrors: Record<string, string> = {},
-    // detail de texto de un 400 de negocio (stock insuficiente, oficina…)
+    // detail de texto de un 4xx de la API (stock insuficiente, oficina, 404, 409…)
     readonly detail: string | null = null,
   ) {
     super(message, status, fieldErrors);
@@ -118,6 +121,11 @@ export function fieldLabel(field: string): string {
 const MODEL_ERROR_TEXT =
   "Revisa «Asignado a»: es obligatorio en una asignación y debe quedar vacío en un consumo.";
 
+// 4xx cuyo detail de texto se enseña tal cual (ver la cabecera del archivo)
+function showsApiDetail(status: number): boolean {
+  return status >= 400 && status < 500 && status !== 401 && status !== 422;
+}
+
 export async function toInventoryError(res: Response): Promise<InventoryError> {
   const base = await toApiError(res.clone());
   let detail: unknown = null;
@@ -127,8 +135,8 @@ export async function toInventoryError(res: Response): Promise<InventoryError> {
     // sin JSON: basta con el status
   }
 
-  if (res.status === 400 && typeof detail === "string" && detail.trim()) {
-    return new InventoryError(detail, 400, {}, detail);
+  if (showsApiDetail(res.status) && typeof detail === "string" && detail.trim()) {
+    return new InventoryError(detail, res.status, {}, detail);
   }
   if (res.status === 422) {
     const fields = Object.keys(base.fieldErrors);
