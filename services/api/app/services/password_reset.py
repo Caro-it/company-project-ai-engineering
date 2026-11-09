@@ -5,6 +5,7 @@ enlace del email. Un token vale una vez y caduca a los RESET_TOKEN_EXPIRE_MINUTE
 """
 import hashlib
 import secrets
+from collections.abc import Callable
 from datetime import datetime, timedelta, timezone
 from threading import Lock
 
@@ -56,10 +57,13 @@ def create_reset_token(user_id: str) -> str:
     return token
 
 
-def consume_reset_token(token: str) -> str | None:
-    """Marca el token como usado y devuelve su user_id.
+def consume_reset_token(token: str, apply: Callable[[str], bool]) -> bool:
+    """Si el token es válido, llama a apply(user_id) y, solo si devuelve True, marca
+    el token como usado.
 
-    None si el token no existe, ha caducado o ya se usó.
+    Se marca DESPUÉS de aplicar el cambio: si apply falla (lanza o devuelve False), el
+    enlace sigue sirviendo. Todo va dentro del lock para que dos peticiones simultáneas
+    no usen el mismo token. False si el token no existe, ha caducado o ya se usó.
     """
     token_hash = _hash_token(token)
     now = _now()
@@ -70,6 +74,8 @@ def consume_reset_token(token: str) -> str | None:
             or doc["used_at"] is not None
             or datetime.fromisoformat(doc["expires_at"]) <= now
         ):
-            return None
+            return False
+        if not apply(doc["user_id"]):
+            return False
         password_reset_tokens_table.update({"used_at": now.isoformat()}, T.token_hash == token_hash)
-    return doc["user_id"]
+    return True

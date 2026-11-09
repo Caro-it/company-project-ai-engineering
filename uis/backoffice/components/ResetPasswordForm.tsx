@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
 
-import { ApiError, resetPassword } from "@/lib/account";
+import { ApiError, errorMessage, resetPassword } from "@/lib/account";
 
 type Field = "password" | "confirm";
 type FieldErrors = Partial<Record<Field, string>>;
@@ -66,9 +66,11 @@ export function ResetPasswordForm() {
       if (e instanceof ApiError && e.status === 400) {
         setLinkError(true);
       } else if (e instanceof ApiError && e.fieldErrors.new_password) {
-        setErrors({ password: e.fieldErrors.new_password });
+        setErrors({
+          password: "La contraseña debe tener al menos 8 caracteres y no superar 72 bytes.",
+        });
       } else {
-        setApiError(e instanceof Error ? e.message : "Error inesperado.");
+        setApiError(errorMessage(e));
       }
       setSubmitting(false);
     }

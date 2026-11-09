@@ -3,6 +3,7 @@
 import { StatCard } from "@/components/StatCard";
 import {
     analyzeIncidents,
+    analyzerErrorMessage,
     downloadResults,
     type AnalyzeResponse,
 } from "@/lib/incidents";
@@ -92,7 +93,7 @@ export function IncidentsAnalyzer() {
       setResult(await analyzeIncidents(file));
     } catch (e) {
       setResult(null);
-      setError(e instanceof Error ? e.message : "Error inesperado.");
+      setError(analyzerErrorMessage(e));
     } finally {
       setLoading(false);
     }
@@ -104,7 +105,7 @@ export function IncidentsAnalyzer() {
     try {
       await downloadResults();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Error inesperado.");
+      setError(analyzerErrorMessage(e));
     } finally {
       setDownloading(false);
     }
@@ -112,7 +113,7 @@ export function IncidentsAnalyzer() {
 
   const summary = result?.summary;
   const invalidRules = summary
-    ? Object.entries(summary.invalid_by_rule).filter(([, count]) => count > 0)
+    ? Object.entries(summary.invalid_by_rule ?? {}).filter(([, count]) => count > 0)
     : [];
 
   return (
@@ -202,7 +203,7 @@ export function IncidentsAnalyzer() {
               <ul className="mt-2 list-inside list-disc text-sm">
                 {invalidRules.map(([rule, count]) => (
                   <li key={rule}>
-                    {result.invalid_rule_labels[rule] ?? rule}:{" "}
+                    {result.invalid_rule_labels?.[rule] ?? rule}:{" "}
                     <strong>{count}</strong>
                   </li>
                 ))}
@@ -227,28 +228,28 @@ export function IncidentsAnalyzer() {
             />
             <StatCard
               label="Satisfacción media"
-              value={`${summary.satisfaction.average.toFixed(2)} / 5`}
-              detail={`${summary.satisfaction.scored} de ${summary.satisfaction.closed} tickets cerrados con puntuación`}
+              value={`${(summary.satisfaction?.average ?? 0).toFixed(2)} / 5`}
+              detail={`${summary.satisfaction?.scored ?? 0} de ${summary.satisfaction?.closed ?? 0} tickets cerrados con puntuación`}
             />
           </div>
 
           <div className="grid gap-4 lg:grid-cols-2">
             <BreakdownTable
               title="Por categoría (registros válidos)"
-              data={summary.by_category}
+              data={summary.by_category ?? {}}
               total={summary.valid_records}
             />
             <BreakdownTable
               title="Por estado (registros válidos)"
-              data={summary.by_status}
+              data={summary.by_status ?? {}}
               total={summary.valid_records}
             />
           </div>
 
           <BreakdownTable
             title="Distribución de satisfacción (tickets cerrados)"
-            data={summary.satisfaction.distribution}
-            total={summary.satisfaction.scored}
+            data={summary.satisfaction?.distribution ?? {}}
+            total={summary.satisfaction?.scored ?? 0}
             labels={SCORE_LABELS}
           />
 

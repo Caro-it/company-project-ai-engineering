@@ -3,14 +3,14 @@
 import Link from "next/link";
 import { useState } from "react";
 
-import { ApiError, forgotPassword } from "@/lib/account";
+import { ApiError, errorMessage, forgotPassword } from "@/lib/account";
 
 // Mismo texto que devuelve la API: no revela si el email está registrado
 const SENT_MESSAGE = "Si esa dirección está registrada, recibirás un enlace en breve";
 
 function errorText(e: unknown): string {
   if (e instanceof ApiError && e.fieldErrors.email) return "Introduce un email válido.";
-  return e instanceof Error ? e.message : "Error inesperado.";
+  return errorMessage(e);
 }
 
 const inputClass =

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 
-import { ApiError, changePassword } from "@/lib/account";
+import { ApiError, changePassword, errorMessage } from "@/lib/account";
 
 type Field = "current" | "password" | "confirm";
 type FieldErrors = Partial<Record<Field, string>>;
@@ -50,11 +50,13 @@ export function ChangePasswordForm() {
       setForm(EMPTY);
     } catch (e) {
       if (e instanceof ApiError && e.status === 400) {
-        setErrors({ current: e.message });
+        setErrors({ current: "La contraseña actual no es correcta." });
       } else if (e instanceof ApiError && e.fieldErrors.new_password) {
-        setErrors({ password: e.fieldErrors.new_password });
+        setErrors({
+          password: "La contraseña debe tener al menos 8 caracteres y no superar 72 bytes.",
+        });
       } else {
-        setSaveError(e instanceof Error ? e.message : "Error inesperado.");
+        setSaveError(errorMessage(e));
       }
     } finally {
       setSaving(false);

@@ -7,6 +7,7 @@ Reutiliza la validación del analizador (incidents_core) y transforma cada fila
 según docs/CONTEXT-incident-manager-nexova.md. Es idempotente: los ticket_id
 importados se guardan en la tabla incident_seed_log, no en la incidencia.
 """
+import csv
 import sys
 import uuid
 from pathlib import Path
@@ -114,11 +115,29 @@ def main(argv: list[str]) -> int:
         # Los mensajes de error nunca incluyen contenido de registros (emails)
         print(f"Error al leer el CSV: {error}", file=sys.stderr)
         return 1
+    except csv.Error:
+        print("Error al leer el CSV: el fichero está mal formado.", file=sys.stderr)
+        return 1
+    except OSError as error:
+        # Permisos, fichero bloqueado o borrado entre la comprobación y la lectura
+        print(f"Error: no se ha podido abrir '{path}' ({error.strerror}).", file=sys.stderr)
+        return 1
 
     # Import diferido: abrir la BD real solo al ejecutar el seed, no al importar run()
     from app.database import incident_seed_log_table, incidents_table
 
-    print_report(run(rows, incidents_table, incident_seed_log_table), path.name)
+    report = run(rows, incidents_table, incident_seed_log_table)
+    print_report(report, path.name)
+
+    # Todas las filas descartadas (ni insertadas ni ya importadas): un pipeline no debe darlo por bueno
+    if report["read"] > 0 and report["inserted"] == 0 and report["existing"] == 0:
+        print(
+            f"Error: se han descartado las {report['read']} filas "
+            f"({report['invalid']} no válidas, {report['unmapped']} no mapeables). "
+            "Revisa el desglose del informe.",
+            file=sys.stderr,
+        )
+        return 1
     return 0
 
 

@@ -34,7 +34,7 @@ def _to_supplier(doc) -> Supplier:
 def _get_or_404(supplier_id: int):
     doc = suppliers_table.get(doc_id=supplier_id)
     if doc is None:
-        raise HTTPException(status_code=404, detail=f"Proveedor {supplier_id} no encontrado")
+        raise HTTPException(status_code=404, detail="Proveedor no encontrado")
     return doc
 
 

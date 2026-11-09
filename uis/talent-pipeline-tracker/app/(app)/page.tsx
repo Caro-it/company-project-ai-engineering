@@ -4,7 +4,8 @@ import { useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import type { TalentRecord, RecordStatus, RecordStage } from '@/types/record';
 import { getRecords } from '@/services/records';
-import { STATUS_LABELS, STAGE_LABELS } from '@/lib/labels';
+import { errorMessage } from '@/services/apiClient';
+import { statusLabel, stageLabel } from '@/lib/labels';
 import FilterBar from '@/components/FilterBar';
 import SearchInput from '@/components/SearchInput';
 import Link from 'next/link';
@@ -18,8 +19,11 @@ export default function Home() {
   const [records, setRecords] = useState<TalentRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [retries, setRetries] = useState(0);
 
   useEffect(() => {
+    // Si cambian los filtros antes de que llegue la respuesta, la antigua se descarta
+    let cancelled = false;
     async function load() {
       try {
         setLoading(true);
@@ -29,15 +33,18 @@ export default function Home() {
           stage: stage ?? undefined,
           search: search ?? undefined,
         });
-        setRecords(response.data);
-      } catch {
-        setError('No se han podido cargar las candidaturas.');
+        if (!cancelled) setRecords(Array.isArray(response?.data) ? response.data : []);
+      } catch (err) {
+        if (!cancelled) setError(`No se han podido cargar las candidaturas. ${errorMessage(err)}`);
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     }
     load();
-  }, [status, stage, search]);
+    return () => {
+      cancelled = true;
+    };
+  }, [status, stage, search, retries]);
 
   return (
     <main className="p-8">
@@ -50,7 +57,14 @@ export default function Home() {
       <FilterBar />
 
       {loading && <p>Cargando candidaturas…</p>}
-      {error && <p className="text-red-600">{error}</p>}
+      {error && !loading && (
+        <div role="alert" className="text-red-600">
+          <p>{error}</p>
+          <button onClick={() => setRetries((n) => n + 1)} className="mt-2 bg-blue-700 text-white px-4 py-2">
+            Reintentar
+          </button>
+        </div>
+      )}
 
       {!loading && !error && (
         <>
@@ -65,7 +79,7 @@ export default function Home() {
                  {record.full_name}
               </Link>
               {' — '}{record.position} —{' '}
-              {STATUS_LABELS[record.status]} / {STAGE_LABELS[record.stage]}
+              {statusLabel(record.status)} / {stageLabel(record.stage)}
             </li>
             ))}
           </ul>
@@ -74,6 +88,3 @@ export default function Home() {
     </main>
   );
 }
-
-
-

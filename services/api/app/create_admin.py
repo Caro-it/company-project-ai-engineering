@@ -25,7 +25,10 @@ def main() -> None:
 
     existing = get_user_by_email(email)
     if existing is not None:
-        update_user(existing["id"], UserUpdate(role=Role.ADMIN, is_active=True))
+        updated = update_user(existing["id"], UserUpdate(role=Role.ADMIN, is_active=True))
+        if updated is None or updated.get("role") != Role.ADMIN or not updated.get("is_active"):
+            print(f"Error: no se ha podido promover a {email} a admin.", file=sys.stderr)
+            sys.exit(1)
         print(f"{email} ya existía: ahora es admin y está activo.")
         return
 

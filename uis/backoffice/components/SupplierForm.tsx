@@ -14,6 +14,7 @@ import {
   type Supplier,
   type SupplierStatus,
 } from "@/lib/suppliers";
+import { ApiError, errorMessage } from "@/lib/account";
 
 const COUNTRY_LABELS: Record<Country, string> = {
   Spain: "España",
@@ -70,8 +71,28 @@ function validate(form: FormState): FieldErrors {
   return errors;
 }
 
+// Campos del 422 de la API → nombre en el formulario (el msg de Pydantic no se muestra)
+const FIELD_LABELS: Record<string, string> = {
+  name: "Nombre",
+  country: "País",
+  currency: "Moneda",
+  categories: "Categorías",
+  monthly_rate: "Tarifa mensual (debe ser mayor que 0)",
+  status: "Estado",
+  contract_renewal_date: "Fecha de renovación",
+  contact_email: "Email de contacto",
+  notes: "Notas internas",
+};
+
 function errorText(e: unknown): string {
-  return e instanceof Error ? e.message : "Error inesperado.";
+  if (e instanceof ApiError && e.status === 422) {
+    const fields = Object.keys(e.fieldErrors).map((f) => FIELD_LABELS[f] ?? f);
+    // Error de modelo (sin campo concreto): la moneda no corresponde al país
+    return fields.length > 0
+      ? `Revisa estos campos: ${fields.join(", ")}.`
+      : "Revisa los datos: la moneda debe corresponder al país elegido.";
+  }
+  return errorMessage(e);
 }
 
 const inputClass =
@@ -363,7 +384,7 @@ export function SupplierForm({
               role="alert"
               className="rounded-md border border-rose-200 bg-rose-50 p-3 text-sm text-rose-800 sm:col-span-2"
             >
-              La API rechazó el registro: {apiError}
+              No se pudo registrar el proveedor: {apiError}
             </p>
           )}
 

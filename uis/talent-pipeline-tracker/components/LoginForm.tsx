@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
 import { setToken } from "@/lib/auth";
-import { login } from "@/lib/authApi";
+import { AuthApiError, login } from "@/lib/authApi";
 import { useTokenStatus } from "@/lib/useTokenStatus";
 
 // El registro solo existe en el backoffice: localStorage es por origen,
@@ -49,7 +49,9 @@ export function LoginForm() {
       setToken(await login(email.trim(), password));
       router.replace("/");
     } catch (e) {
-      setApiError(e instanceof Error ? e.message : "Error inesperado.");
+      setApiError(
+        e instanceof AuthApiError ? e.message : "No se ha podido iniciar sesión. Inténtalo de nuevo.",
+      );
       setSubmitting(false);
     }
   }

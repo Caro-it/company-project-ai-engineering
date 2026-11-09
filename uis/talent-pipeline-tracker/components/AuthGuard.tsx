@@ -3,8 +3,7 @@
 import { useRouter } from "next/navigation";
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 
-import { clearToken } from "@/lib/auth";
-import { getMe, type Me } from "@/lib/authApi";
+import { AuthApiError, getMe, type Me } from "@/lib/authApi";
 import { useTokenStatus } from "@/lib/useTokenStatus";
 
 const MeContext = createContext<Me | null>(null);
@@ -18,11 +17,14 @@ export function useMe(): Me {
 
 // Protección en cliente (el token vive en localStorage, que el servidor no ve).
 // Primero mira exp en local y, si vale, lo confirma una vez con GET /auth/me.
-// No muestra nada hasta tener la respuesta; si algo falla, manda a /login.
+// Un 401 cierra la sesión (lo hace getMe); un fallo de red o del servidor no:
+// se explica y se ofrece reintentar, sin perder la sesión.
 export function AuthGuard({ children }: { children: ReactNode }) {
   const router = useRouter();
   const valid = useTokenStatus();
   const [me, setMe] = useState<Me | null>(null);
+  const [checkError, setCheckError] = useState(false);
+  const [retries, setRetries] = useState(0);
 
   useEffect(() => {
     if (valid === null) return;
@@ -35,21 +37,38 @@ export function AuthGuard({ children }: { children: ReactNode }) {
       .then((user) => {
         if (!cancelled) setMe(user);
       })
-      .catch(() => {
-        if (cancelled) return;
-        // Se borra también ante un fallo de red: si no, /login vería un token
-        // con exp válido y devolvería a "/" en bucle
-        clearToken();
-        router.replace("/login");
+      .catch((e) => {
+        // El 401 ya redirige a /login desde getMe
+        if (!cancelled && !(e instanceof AuthApiError && e.status === 401)) setCheckError(true);
       });
     return () => {
       cancelled = true;
     };
-  }, [valid, router]);
+  }, [valid, router, retries]);
+
+  if (checkError) {
+    return (
+      <main className="p-8">
+        <div role="alert" className="max-w-xl rounded-md border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800">
+          <p>No se pudo comprobar la sesión. Revisa tu conexión e inténtalo de nuevo.</p>
+          <button
+            type="button"
+            onClick={() => {
+              setCheckError(false);
+              setRetries((n) => n + 1);
+            }}
+            className="mt-3 bg-blue-700 px-4 py-2 text-white"
+          >
+            Reintentar
+          </button>
+        </div>
+      </main>
+    );
+  }
 
   if (!valid || !me) {
     return (
-      <p role="status" className="sr-only">
+      <p role="status" className="p-8 text-sm">
         Comprobando la sesión…
       </p>
     );

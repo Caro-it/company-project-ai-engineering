@@ -1,5 +1,10 @@
 // Cliente de la API de incidencias (services/api): analizador de CSV y gestor de incidencias.
-import { apiFetch } from "@/lib/api";
+import {
+  GENERIC_ERROR,
+  apiFetch,
+  failedRequestStatus,
+  statusErrorMessage,
+} from "@/lib/api";
 
 // --- Analizador de CSV: los tipos reflejan el JSON de analyze_rows ---
 
@@ -24,26 +29,34 @@ export interface AnalyzeResponse {
   invalid_rule_labels: Record<string, string>;
 }
 
-async function errorMessage(res: Response): Promise<string> {
-  try {
-    const data = await res.json();
-    if (typeof data?.detail === "string") return data.detail;
-  } catch {
-    // respuesta sin JSON: usamos el mensaje genérico
+// Textos fijos del analizador por status (los detail de la API no se muestran)
+const ANALYZE_ERRORS: Record<number, string> = {
+  400: "El fichero está vacío o no está codificado en UTF-8.",
+  404: "Todavía no hay ningún análisis. Sube un CSV primero.",
+  413: "El fichero supera el tamaño máximo de 50 MB.",
+  415: "El fichero debe tener extensión .csv.",
+  422: "El contenido del CSV no es válido. Revisa las columnas y el formato del fichero.",
+};
+
+export class AnalyzerError extends Error {
+  constructor(readonly status: number) {
+    super(ANALYZE_ERRORS[status] ?? statusErrorMessage(status));
+    this.name = "AnalyzerError";
   }
-  return `Error ${res.status} al procesar la petición.`;
+}
+
+export function analyzerErrorMessage(e: unknown): string {
+  return e instanceof AnalyzerError ? e.message : GENERIC_ERROR;
 }
 
 async function request(path: string, init?: RequestInit): Promise<Response> {
   let res: Response;
   try {
     res = await apiFetch(path, init);
-  } catch {
-    throw new Error(
-      "No se pudo conectar con la API. Comprueba que está arrancada en el puerto 8000.",
-    );
+  } catch (e) {
+    throw new AnalyzerError(failedRequestStatus(e));
   }
-  if (!res.ok) throw new Error(await errorMessage(res));
+  if (!res.ok) throw new AnalyzerError(res.status);
   return res;
 }
 
@@ -54,12 +67,21 @@ export async function analyzeIncidents(file: File): Promise<AnalyzeResponse> {
     method: "POST",
     body: form,
   });
-  return res.json();
+  try {
+    return await res.json();
+  } catch {
+    throw new AnalyzerError(-1);
+  }
 }
 
 export async function downloadResults(): Promise<void> {
   const res = await request("/api/incidents/results/export");
-  const blob = await res.blob();
+  let blob: Blob;
+  try {
+    blob = await res.blob();
+  } catch {
+    throw new AnalyzerError(-1);
+  }
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
   link.href = url;
@@ -185,7 +207,8 @@ export interface IncidentStats {
 
 // --- Errores: la API envía un "code" estable y el texto se elige aquí ---
 // Diccionario único en español. Si algún día hay soporte bilingüe, basta con traducir
-// estos mapas por "code"; el "message"/"detail" de la API solo se usa con códigos desconocidos.
+// estos mapas por "code". Con un código desconocido se usa el texto fijo de su status:
+// el "message"/"detail" de la API nunca se muestra.
 
 export interface ApiFieldError {
   field: string;
@@ -232,14 +255,11 @@ const ERROR_MESSAGES: Record<string, string> = {
   invalid_value: "El valor no es válido.",
   validation_error: "Revisa los campos marcados.",
   not_found: "La incidencia ya no existe. Recarga el listado.",
-  internal_error:
-    "Ha ocurrido un error en el servidor. Inténtalo de nuevo en unos minutos.",
-  network_error:
-    "No se ha podido conectar con el servidor. Comprueba tu conexión e inténtalo de nuevo.",
+  internal_error: statusErrorMessage(500),
+  network_error: statusErrorMessage(0),
+  timeout: statusErrorMessage(408),
+  invalid_response: "Respuesta inesperada del servidor. Inténtalo de nuevo.",
 };
-
-const GENERIC_ERROR =
-  "No se ha podido completar la operación. Inténtalo de nuevo.";
 
 // Mensaje de un error de campo de la API (code → texto)
 export function fieldErrorMessage(error: ApiFieldError): string {
@@ -249,20 +269,20 @@ export function fieldErrorMessage(error: ApiFieldError): string {
   if (error.code === "empty_text") {
     return FIELD_EMPTY[error.field] ?? "Este campo no puede estar vacío.";
   }
-  return ERROR_MESSAGES[error.code] ?? error.message ?? GENERIC_ERROR;
+  return ERROR_MESSAGES[error.code] ?? "El valor no es válido.";
 }
 
 // Mensaje general de cualquier error (también de los que no vienen de la API)
 export function incidentErrorMessage(e: unknown): string {
   if (!(e instanceof IncidentApiError)) return GENERIC_ERROR;
   if (e.code === "invalid_transition" && e.from && e.to) {
+    const from = STATUS_LABELS[e.from] ?? e.from;
+    const to = STATUS_LABELS[e.to] ?? e.to;
     const final =
-      ALLOWED_TRANSITIONS[e.from].length === 0
-        ? ` «${STATUS_LABELS[e.from]}» es un estado final.`
-        : "";
-    return `No se puede pasar de «${STATUS_LABELS[e.from]}» a «${STATUS_LABELS[e.to]}».${final}`;
+      ALLOWED_TRANSITIONS[e.from]?.length === 0 ? ` «${from}» es un estado final.` : "";
+    return `No se puede pasar de «${from}» a «${to}».${final}`;
   }
-  return ERROR_MESSAGES[e.code] ?? e.fallback ?? GENERIC_ERROR;
+  return ERROR_MESSAGES[e.code] ?? statusErrorMessage(e.status);
 }
 
 async function toApiError(res: Response): Promise<IncidentApiError> {
@@ -290,11 +310,16 @@ async function incidentRequest<T>(
   let res: Response;
   try {
     res = await apiFetch(path, init);
-  } catch {
-    throw new IncidentApiError(0, "network_error");
+  } catch (e) {
+    const status = failedRequestStatus(e);
+    throw new IncidentApiError(status, status === 0 ? "network_error" : "timeout");
   }
   if (!res.ok) throw await toApiError(res);
-  return res.json() as Promise<T>;
+  try {
+    return (await res.json()) as T;
+  } catch {
+    throw new IncidentApiError(res.status, "invalid_response");
+  }
 }
 
 const JSON_HEADERS = { "Content-Type": "application/json" };
@@ -338,9 +363,12 @@ export function changeIncidentStatus(
 
 // Fecha de alta. Los históricos del CSV solo llevan día (medianoche UTC): se muestran en
 // UTC para que desde Miami no aparezcan con el día anterior.
+// Una fecha vacía o mal formada se muestra como «—» en vez de romper la tabla.
 export function formatIncidentDate(iso: string): string {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return "—";
   return new Intl.DateTimeFormat("es-ES", {
     dateStyle: "medium",
     timeZone: "UTC",
-  }).format(new Date(iso));
+  }).format(date);
 }

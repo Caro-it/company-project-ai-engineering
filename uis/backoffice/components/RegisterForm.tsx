@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
-import { ApiError, login, registerUser } from "@/lib/account";
+import { ApiError, errorMessage, login, registerUser } from "@/lib/account";
 import { setToken } from "@/lib/auth";
 import { useTokenStatus } from "@/lib/useTokenStatus";
 
@@ -53,6 +53,16 @@ const INPUT_PROPS: Record<Field, { type: string; autoComplete: string }> = {
 
 const REQUIRED: Field[] = ["email", "password"];
 
+// Textos propios por campo para un 422: el msg de Pydantic no se muestra
+const FIELD_ERRORS: Partial<Record<Field, string>> = {
+  email: "Introduce un email válido.",
+  password: `La contraseña debe tener al menos ${PASSWORD_MIN_LENGTH} caracteres y no superar 72 bytes.`,
+};
+
+// El 409 no confirma si el email está registrado (no se revelan cuentas existentes)
+const CONFLICT_MESSAGE =
+  "No se ha podido crear la cuenta; si ya tienes una, inicia sesión o recupera la contraseña.";
+
 export function RegisterForm() {
   const router = useRouter();
   const hasSession = useTokenStatus();
@@ -87,16 +97,16 @@ export function RegisterForm() {
       });
     } catch (e) {
       if (e instanceof ApiError && e.status === 409) {
-        setErrors({ email: "Ya existe una cuenta con este email." });
+        setApiError(CONFLICT_MESSAGE);
       } else if (e instanceof ApiError && e.status === 422) {
         const fieldErrors: FieldErrors = {};
-        for (const [key, msg] of Object.entries(e.fieldErrors)) {
-          if (isField(key)) fieldErrors[key] = msg;
+        for (const key of Object.keys(e.fieldErrors)) {
+          if (isField(key)) fieldErrors[key] = FIELD_ERRORS[key] ?? "El valor no es válido.";
         }
         setErrors(fieldErrors);
         if (Object.keys(fieldErrors).length === 0) setApiError(e.message);
       } else {
-        setApiError(e instanceof Error ? e.message : "Error inesperado.");
+        setApiError(errorMessage(e));
       }
       setSubmitting(false);
       return;

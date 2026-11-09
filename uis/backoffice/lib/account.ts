@@ -1,6 +1,11 @@
 // Cliente de autenticación, usuarios y perfil de la API
 // (services/api/app/routers/auth.py, users.py y profiles.py), incluidas las contraseñas.
-import { apiFetch } from "@/lib/api";
+import {
+  GENERIC_ERROR,
+  apiFetch,
+  failedRequestStatus,
+  statusErrorMessage,
+} from "@/lib/api";
 
 export interface ProfileData {
   name: string | null;
@@ -30,39 +35,48 @@ export class ApiError extends Error {
   }
 }
 
-const NETWORK_ERROR =
-  "No se pudo conectar con la API. ¿Está arrancada en el puerto 8000?";
-
-async function toApiError(res: Response): Promise<ApiError> {
-  let message = `Error ${res.status} al procesar la petición.`;
+// message es siempre un texto fijo según el status (statusErrorMessage): nunca el detail
+// de la API. fieldErrors guarda el msg de Pydantic solo para saber qué campos fallaron;
+// la UI muestra sus propios textos por campo.
+export async function toApiError(res: Response): Promise<ApiError> {
   const fieldErrors: Record<string, string> = {};
   try {
     const data = await res.json();
-    if (typeof data?.detail === "string") message = data.detail;
     if (Array.isArray(data?.detail)) {
       for (const e of data.detail as { loc?: (string | number)[]; msg?: string }[]) {
-        const field = e.loc?.filter((p) => p !== "body").at(-1);
-        if (field !== undefined && e.msg && !(field in fieldErrors)) {
-          fieldErrors[String(field)] = e.msg;
+        const field = e?.loc?.filter((p) => typeof p === "string" && p !== "body").at(-1);
+        if (field !== undefined && !(field in fieldErrors)) {
+          fieldErrors[String(field)] = e?.msg ?? "";
         }
       }
-      message = "Revisa los campos marcados.";
     }
   } catch {
-    // respuesta sin JSON: usamos el mensaje genérico
+    // respuesta sin JSON: basta con el status
   }
-  return new ApiError(message, res.status, fieldErrors);
+  return new ApiError(statusErrorMessage(res.status), res.status, fieldErrors);
 }
 
-async function request<T>(path: string, init?: RequestInit): Promise<T> {
+// Petición con errores tipados: fallo de red o timeout (status 0/408), status no OK
+// y cuerpo que no es JSON acaban siempre en un ApiError con texto fijo.
+export async function request<T>(path: string, init?: RequestInit): Promise<T> {
   let res: Response;
   try {
     res = await apiFetch(path, init);
-  } catch {
-    throw new ApiError(NETWORK_ERROR, 0);
+  } catch (e) {
+    const status = failedRequestStatus(e);
+    throw new ApiError(statusErrorMessage(status), status);
   }
   if (!res.ok) throw await toApiError(res);
-  return res.json() as Promise<T>;
+  try {
+    return (await res.json()) as T;
+  } catch {
+    throw new ApiError("Respuesta inesperada del servidor. Inténtalo de nuevo.", res.status);
+  }
+}
+
+// Texto para mostrar de cualquier error capturado
+export function errorMessage(e: unknown): string {
+  return e instanceof ApiError ? e.message : GENERIC_ERROR;
 }
 
 const JSON_HEADERS = { "Content-Type": "application/json" };
@@ -74,6 +88,9 @@ export async function login(email: string, password: string): Promise<string> {
     "/auth/login",
     { method: "POST", body },
   );
+  if (typeof data?.access_token !== "string" || !data.access_token) {
+    throw new ApiError("Respuesta inesperada del servidor. Inténtalo de nuevo.", 200);
+  }
   return data.access_token;
 }
 
@@ -110,7 +127,7 @@ export async function forgotPassword(email: string): Promise<string> {
     headers: JSON_HEADERS,
     body: JSON.stringify({ email }),
   });
-  return data.message;
+  return data?.message ?? "Si esa dirección está registrada, recibirás un enlace en breve";
 }
 
 // 400 si el token no existe, ha caducado o ya se usó
@@ -120,7 +137,7 @@ export async function resetPassword(token: string, newPassword: string): Promise
     headers: JSON_HEADERS,
     body: JSON.stringify({ token, new_password: newPassword }),
   });
-  return data.message;
+  return data?.message ?? "Contraseña actualizada.";
 }
 
 // Con el token de sesión (apiFetch). 400 si la contraseña actual no es correcta
@@ -133,5 +150,5 @@ export async function changePassword(
     headers: JSON_HEADERS,
     body: JSON.stringify({ current_password: currentPassword, new_password: newPassword }),
   });
-  return data.message;
+  return data?.message ?? "Contraseña cambiada correctamente.";
 }

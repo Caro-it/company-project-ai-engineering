@@ -29,8 +29,9 @@ def _to_user_out(doc: dict) -> UserOut:
     )
 
 
-def _not_found(user_id: str) -> HTTPException:
-    return HTTPException(status_code=404, detail=f"Usuario {user_id} no encontrado")
+def _not_found() -> HTTPException:
+    # Detail fijo: no se repite el id recibido
+    return HTTPException(status_code=404, detail="Usuario no encontrado")
 
 
 @router.post("", response_model=UserOut, status_code=201)
@@ -38,8 +39,11 @@ def register_user(payload: UserCreate):
     """Alta pública. El rol siempre es "user"."""
     try:
         user = create_user(payload, role=Role.USER)
-    except EmailAlreadyExistsError as error:
-        raise HTTPException(status_code=409, detail=str(error)) from None
+    except EmailAlreadyExistsError:
+        # Detail neutro: ni el email ni si ya está registrado
+        raise HTTPException(
+            status_code=409, detail="No se ha podido crear la cuenta con esos datos"
+        ) from None
     return _to_user_out(user)
 
 
@@ -55,7 +59,7 @@ def read_user(user_id: str, current_user: dict = Depends(get_current_user)):
     require_self_or_admin(user_id, current_user)
     user = get_user_by_id(user_id)
     if user is None:
-        raise _not_found(user_id)
+        raise _not_found()
     return _to_user_out(user)
 
 
@@ -67,10 +71,11 @@ def edit_user(user_id: str, payload: UserUpdate, current_user: dict = Depends(ge
 
     try:
         user = update_user(user_id, payload)
-    except EmailAlreadyExistsError as error:
-        raise HTTPException(status_code=409, detail=str(error)) from None
+    except EmailAlreadyExistsError:
+        # Detail neutro: sin repetir el email
+        raise HTTPException(status_code=409, detail="No se ha podido actualizar el email") from None
     if user is None:
-        raise _not_found(user_id)
+        raise _not_found()
     return _to_user_out(user)
 
 
@@ -79,5 +84,5 @@ def remove_user(user_id: str, current_user: dict = Depends(get_current_user)):
     """Borra el usuario y su perfil."""
     require_self_or_admin(user_id, current_user)
     if not delete_user(user_id):
-        raise _not_found(user_id)
+        raise _not_found()
     return Response(status_code=204)

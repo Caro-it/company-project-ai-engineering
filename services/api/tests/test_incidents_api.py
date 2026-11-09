@@ -156,7 +156,7 @@ def test_get_existing_and_missing(client, auth_headers, seed_report):
 
     res = client.get(f"{BASE}/no-existe", headers=auth_headers)
     assert res.status_code == 404
-    assert res.json() == {"detail": "Incidencia no-existe no encontrada", "code": "not_found"}
+    assert res.json() == {"detail": "Incidencia no encontrada", "code": "not_found"}
 
 
 # --- Cambio de estado ---
