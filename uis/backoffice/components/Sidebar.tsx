@@ -17,7 +17,15 @@ export function Sidebar() {
               <NavLink href="/">Inicio</NavLink>
             </li>
             <li>
-              <NavLink href="/incidencias">Análisis de incidencias</NavLink>
+              <NavLink href="/incidencias">Incidencias</NavLink>
+            </li>
+            <li>
+              <NavLink href="/incidencias/nueva">Registrar incidencia</NavLink>
+            </li>
+            <li>
+              <NavLink href="/incidencias/analizador">
+                Análisis de incidencias (CSV)
+              </NavLink>
             </li>
             <li>
               <NavLink href="/proveedores">Directorio de proveedores</NavLink>

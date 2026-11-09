@@ -27,5 +27,9 @@ class Settings(BaseSettings):
     FRONTEND_URL: str = "http://localhost:3001"
     RESET_TOKEN_EXPIRE_MINUTES: int = 30
 
+    # Orígenes permitidos por CORS (en .env, como lista JSON). Los tests e2e del
+    # backoffice añaden su propio puerto
+    CORS_ORIGINS: list[str] = ["http://localhost:3000", "http://localhost:3001"]
+
 
 settings = Settings()

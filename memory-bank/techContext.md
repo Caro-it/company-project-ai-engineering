@@ -71,6 +71,15 @@ El devcontainer solo reenvía los puertos 3000, 8000 y 5678. Los puertos 3001 y 
 - En Git Bash, las variables con rutas (`WEBSITE_BASE=/…`) se convierten a rutas de Windows. En local, para probar el base, usa `MSYS_NO_PATHCONV=1` (en PowerShell no pasa).
 
 - `uis/backoffice` usa el mismo stack que el tracker, con un layout propio de app interna distinto al de la web.
+- **Gestor de incidencias en `uis/backoffice`:**
+  - Rutas `/incidencias` (resumen + listado), `/incidencias/nueva` y `/incidencias/analizador`.
+  - Cliente, valores del CONTEXT, etiquetas y diccionario de errores por `code` en `lib/incidents.ts`.
+  - Componentes en `components/incidents/`. Los datos se cargan con el patrón "clave de petición": `loading = result.key !== requestKey`, sin `setState` síncrono dentro de `useEffect`, que la regla `react-hooks/set-state-in-effect` de `eslint-config-next` 16 rechaza.
+  - Solo en español: no hay soporte bilingüe.
+  - **Tests e2e** con Playwright (`npm run test:e2e`, solo Chromium):
+    - Arrancan su propia API (puerto 8100, `NEXOVA_DATA_DIR` temporal con el seed, `CORS_ORIGINS` con el puerto 3100) y su propio build en `.next/e2e` (`NEXT_DIST_DIR`).
+    - Specs numerados que comparten BD, con `workers: 1`.
+    - Las capturas van a `docs/screenshots/incident-manager/`.
 
 ### Backend — `services/api`
 
@@ -79,7 +88,9 @@ El devcontainer solo reenvía los puertos 3000, 8000 y 5678. Los puertos 3001 y 
   - `suppliers.json`: directorio de proveedores.
   - `auth.json`: tablas `users` y `profiles`.
   - Las rutas se resuelven con `Path(__file__)`, así que funcionan desde cualquier directorio de arranque.
-- La lógica de incidencias vive en `packages/incidents_core`, instalado en modo editable a través de `[tool.uv.sources]`.
+- La lógica de incidencias vive en `packages/shared/incidents_core` (paquete Python dentro de `packages/shared`, movido con confirmación), instalado en modo editable a través de `[tool.uv.sources]`. `scripts/analyze.py` y `scripts/seed_incidents.py` se ejecutan con el `.venv` de `services/api`.
+- **Gestor de incidencias:** `data/incidents.json` con las tablas `incidents` (id uuid4) e `incident_seed_log` (idempotencia del seed). Valores, transiciones y mapas CSV → modelo en `incidents_core/incident_model.py`; modelos Pydantic en `app/incident_models.py` (tipos `Literal` compartidos, no `StrEnum`). Rutas en `app/routers/incidents.py` y acceso a datos en `app/services/incidents.py`.
+- **Errores (`app/errors.py`):** en las rutas del gestor de incidencias, los errores de validación son 400 con `{"detail": "Datos no válidos", "code": "validation_error", "errors": [{field, code, message}]}`, filtrando por ruta dentro del handler. Los errores propios (`ApiError`) responden `{"detail", "code", …}`: `not_found` y `invalid_transition` (con `from`, `to` y `allowed`). Soporte bilingüe: `code` es estable y en inglés para que el frontend traduzca, y `message`/`detail` en español es el respaldo. La lista de códigos está en el README de la API. El resto de rutas (incluidas `/api/incidents/analyze` y `/results/export`) conserva el 422 de FastAPI, del que depende el frontend de AUTH-02. Las excepciones no controladas dan 500 con `{"detail": "Error interno del servidor", "code": "internal_error"}` en todas las rutas, y el traceback solo va al log. Las captura el middleware `catch_unhandled_errors`, que `register_error_handlers(app)` registra **antes** de `add_middleware(CORSMiddleware)`: el último middleware añadido es el más externo, así que CORS lo envuelve y el 500 lleva las cabeceras CORS. Si se reordena `main.py`, el navegador vuelve a bloquear los 500.
 - **Configuración** con pydantic-settings, leída de `services/api/.env` (ignorado por git; plantilla en `.env.example`). `SECRET_KEY` es obligatoria.
 - **Autenticación (AUTH-01):**
   - JWT stateless (HS256, 30 min por defecto) con `sub` = id del usuario.
@@ -94,6 +105,6 @@ El devcontainer solo reenvía los puertos 3000, 8000 y 5678. Los puertos 3001 y 
 ## Restricciones técnicas
 
 - Los archivos protegidos se listan en [`AGENTS.md`](../AGENTS.md).
-- **No hay tests automatizados** en el repo. Las verificaciones disponibles son el `typecheck` de `packages/shared`, el `lint` y `build` de las apps Next.js, el `build` de Astro y el script de literales de `.agents/skills/verify-website-literals`. `services/api` tampoco tiene tests: `fastapi.testclient` necesita `httpx2`, que no está instalado.
+- **No hay tests automatizados** en el repo. Las verificaciones disponibles son el `typecheck` de `packages/shared`, el `lint` y `build` de las apps Next.js, el `build` de Astro y el script de literales de `.agents/skills/verify-website-literals`. `services/api` sí tiene tests (`uv run pytest` desde `services/api`): `pytest` y `httpx2` son dependencias de desarrollo (`[dependency-groups] dev`). `requirements.txt` se genera con `uv export --no-dev` para no incluirlas. Los tests usan TinyDB en memoria y nunca tocan `data/`.
 - Algunos archivos del tracker se commitearon **con BOM UTF-8**. Como el tracker está protegido, la comprobación de BOM del flujo pre-commit lo excluye.
 - `gh` (GitHub CLI) no está instalado en la máquina local; las PR se abren desde la web de GitHub.

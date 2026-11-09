@@ -17,7 +17,7 @@ Organize `uis/` by **different concerns** — each subfolder covers a distinct a
 | App | Goal | Stack | Start | Port |
 |---|---|---|---|---|
 | [`website/`](./website/README.md) | Nexova public website and talent registration form (Milestone 1) | Astro 7 + Tailwind 4 | `npm run dev` | 4321 |
-| [`backoffice/`](./backoffice/README.md) | Internal app: welcome screen and empty dashboard with briefing data | Next.js 16 + TypeScript + Tailwind 4 | `npm run dev` | 3001 |
+| [`backoffice/`](./backoffice/README.md) | Internal app: dashboard, auth, suppliers directory, incident manager and CSV analyzer | Next.js 16 + TypeScript + Tailwind 4 | `npm run dev` | 3001 |
 | [`talent-pipeline-tracker/`](./talent-pipeline-tracker/README.md) | Recruitment pipeline tracker for Selection Operations (Milestone 3) | Next.js 16 + TypeScript + Tailwind 4 | `npm run dev` | 3000 |
 
 > _Estas instrucciones también están disponibles en [español](./README.es.md)._
