@@ -1,86 +1,96 @@
-"""Modelos Pydantic del Directorio de Proveedores de Nexova.
+"""Modelos ORM (SQLModel, table=True) del inventario de Nexova, persistidos en Supabase.
 
-Fuente de verdad: docs/CONTEXT-suppliers-nexova.md
+Fuente de verdad: docs/CONTEXT-inventory-nexova.md
+
+- No hay columna de stock: `current_stock` se calcula siempre a partir de las órdenes
+  (SUMA(AssetEntry.quantity) − SUMA(AssetExit.quantity)) y solo existe en los schemas
+  de respuesta (app/schemas.py).
+- No hay modelo User: `user_uuid` es el id del usuario en TinyDB (texto, sin FK).
+- Estos modelos nunca se devuelven desde un endpoint: los routers responden con los
+  schemas de app/schemas.py.
 """
-from datetime import date, datetime
-from enum import StrEnum
+from datetime import UTC, datetime
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from sqlalchemy import CheckConstraint, Column, DateTime
+from sqlmodel import Field, Relationship, SQLModel
 
-
-class Country(StrEnum):
-    SPAIN = "Spain"
-    USA = "USA"
+from app.inventory_catalog import AssetCategory, ExitType, Office, sql_in
 
 
-class Currency(StrEnum):
-    EUR = "EUR"
-    USD = "USD"
+def utc_now() -> datetime:
+    return datetime.now(UTC)
 
 
-class Category(StrEnum):
-    JOB_BOARDS = "job_boards"
-    ATS_SOFTWARE = "ats_software"
-    ASSESSMENT_TOOLS = "assessment_tools"
-    TRAINING_PLATFORMS = "training_platforms"
-    PAYROLL_AND_HR_SOFTWARE = "payroll_and_hr_software"
-    VIDEO_INTERVIEW = "video_interview"
-    BACKGROUND_CHECK = "background_check"
-    OFFICE_AND_FACILITIES = "office_and_facilities"
-    IT_AND_SOFTWARE_LICENSES = "it_and_software_licenses"
+def _created_at_field() -> datetime:
+    return Field(
+        default_factory=utc_now,
+        sa_column=Column(DateTime(timezone=True), nullable=False),
+    )
 
 
-class Status(StrEnum):
-    ACTIVE = "active"
-    SUSPENDED = "suspended"
+class Asset(SQLModel, table=True):
+    """Activo inventariable de una oficina (equivale a Product del README)."""
+
+    __tablename__ = "asset"
+    __table_args__ = (
+        CheckConstraint(f"category IN ({sql_in(AssetCategory)})", name="ck_asset_category"),
+        CheckConstraint(f"office IN ({sql_in(Office)})", name="ck_asset_office"),
+    )
+
+    id: int | None = Field(default=None, primary_key=True)
+    name: str = Field(max_length=200)
+    sku: str = Field(max_length=50, unique=True, index=True)
+    category: str = Field(max_length=30)
+    office: str = Field(max_length=20, index=True)
+
+    entries: list["AssetEntry"] = Relationship(back_populates="asset")
+    exits: list["AssetExit"] = Relationship(back_populates="asset")
 
 
-# Restricción de negocio: moneda según país del contrato
-CURRENCY_BY_COUNTRY = {
-    Country.SPAIN: Currency.EUR,
-    Country.USA: Currency.USD,
-}
+class AssetEntry(SQLModel, table=True):
+    """Compra o entrega de proveedor recibida por Nexova (equivale a InboundOrder)."""
+
+    __tablename__ = "asset_entry"
+    __table_args__ = (
+        CheckConstraint("quantity > 0", name="ck_asset_entry_quantity_positive"),
+        CheckConstraint(f"office IN ({sql_in(Office)})", name="ck_asset_entry_office"),
+    )
+
+    id: int | None = Field(default=None, primary_key=True)
+    asset_id: int = Field(foreign_key="asset.id", index=True, ondelete="RESTRICT")
+    quantity: int
+    supplier: str = Field(max_length=200)
+    office: str = Field(max_length=20)
+    created_at: datetime = _created_at_field()
+    # UUID del usuario de TinyDB que registró la entrada (sin FK: no hay usuarios en Supabase)
+    user_uuid: str = Field(max_length=36, index=True)
+
+    asset: Asset = Relationship(back_populates="entries")
 
 
-class SupplierBase(BaseModel):
-    name: str = Field(min_length=1)
-    country: Country
-    categories: list[Category] = Field(min_length=1)
-    monthly_rate: float = Field(gt=0)
-    currency: Currency
-    status: Status
-    contract_renewal_date: date | None = None
-    contact_email: str | None = None
-    notes: str | None = None
+class AssetExit(SQLModel, table=True):
+    """Asignación de un activo a un empleado o consumo (equivale a OutboundOrder)."""
 
-    @model_validator(mode="after")
-    def currency_matches_country(self):
-        expected = CURRENCY_BY_COUNTRY[self.country]
-        if self.currency != expected:
-            raise ValueError(
-                f"Un proveedor de {self.country} debe usar {expected}, no {self.currency}"
-            )
-        return self
+    __tablename__ = "asset_exit"
+    __table_args__ = (
+        CheckConstraint("quantity > 0", name="ck_asset_exit_quantity_positive"),
+        CheckConstraint(f"office IN ({sql_in(Office)})", name="ck_asset_exit_office"),
+        CheckConstraint(f"exit_type IN ({sql_in(ExitType)})", name="ck_asset_exit_type"),
+        # Regla 3 del BRIEFING, también en la BD: allocation ⇒ assigned_to; consumption ⇒ nulo
+        CheckConstraint(
+            "(exit_type = 'allocation' AND assigned_to IS NOT NULL) OR "
+            "(exit_type = 'consumption' AND assigned_to IS NULL)",
+            name="ck_asset_exit_assigned_to",
+        ),
+    )
 
+    id: int | None = Field(default=None, primary_key=True)
+    asset_id: int = Field(foreign_key="asset.id", index=True, ondelete="RESTRICT")
+    quantity: int
+    exit_type: str = Field(max_length=20)
+    assigned_to: str | None = Field(default=None, max_length=200)
+    office: str = Field(max_length=20)
+    created_at: datetime = _created_at_field()
+    user_uuid: str = Field(max_length=36, index=True)
 
-class SupplierCreate(SupplierBase):
-    """Entrada de POST /suppliers. El cliente NO envia id ni updated_at."""
-    model_config = ConfigDict(extra="forbid")
-
-
-class Supplier(SupplierBase):
-    """Respuesta de la API: incluye los campos generados por el sistema."""
-    id: int
-    updated_at: datetime
-
-
-class RateUpdate(BaseModel):
-    """Entrada de PATCH /suppliers/{id}/rate."""
-    model_config = ConfigDict(extra="forbid")
-    monthly_rate: float = Field(gt=0)
-
-
-class StatusUpdate(BaseModel):
-    """Entrada de PATCH /suppliers/{id}/status."""
-    model_config = ConfigDict(extra="forbid")
-    status: Status
+    asset: Asset = Relationship(back_populates="exits")

@@ -8,11 +8,16 @@ import sys
 from pathlib import Path
 
 import pytest
+from sqlmodel import SQLModel
 import tinydb
 from tinydb.storages import MemoryStorage
 
 # Valor fijo para que los tests no dependan de services/api/.env
 os.environ["SECRET_KEY"] = "test-secret-key-solo-para-tests"
+# Inventario: SQLite en memoria en lugar de Supabase (los tests nunca tocan la BD real).
+# TEST_DATABASE_URL permite pasarlos contra un PostgreSQL local de pruebas; nunca se
+# usa el DATABASE_URL de .env (drop_all borra las tablas al acabar cada test)
+os.environ["DATABASE_URL"] = os.environ.get("TEST_DATABASE_URL", "sqlite://")
 
 _TinyDB = tinydb.TinyDB
 tinydb.TinyDB = lambda *args, **kwargs: _TinyDB(storage=MemoryStorage)
@@ -34,7 +39,9 @@ def clean_db():
     """Cada test empieza con todas las tablas vacías."""
     for db in (database.db, database.auth_db, database.incidents_db):
         db.drop_tables()
+    database.create_db_and_tables()
     yield
+    SQLModel.metadata.drop_all(database.engine)
 
 
 @pytest.fixture

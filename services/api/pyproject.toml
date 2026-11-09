@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "nexova-api"
 version = "0.1.0"
-description = "API de Nexova Solutions: incidencias y directorio de proveedores"
+description = "API de Nexova Solutions: incidencias, directorio de proveedores e inventario"
 requires-python = ">=3.11"
 dependencies = [
     "fastapi>=0.143",
@@ -18,11 +18,14 @@ dependencies = [
     "pydantic-settings>=2.16.1",
     "email-validator>=2.3.0",
     "resend>=2.50.0",
+    "sqlmodel>=0.0.48",
+    "psycopg2-binary>=2.9.13",
 ]
 
 [project.scripts]
 seed = "app.seed:main"
 create-admin = "app.create_admin:main"
+seed-inventory = "app.seed_inventory:main"
 
 [tool.setuptools]
 packages = ["app", "app.routers", "app.services"]

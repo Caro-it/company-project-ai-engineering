@@ -117,6 +117,60 @@ Los errores de validación de estas rutas son **400, no 422**, con un error por 
 
 El cambio a 400 lo hace `app/errors.py` filtrando por ruta: solo afecta a las rutas del gestor. `/auth`, `/users`, `/profiles`, `/suppliers`, `/analyze` y `/results/export` siguen devolviendo el 422 de FastAPI, del que depende el frontend de AUTH-02. La captura de los 500 sí es global: un middleware HTTP registrado antes de `CORSMiddleware` (en `main.py`, `register_error_handlers(app)` va antes de `add_middleware`), para que la respuesta pase por CORS.
 
+## Inventario (Hito 5 · ticket NXV-0201)
+
+Fuente de verdad: [`docs/CONTEXT-inventory-nexova.md`](../../docs/CONTEXT-inventory-nexova.md).
+
+**Dos bases de datos a la vez** (`app/database.py`):
+
+| Base de datos | Qué guarda | Cómo se usa |
+| --- | --- | --- |
+| TinyDB (`data/*.json`) | Usuarios, perfiles, tokens, proveedores, incidencias | Tablas TinyDB; `get_current_user` lee aquí al usuario del token |
+| Supabase (PostgreSQL) | `asset`, `asset_entry`, `asset_exit` | SQLModel; sesión por petición con `Depends(get_db)` |
+
+No hay tabla de usuarios en Supabase: cada orden guarda en `user_uuid` el id (uuid4) del usuario de TinyDB que la registró, tomado del token (nunca del body).
+
+**Archivos:**
+
+- `app/models.py`: modelos ORM `Asset`, `AssetEntry`, `AssetExit` (`SQLModel, table=True`). FK `asset_id → asset.id` (`ON DELETE RESTRICT`) y restricciones `CHECK` en la BD: catálogos (`category`, `office`, `exit_type`), `quantity > 0` y la regla `allocation ⇒ assigned_to` / `consumption ⇒ assigned_to nulo`. **No hay columna de stock.**
+- `app/schemas.py`: schemas Pydantic de request (`*Create`, con `extra="forbid"`: no se puede enviar `current_stock` ni `user_uuid`) y de response (`*Read`, `OrderRead`). Los endpoints solo devuelven estos schemas.
+- `app/inventory_catalog.py`: valores permitidos del BRIEFING.
+- `app/services/inventory.py`: consultas y reglas de negocio. `app/routers/inventory.py`: `APIRouter(prefix="/inventory")`.
+- `app/supplier_models.py`: los modelos Pydantic de proveedores (antes `app/models.py`, renombrado para dejar `models.py` al ORM de inventario, como `auth_models.py` e `incident_models.py`).
+
+**Conexión a Supabase.** En el panel de Supabase: Connect → Direct → *Transaction pooler*, tipo *URI*. Copia la cadena en `DATABASE_URL` de `services/api/.env` (obligatoria: sin ella la API no arranca) y sustituye `[YOUR-PASSWORD]`; si la contraseña tiene caracteres especiales, codifícalos en la URL (`@` → `%40`). La URI se puede pegar tal cual: `app/database.py` fija el driver `psycopg2` (SQLAlchemy 2.1 usaría psycopg 3 por defecto) y no mantiene pool propio (`NullPool`), porque ya lo hace el pooler de Supabase. Al arrancar, la API ejecuta `SQLModel.metadata.create_all(engine)`: crea las tablas que falten y no borra nada.
+
+**Rutas** (todas exigen `Authorization: Bearer <token>`, también los GET):
+
+| Método | Ruta | Descripción |
+| --- | --- | --- |
+| GET | `/inventory/products` | Activos con `current_stock` calculado. Filtros opcionales: `office`, `category` |
+| POST | `/inventory/products` | Registra un activo (201). Empieza con stock 0. 409 si el `sku` ya existe |
+| GET | `/inventory/products/{id}` | Un activo con su stock. 404 si no existe |
+| POST | `/inventory/orders/inbound` | Registra una entrada (`AssetEntry`): `asset_id`, `quantity`, `supplier`, `office` |
+| POST | `/inventory/orders/outbound` | Registra una salida (`AssetExit`): `asset_id`, `quantity`, `exit_type`, `assigned_to`, `office` |
+| GET | `/inventory/orders` | Entradas y salidas con los datos del activo y `user_uuid`, más recientes primero. Filtro opcional: `office` |
+
+**Reglas de negocio:**
+
+- `current_stock = SUMA(AssetEntry.quantity) − SUMA(AssetExit.quantity)`, calculado en la consulta. Ninguna ruta permite fijarlo: no hay `PUT`/`PATCH` sobre activos.
+- Cada activo pertenece a una oficina (Valencia y Miami tienen SKUs distintos), así que su stock es el de esa oficina. Una orden cuyo `office` no coincide con el del activo se rechaza con 400: el stock de una oficina no se mueve desde la otra.
+- Salida mayor que el stock → **400** con el mensaje literal del BRIEFING (`Insufficient stock for asset '{name}'. Available: {available}, requested: {quantity}.`), **antes de escribir nada**. La fila del activo se bloquea con `SELECT … FOR UPDATE`, así dos salidas simultáneas no pueden dejar el stock en negativo.
+- `exit_type = "allocation"` sin `assigned_to`, o `"consumption"` con `assigned_to` → 422 de validación (y además lo impide el `CHECK` de la BD).
+- `quantity` ≤ 0 → 422. Activo inexistente → 404.
+- Sin N+1: `GET /inventory/products` es una sola consulta (subconsultas agregadas de entradas y salidas con `LEFT JOIN`) y `GET /inventory/orders` son dos (una por tabla, cada una con `JOIN asset`), haya los registros que haya.
+
+**Datos semilla** (BRIEFING § Datos Semilla). Necesitan un admin en TinyDB para el `user_uuid` (`uv run create-admin`):
+
+```bash
+cd services/api
+uv run seed-inventory     # idempotente: activos por SKU; órdenes solo si aún no hay ninguna
+```
+
+6 activos, 5 entradas y 3 salidas (2 `allocation`, 1 `consumption`). Stock esperado en `GET /inventory/products`: NXV-IT-001 12 · NXV-IT-002 8 · NXV-PER-001 0 · NXV-PER-002 4 · NXV-OFF-001 16 · NXV-TRN-001 0.
+
+**Tests** (`tests/test_inventory_api.py`, 30 tests): usan SQLite en memoria en lugar de Supabase (nunca la `DATABASE_URL` de `.env`). Para pasarlos contra un PostgreSQL local de pruebas: `TEST_DATABASE_URL=postgresql://… uv run pytest tests/test_inventory_api.py` (borra las tablas de inventario al acabar cada test: **nunca** la BD de Supabase).
+
 ## Autenticación
 
 Autenticación JWT stateless (ticket AUTH-01). Los usuarios y sus perfiles se guardan en TinyDB, en `data/auth.json`, separados de los proveedores (`data/suppliers.json`). Las contraseñas se guardan con bcrypt y nunca salen en las respuestas.
@@ -128,6 +182,7 @@ Se leen de `services/api/.env` (funciona desde cualquier directorio de arranque)
 | Variable                      | Obligatoria | Valor por defecto | Descripción                          |
 | ----------------------------- | ----------- | ----------------- | ------------------------------------ |
 | `SECRET_KEY`                  | Sí          | —                 | Clave con la que se firman los JWT   |
+| `DATABASE_URL`                | Sí          | —                 | URI de Supabase (Transaction pooler) para el inventario. Ver "Inventario" |
 | `ALGORITHM`                   | No          | `HS256`           | Algoritmo de firma                   |
 | `ACCESS_TOKEN_EXPIRE_MINUTES` | No          | `30`              | Minutos de validez del token         |
 | `RESEND_API_KEY`              | No          | —                 | Clave de [Resend](https://resend.com/api-keys) para enviar el email de recuperación. Sin ella no se envía nada y queda un aviso en los logs |
