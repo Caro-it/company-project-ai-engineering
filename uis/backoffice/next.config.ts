@@ -10,6 +10,18 @@ const nextConfig: NextConfig = {
   distDir: process.env.NEXT_DIST_DIR || ".next",
   turbopack: { root: monorepoRoot },
   outputFileTracingRoot: monorepoRoot,
+  // Las rutas del inventario son /inventory/... (como el resto de secciones, sin prefijo,
+  // porque la app ya es el backoffice). Las URLs del README del Hito 5 llevan /backoffice
+  // delante: se redirigen (308) conservando la query, p. ej. ?asset_id=3.
+  async redirects() {
+    return [
+      {
+        source: "/backoffice/inventory/:path*",
+        destination: "/inventory/:path*",
+        permanent: true,
+      },
+    ];
+  },
 };
 
 export default nextConfig;

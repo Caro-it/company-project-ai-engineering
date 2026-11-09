@@ -86,7 +86,7 @@ _Última actualización: 2026-11-10 · rama `feature/inventory-backoffice`_
 ## En curso / próximos pasos
 
 - **Hito 5 — Backoffice: interfaz de inventario, rama `feature/inventory-backoffice` (sale de `feature/inventory-orm`, ya en `main`).** Enunciado: `content/projects/ai-eng-inventory-management-backoffice/` del syllabus.
-  - Rutas `/inventory/products`, `/inventory/orders/inbound`, `/inventory/orders/outbound` y `/inventory/orders` dentro de `(panel)` (AuthGuard), enlazadas en el Sidebar. Son las del README sin el prefijo `/backoffice`, porque la app ya es el backoffice.
+  - Rutas `/inventory/products`, `/inventory/orders/inbound`, `/inventory/orders/outbound` y `/inventory/orders` dentro de `(panel)` (AuthGuard), enlazadas en el Sidebar. Son las del README sin el prefijo `/backoffice`, porque la app ya es el backoffice; `next.config.ts` redirige (308) `/backoffice/inventory/:path*` a `/inventory/:path*`, así que las URLs del README también funcionan.
   - `lib/inventory.ts` es la única capa de `/inventory` (reutiliza `apiFetch`), con tipos en `types/inventory.ts`. `NEXT_PUBLIC_INVENTORY_API_URL` es opcional y recae en `NEXT_PUBLIC_API_URL`.
   - Los 400 de negocio muestran el `detail` de la API (excepción documentada a la regla de no mostrarlo); los 422 son legibles por campo.
   - Los e2e (`05-inventario`) usan un SQLite temporal; `start-api.mjs` crea un admin de test y siembra con `seed-inventory`.

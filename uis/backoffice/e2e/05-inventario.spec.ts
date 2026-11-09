@@ -49,6 +49,29 @@ test.describe("sin sesión", () => {
   }
 });
 
+// URLs del README del Hito 5 (/backoffice/inventory/...): redirección permanente (308) de
+// next.config.ts a las rutas reales, conservando la query
+test.describe("rutas /backoffice/inventory del README", () => {
+  for (const route of [
+    "/inventory/products",
+    "/inventory/orders/inbound",
+    "/inventory/orders/outbound",
+    "/inventory/orders",
+  ]) {
+    test(`/backoffice${route} redirige (308) a ${route}`, async ({ request }) => {
+      const res = await request.get(`/backoffice${route}?asset_id=3`, { maxRedirects: 0 });
+      expect(res.status()).toBe(308);
+      expect(res.headers()["location"]).toBe(`${route}?asset_id=3`);
+    });
+  }
+
+  test("el navegador acaba en la página real con el activo elegido", async ({ page }) => {
+    await page.goto("/backoffice/inventory/orders/outbound?asset_id=4");
+    await expect(page).toHaveURL("/inventory/orders/outbound?asset_id=4");
+    await expect(page.getByRole("heading", { name: "Salida de activos", level: 1 })).toBeVisible();
+  });
+});
+
 test("stock de activos: datos del seed con su nivel y acciones por fila", async ({ page }) => {
   await page.goto("/inventory/products");
   await expect(page.getByRole("heading", { name: "Stock de activos", level: 1 })).toBeVisible();
