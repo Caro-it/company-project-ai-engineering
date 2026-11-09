@@ -1,0 +1,7 @@
+# Cobertura de API-042 (proveedores y perfiles), separada de la de auth (pyproject.toml).
+# Uso: uv run pytest --cov --cov-config=.coveragerc-backoffice --cov-report=term-missing
+[run]
+include =
+    app/routers/suppliers.py
+    app/routers/profiles.py
+    app/services/profiles.py

@@ -1,0 +1,11 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "module": "commonjs",
+    "moduleResolution": "node",
+    "isolatedModules": true,
+    "incremental": false,
+    "types": ["jest", "node"]
+  },
+  "include": ["__tests__/**/*.ts", "lib/**/*.ts"]
+}

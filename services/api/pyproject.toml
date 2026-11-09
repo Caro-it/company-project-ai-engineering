@@ -34,7 +34,11 @@ incidents-core = { path = "../../packages/shared/incidents_core", editable = tru
 dev = [
     "httpx2>=2.16.0",
     "pytest>=9.1.1",
+    "pytest-cov>=7.1.0",
 ]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+
+[tool.coverage.run]
+include = ["app/routers/auth.py", "app/deps.py", "app/security.py", "app/services/password_reset.py", "app/services/users.py"]

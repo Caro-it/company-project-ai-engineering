@@ -18,8 +18,14 @@ def get_current_user(token: str = Depends(oauth2_scheme)) -> dict:
         headers={"WWW-Authenticate": "Bearer"},
     )
     try:
-        # JWTError incluye ExpiredSignatureError (token caducado)
-        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
+        # JWTError incluye ExpiredSignatureError (token caducado).
+        # require_exp: python-jose acepta por defecto un token sin "exp", que no caducaría nunca
+        payload = jwt.decode(
+            token,
+            settings.SECRET_KEY,
+            algorithms=[settings.ALGORITHM],
+            options={"require_exp": True},
+        )
     except JWTError:
         raise credentials_error from None
 

@@ -44,6 +44,29 @@ def client() -> TestClient:
 
 
 @pytest.fixture
+def register_user(client: TestClient):
+    """Función que registra un usuario por la API y devuelve su id."""
+
+    def _register(email: str, password: str = "Password123", **extra) -> str:
+        res = client.post("/users", json={"email": email, "password": password, **extra})
+        assert res.status_code == 201
+        return res.json()["id"]
+
+    return _register
+
+
+@pytest.fixture
+def login_ok(client: TestClient):
+    """Función que dice si esas credenciales consiguen un token en /auth/login."""
+
+    def _login_ok(email: str, password: str) -> bool:
+        res = client.post("/auth/login", data={"username": email, "password": password})
+        return res.status_code == 200 and "access_token" in res.json()
+
+    return _login_ok
+
+
+@pytest.fixture
 def auth_headers(client: TestClient) -> dict[str, str]:
     """Usuario real en la BD en memoria y su token."""
     credentials = {"email": "qa@example.com", "password": "Password123"}
