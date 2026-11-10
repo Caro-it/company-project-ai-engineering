@@ -402,11 +402,11 @@ function SupplierRow({
               </span>
             )}
             {renewalPast && (
-              <p className="text-xs text-slate-400">Fecha pasada</p>
+              <p className="text-xs text-slate-600">Fecha pasada</p>
             )}
           </div>
         ) : (
-          <span className="text-slate-400">—</span>
+          <span className="text-slate-600">—</span>
         )}
       </td>
 
