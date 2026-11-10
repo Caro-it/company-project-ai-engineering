@@ -36,12 +36,15 @@ const WEBSITE = process.env.LH_WEBSITE ?? "http://localhost:4321";
 const EMAIL = process.env.LH_EMAIL ?? "lighthouse.audit@nexova-demo.com";
 const PASSWORD = process.env.LH_PASSWORD ?? "lighthouse-audit-local";
 
-const PAGES = [
+const ALL_PAGES = [
   { id: "web-home", url: `${WEBSITE}/`, auth: false },
   { id: "bo-login", url: `${BACKOFFICE}/login`, auth: false },
   { id: "bo-incidencias", url: `${BACKOFFICE}/incidencias`, auth: true },
   { id: "bo-proveedores", url: `${BACKOFFICE}/proveedores`, auth: true },
 ];
+// LH_PAGES=bo-login,bo-incidencias limita la pasada a esas páginas (pruebas A/B puntuales)
+const only = process.env.LH_PAGES?.split(",").map((s) => s.trim());
+const PAGES = only ? ALL_PAGES.filter((p) => only.includes(p.id)) : ALL_PAGES;
 const FORM_FACTORS = ["mobile", "desktop"];
 
 const here = path.dirname(fileURLToPath(import.meta.url));
