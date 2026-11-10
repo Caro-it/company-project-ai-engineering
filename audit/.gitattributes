@@ -1,0 +1,3 @@
+# Informes generados por Lighthouse: se guardan tal cual (traen espacios finales)
+before/** -whitespace
+after/** -whitespace
