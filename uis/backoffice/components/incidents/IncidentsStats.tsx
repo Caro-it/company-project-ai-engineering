@@ -31,7 +31,7 @@ function StatsBlock({
   title: string;
   keys: readonly string[];
   labels: Record<string, string>;
-  counts: Record<string, number>;
+  counts: Record<string, number> | null;
 }) {
   return (
     <div className="rounded-lg border border-slate-200 bg-white p-4">
@@ -41,7 +41,12 @@ function StatsBlock({
           <div key={key} className="flex justify-between gap-3">
             <dt className="text-slate-600">{labels[key]}</dt>
             <dd className="font-semibold text-slate-900 tabular-nums">
-              {counts[key] ?? 0}
+              {counts ? (
+                (counts[key] ?? 0)
+              ) : (
+                // Hueco del número mientras carga: misma altura de línea que el valor real
+                <span className="inline-block h-4 w-6 animate-pulse rounded-sm bg-slate-200 align-middle" />
+              )}
             </dd>
           </div>
         ))}
@@ -121,31 +126,33 @@ export function IncidentsStats({ refreshKey }: { refreshKey: number }) {
         </div>
       )}
 
-      {stats && (
+      {/* Mientras carga se pintan las mismas cuatro tarjetas con huecos en los números:
+          así la sección ya ocupa su alto final y el listado de debajo no se desplaza (CLS). */}
+      {(stats || loading) && (
         <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
           <StatsBlock
             title="Por estado"
             keys={STATUSES}
             labels={STATUS_LABELS}
-            counts={stats.by_status}
+            counts={stats?.by_status ?? null}
           />
           <StatsBlock
             title="Por categoría"
             keys={CATEGORIES}
             labels={CATEGORY_LABELS}
-            counts={stats.by_category}
+            counts={stats?.by_category ?? null}
           />
           <StatsBlock
             title="Por origen"
             keys={ORIGINS}
             labels={ORIGIN_LABELS}
-            counts={stats.by_origin}
+            counts={stats?.by_origin ?? null}
           />
           <StatsBlock
             title="Por sede"
             keys={BRANCHES}
             labels={BRANCH_LABELS}
-            counts={stats.by_branch}
+            counts={stats?.by_branch ?? null}
           />
         </div>
       )}
