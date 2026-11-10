@@ -10,11 +10,6 @@ const nextConfig: NextConfig = {
   distDir: process.env.NEXT_DIST_DIR || ".next",
   turbopack: { root: monorepoRoot },
   outputFileTracingRoot: monorepoRoot,
-  experimental: {
-    // La hoja de Tailwind (~6 KB) va en un <style> del <head> en lugar de un <link> que
-    // bloquea el render: el HTML del servidor se pinta sin esperar a otra petición.
-    inlineCss: true,
-  },
 };
 
 export default nextConfig;
