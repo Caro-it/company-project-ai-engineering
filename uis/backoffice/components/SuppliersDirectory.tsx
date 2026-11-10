@@ -1,7 +1,8 @@
 "use client";
 
+import { RetryAlert } from "@/components/RetryAlert";
 import { SupplierForm } from "@/components/SupplierForm";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
 import {
   CATEGORIES,
@@ -16,6 +17,7 @@ import {
   type Supplier,
 } from "@/lib/suppliers";
 import { ApiError, errorMessage } from "@/lib/account";
+import { useApiResource } from "@/lib/useApiResource";
 
 const RENEWAL_WINDOW_DAYS = 60;
 
@@ -53,39 +55,22 @@ function formatDate(value: string): string {
 }
 
 export function SuppliersDirectory() {
-  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [country, setCountry] = useState<Country | "">("");
   const [category, setCategory] = useState<Category | "">("");
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [reloadKey, setReloadKey] = useState(0);
 
-  // Se vuelve a pedir el listado a la API cada vez que cambia un filtro (sin recargar la página)
-  useEffect(() => {
-    let cancelled = false;
-    listSuppliers({ country, category })
-      .then((data) => {
-        if (cancelled) return;
-        setSuppliers(data);
-        setError(null);
-      })
-      .catch((e) => {
-        if (cancelled) return;
-        setSuppliers([]);
-        setError(errorMessage(e));
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [country, category, reloadKey]);
-
-  function reload() {
-    setLoading(true);
-    setReloadKey((k) => k + 1);
-  }
+  // Se vuelve a pedir el listado a la API cada vez que cambia un filtro (sin recargar la página).
+  // Mientras llega la respuesta se siguen viendo las filas anteriores.
+  const {
+    data: suppliers,
+    error,
+    loading,
+    retry: reload,
+    setData: setSuppliers,
+  } = useApiResource<Supplier[]>(
+    JSON.stringify({ country, category }),
+    () => listSuppliers({ country, category }),
+    { initialData: [], toMessage: errorMessage },
+  );
 
   // Sustituye la fila por lo que devolvió la API tras un PATCH
   function replaceSupplier(updated: Supplier) {
@@ -115,10 +100,7 @@ export function SuppliersDirectory() {
             País
             <select
               value={country}
-              onChange={(e) => {
-                setLoading(true);
-                setCountry(e.target.value as Country | "");
-              }}
+              onChange={(e) => setCountry(e.target.value as Country | "")}
               className="mt-1 rounded-md border border-slate-300 bg-white px-3 py-2"
             >
               <option value="">Todos</option>
@@ -134,10 +116,7 @@ export function SuppliersDirectory() {
             Categoría
             <select
               value={category}
-              onChange={(e) => {
-                setLoading(true);
-                setCategory(e.target.value as Category | "");
-              }}
+              onChange={(e) => setCategory(e.target.value as Category | "")}
               className="mt-1 rounded-md border border-slate-300 bg-white px-3 py-2"
             >
               <option value="">Todas</option>
@@ -153,7 +132,6 @@ export function SuppliersDirectory() {
             <button
               type="button"
               onClick={() => {
-                setLoading(true);
                 setCountry("");
                 setCategory("");
               }}
@@ -169,21 +147,7 @@ export function SuppliersDirectory() {
         </div>
       </section>
 
-      {error && (
-        <div
-          role="alert"
-          className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800"
-        >
-          <span>{error}</span>
-          <button
-            type="button"
-            onClick={reload}
-            className="rounded-md bg-rose-700 px-3 py-1.5 font-medium text-white hover:bg-rose-800"
-          >
-            Reintentar
-          </button>
-        </div>
-      )}
+      {error && <RetryAlert onRetry={reload}>{error}</RetryAlert>}
 
       <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white">
         <table className="min-w-full divide-y divide-slate-200 text-sm">

@@ -1,7 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
-
+import { RetryAlert } from "@/components/RetryAlert";
 import {
   BRANCHES,
   BRANCH_LABELS,
@@ -15,12 +14,7 @@ import {
   incidentErrorMessage,
   type IncidentStats,
 } from "@/lib/incidents";
-
-interface Result {
-  key: string;
-  stats: IncidentStats | null;
-  error: string | null;
-}
+import { useApiResource } from "@/lib/useApiResource";
 
 function StatsBlock({
   title,
@@ -58,37 +52,17 @@ function StatsBlock({
 // Totales de /api/incidents/summary. Carga y error propios: si falla, el listado sigue.
 // refreshKey lo cambia el padre (p. ej. tras un cambio de estado) para recargar.
 export function IncidentsStats({ refreshKey }: { refreshKey: number }) {
-  const [retries, setRetries] = useState(0);
-  const [result, setResult] = useState<Result>({
-    key: "",
-    stats: null,
-    error: null,
+  // Si una recarga falla se conservan los últimos totales buenos
+  const {
+    data: stats,
+    error,
+    loading,
+    retry,
+  } = useApiResource<IncidentStats | null>(String(refreshKey), getIncidentStats, {
+    initialData: null,
+    toMessage: incidentErrorMessage,
+    keepDataOnError: true,
   });
-
-  const requestKey = `${refreshKey}-${retries}`;
-  // Cargando mientras la respuesta guardada no corresponde a la petición actual
-  const loading = result.key !== requestKey;
-
-  useEffect(() => {
-    let cancelled = false;
-    getIncidentStats()
-      .then((stats) => {
-        if (!cancelled) setResult({ key: requestKey, stats, error: null });
-      })
-      .catch((e) => {
-        if (!cancelled)
-          setResult((prev) => ({
-            key: requestKey,
-            stats: prev.stats,
-            error: incidentErrorMessage(e),
-          }));
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [requestKey]);
-
-  const { stats, error } = result;
 
   return (
     <section
@@ -111,19 +85,9 @@ export function IncidentsStats({ refreshKey }: { refreshKey: number }) {
       </div>
 
       {error && !loading && (
-        <div
-          role="alert"
-          className="mt-3 flex flex-wrap items-center justify-between gap-3 rounded-md border border-rose-200 bg-rose-50 p-3 text-sm text-rose-800"
-        >
-          <span>No se ha podido cargar el resumen. {error}</span>
-          <button
-            type="button"
-            onClick={() => setRetries((n) => n + 1)}
-            className="rounded-md bg-rose-700 px-3 py-1.5 font-medium text-white hover:bg-rose-800"
-          >
-            Reintentar
-          </button>
-        </div>
+        <RetryAlert variant="inline" onRetry={retry}>
+          No se ha podido cargar el resumen. {error}
+        </RetryAlert>
       )}
 
       {/* Mientras carga se pintan las mismas cuatro tarjetas con huecos en los números:
