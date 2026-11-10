@@ -1,0 +1,15 @@
+{
+  "name": "nexova-performance-audit",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Runner de Lighthouse para la auditoría de rendimiento (web + backoffice autenticado)",
+  "scripts": {
+    "audit": "node run-lighthouse.mjs"
+  },
+  "dependencies": {
+    "chrome-launcher": "1.2.3",
+    "lighthouse": "13.6.0",
+    "puppeteer-core": "25.17.0"
+  }
+}

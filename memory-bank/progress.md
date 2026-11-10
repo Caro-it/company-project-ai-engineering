@@ -1,6 +1,6 @@
 # Progress
 
-_Última actualización: 2026-11-09 · rama `feature/inventory-orm`_
+_Última actualización: 2026-11-10 · rama `feature/performance-audit`_
 
 ## Hecho
 
@@ -82,6 +82,13 @@ _Última actualización: 2026-11-09 · rama `feature/inventory-orm`_
   - `uv run seed-inventory` (idempotente). Stock sembrado: 12 / 8 / 0 / 4 / 16 / 0.
   - `uv run pytest`: 148 tests correctos (30 de inventario), también contra PostgreSQL 16 local con `TEST_DATABASE_URL`. Prueba manual con uvicorn + PostgreSQL: seed, stock, 400 y 422.
   - Pendiente de la usuaria: poner su `DATABASE_URL` real y lanzar `seed-inventory` contra Supabase.
+
+- **Auditoría de rendimiento frontend, rama `feature/performance-audit` (recreada desde `main`, push sin PR):** `AUDIT.md` (metodología, línea base, causas raíz) y `REPORT.md` (antes/después) en la raíz; informes de Lighthouse en `audit/before/` y `audit/after/`.
+  - Runner `audit/scripts/run-lighthouse.mjs` (Lighthouse 13 + puppeteer-core): todo en modo producción, 3 ejecuciones con mediana, móvil y escritorio, token en `localStorage` con `disableStorageReset` y caché HTTP vaciada por CDP. Usuario local `lighthouse.audit@nexova-demo.com` en la TinyDB de desarrollo.
+  - Correcciones: el formulario de login/registro se pinta desde el servidor (LCP de `/login` 2162 → 787 ms en móvil); esqueleto del resumen de incidencias (CLS 0,152 → 0); contraste en proveedores; favicon en las dos apps (Best Practices 100); CSS en línea en la web (`inlineStylesheets`).
+  - `experimental.inlineCss` del backoffice se probó y se revirtió: en un A/B de 3 ejecuciones no mejoraba y el HTML crecía de 13 a 88 KB.
+  - Refactorización: hook `lib/useApiResource.ts` y componente `RetryAlert` en `IncidentsStats`, `IncidentsList` y `SuppliersDirectory`. Jest 57/57 y e2e 16/16.
+  - SEO 60 del backoffice intencionado (`noindex`). Pendiente: TBT móvil de `/incidencias` (~350–450 ms), por el `AuthGuard` en cliente y las 96 filas sin paginar.
 
 ## En curso / próximos pasos
 
