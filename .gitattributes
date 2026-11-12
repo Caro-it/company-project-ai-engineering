@@ -1,3 +1,5 @@
 # start.sh se ejecuta dentro de un contenedor Linux: con CRLF, bash falla
 # ("$'\r': command not found"). Se fuerza LF aunque se edite en Windows.
 uis/start.sh text eol=lf
+# Se ejecuta en el VPS (Linux)
+infra/deploy-vps.sh text eol=lf
