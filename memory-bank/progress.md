@@ -1,6 +1,6 @@
 # Progress
 
-_Última actualización: 2026-11-09 · rama `feature/inventory-orm`_
+_Última actualización: 2026-11-12 · rama `feature/docker-monorepo`_
 
 ## Hecho
 
@@ -82,6 +82,13 @@ _Última actualización: 2026-11-09 · rama `feature/inventory-orm`_
   - `uv run seed-inventory` (idempotente). Stock sembrado: 12 / 8 / 0 / 4 / 16 / 0.
   - `uv run pytest`: 148 tests correctos (30 de inventario), también contra PostgreSQL 16 local con `TEST_DATABASE_URL`. Prueba manual con uvicorn + PostgreSQL: seed, stock, 400 y 422.
   - Pendiente de la usuaria: poner su `DATABASE_URL` real y lanzar `seed-inventory` contra Supabase.
+
+- **Contenedorización del monorepo (ticket #infra-40), rama `feature/docker-monorepo` (sale de `main`), Fase 1 (local) hecha, push sin PR:**
+  - `uis/Dockerfile` (`node:22-alpine`, `npm ci` por app, `start.sh` con `wait -n`: si una app muere, el contenedor sale), `services/Dockerfile` (`python:3.12-slim` + uv), `.dockerignore` de cada uno, `docker-compose.yml` (red `nexova-net`, `env_file: .env`, bind mounts + volúmenes anónimos, polling), `.env.example` raíz y `.gitattributes` (LF en `uis/start.sh`). Sección "Docker" en `README.md` y `README.es.md`.
+  - Desviaciones: web Astro en modo dev en el 3000 (el ticket dice Next.js); `packages/shared` como `additional_contexts`; en Docker el backoffice usa `next dev --webpack` porque Turbopack ignora `WATCHPACK_POLLING` y no veía los cambios.
+  - URLs: todas las llamadas del backoffice a la API salen del navegador → `NEXT_PUBLIC_API_URL=http://localhost:8000` (VPS: IP pública). `http://api:8000` solo dentro de la red de Docker.
+  - Verificado el 2026-11-12 con Docker 29.9.3 / Compose v5.7.0: build y up sin pasos extra; 2 servicios `running`; 200 en 3000, 3001 y 8000/docs; `wget http://api:8000` desde `uis`; preflight CORS + registro + login + `/auth/me` con origen 3001 (usuario de prueba `docker.check@nexova-demo.com` en la TinyDB de desarrollo); hot reload de web, backoffice y API sin rebuild; sin secretos en Dockerfiles/YAML/imágenes. Evidencia en `docs/docker/compose-ps-local.txt`.
+  - Pendiente: Fase 2 (VPS), esperando el OK de la usuaria. El login se probó reproduciendo las peticiones del navegador con curl, no en un navegador real. La `SECRET_KEY` del `.env` local es el placeholder `cambia-esto`: en el VPS hay que generar una real.
 
 ## En curso / próximos pasos
 

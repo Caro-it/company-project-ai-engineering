@@ -42,6 +42,8 @@ services:
         shared: ./packages/shared
     env_file: .env
     environment:
+      # Hoy uvicorn usa StatReload (sondeo) porque watchfiles no está instalado;
+      # si algún día se instala, esto mantiene el polling con bind mounts
       WATCHFILES_FORCE_POLLING: "true"
     ports:
       - "8000:8000"

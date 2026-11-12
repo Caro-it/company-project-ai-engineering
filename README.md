@@ -30,6 +30,33 @@ This repository is the **starter template** for transversal projects. You will w
 
 ---
 
+## Docker
+
+Runs the website, the backoffice and the API with a single command (ticket #infra-40). It is a **development** setup: dev mode and hot reload.
+
+**Requirements:** Docker Desktop (Windows/macOS) or Docker Engine + Compose v2 (Linux).
+
+```bash
+cp .env.example .env        # then fill in the values (SECRET_KEY, Supabase DATABASE_URL…)
+docker compose up --build   # first run; afterwards docker compose up is enough
+```
+
+| Service | Content | URL |
+|---|---|---|
+| `uis` | Public website (Astro) | http://localhost:3000 |
+| `uis` | Backoffice (Next.js) | http://localhost:3001 |
+| `api` | FastAPI API | http://localhost:8000/docs |
+
+- **Website on port 3000:** the ticket asks for Next.js on 3000, but Nexova's website is **Astro**. It runs with `astro dev` on 3000 (outside Docker it stays on 4321). The tracker (`uis/talent-pipeline-tracker`), which also uses 3000, is left out of the container.
+- **Files:** `uis/Dockerfile` (installs website and backoffice separately; `uis/start.sh` starts both and stops the container if either dies), `services/Dockerfile`, `docker-compose.yml` and `.env.example`. Both services share the `nexova-net` network and read `.env` through `env_file`: no secrets in the Dockerfiles or the YAML.
+- **`packages/shared` outside the build context:** the backoffice imports it by relative path and `requirements.txt` installs `-e ../../packages/shared/incidents_core`. Compose passes it as an additional context (`additional_contexts: shared`) and the images mirror the monorepo layout (`/app/uis/...`, `/app/services/api`, `/app/packages/shared`).
+- **Service URLs:** every backoffice call to the API is made by the **browser** (client components with the token in `localStorage`; there are no server-to-server calls). The browser cannot resolve the `api` name, so `NEXT_PUBLIC_API_URL` points to the public URL: `http://localhost:8000` locally and `http://<VPS_IP>:8000` on the VPS. Inside the Docker network, containers talk by service name (`http://api:8000`, e.g. `docker compose exec uis wget -qO- http://api:8000/api/health`). `CORS_ORIGINS` and `FRONTEND_URL` must use the same origins as the browser.
+- **Hot reload:** source code is bind-mounted (with anonymous volumes for `node_modules` and `.next`) and polling is enabled (`WATCHPACK_POLLING`, `CHOKIDAR_USEPOLLING`). In Docker the backoffice runs `next dev --webpack`, because Turbopack does not pick up bind-mount changes on Docker Desktop. The API uses `uvicorn --reload` (StatReload, polling-based).
+- **Data:** TinyDB lives in the host's `services/api/data/` (mounted), so it persists across restarts. Inventory lives in Supabase (`DATABASE_URL`).
+- If a `.env` value contains `$`, write it as `$$` (Compose interpolates it).
+
+---
+
 ## How to think about this monorepo
 
 You are building **one company** across many milestones and projects. Each top-level folder has a **single responsibility** — like a real engineering team repo.
