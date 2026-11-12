@@ -1,0 +1,59 @@
+# Entorno de desarrollo del monorepo de Nexova (ticket #infra-40).
+#   cp .env.example .env   # y rellenar los valores
+#   docker compose up --build
+# website → http://localhost:3000 · backoffice → http://localhost:3001 · API → http://localhost:8000/docs
+name: nexova
+
+services:
+  uis:
+    build:
+      context: ./uis
+      # El backoffice importa packages/shared por ruta relativa
+      additional_contexts:
+        shared: ./packages/shared
+    init: true
+    env_file: .env
+    environment:
+      # Hot reload con bind mounts en Docker Desktop (Windows/macOS)
+      WATCHPACK_POLLING: "true"
+      CHOKIDAR_USEPOLLING: "true"
+    ports:
+      - "3000:3000" # website (Astro en modo dev)
+      - "3001:3001" # backoffice (Next.js)
+    volumes:
+      - ./uis/website:/app/uis/website
+      - ./uis/backoffice:/app/uis/backoffice
+      - ./packages/shared/src:/app/packages/shared/src:ro
+      # Volúmenes anónimos: el bind mount no pisa los node_modules (Linux/musl)
+      # ni la caché de build del contenedor
+      - /app/uis/website/node_modules
+      - /app/uis/backoffice/node_modules
+      - /app/uis/backoffice/.next
+    depends_on:
+      - api
+    networks:
+      - nexova-net
+
+  api:
+    build:
+      context: ./services
+      # requirements.txt instala -e ../../packages/shared/incidents_core
+      additional_contexts:
+        shared: ./packages/shared
+    env_file: .env
+    environment:
+      WATCHFILES_FORCE_POLLING: "true"
+    ports:
+      - "8000:8000"
+    volumes:
+      # Código para --reload y TinyDB persistente (services/api/data en el host)
+      - ./services/api:/app/services/api
+      - ./packages/shared/incidents_core/incidents_core:/app/packages/shared/incidents_core/incidents_core:ro
+      # Tapa el .venv de Windows del host: no se usa y frenaría el polling
+      - /app/services/api/.venv
+    networks:
+      - nexova-net
+
+networks:
+  nexova-net:
+    name: nexova-net
