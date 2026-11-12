@@ -88,7 +88,12 @@ _Última actualización: 2026-11-12 · rama `feature/docker-monorepo`_
   - Desviaciones: web Astro en modo dev en el 3000 (el ticket dice Next.js); `packages/shared` como `additional_contexts`; en Docker el backoffice usa `next dev --webpack` porque Turbopack ignora `WATCHPACK_POLLING` y no veía los cambios.
   - URLs: todas las llamadas del backoffice a la API salen del navegador → `NEXT_PUBLIC_API_URL=http://localhost:8000` (VPS: IP pública). `http://api:8000` solo dentro de la red de Docker.
   - Verificado el 2026-11-12 con Docker 29.9.3 / Compose v5.7.0: build y up sin pasos extra; 2 servicios `running`; 200 en 3000, 3001 y 8000/docs; `wget http://api:8000` desde `uis`; preflight CORS + registro + login + `/auth/me` con origen 3001 (usuario de prueba `docker.check@nexova-demo.com` en la TinyDB de desarrollo); hot reload de web, backoffice y API sin rebuild; sin secretos en Dockerfiles/YAML/imágenes. Evidencia en `docs/docker/compose-ps-local.txt`.
-  - Pendiente: Fase 2 (VPS), esperando el OK de la usuaria. El login se probó reproduciendo las peticiones del navegador con curl, no en un navegador real. La `SECRET_KEY` del `.env` local es el placeholder `cambia-esto`: en el VPS hay que generar una real.
+  - El login se probó reproduciendo las peticiones del navegador con curl, no en un navegador real. La `SECRET_KEY` del `.env` local es el placeholder `cambia-esto`: en el VPS hay que generar una real.
+- **#infra-40, Fase 2 (VPS) preparada, sin desplegar (2026-11-12):**
+  - Diagnóstico de solo lectura por SSH en `docs/docker/vps-diagnostico.txt`. El VPS tiene 1 vCPU y **957 MiB de RAM**, swap de 2 GB ya creado y Docker sin instalar. ufw está inactivo; OpenClaw escucha en el 18789, solo en loopback, y usa ~360 MiB. Los puertos 3000/3001/8000 están libres.
+  - `infra/deploy-vps.sh`: idempotente, sin ejecutar. Hace swap si falta, Docker si falta, `ufw allow OpenSSH` antes que el resto, clonado o actualización, y se para si no hay `.env` o si quedan huecos. Tiene una salvaguarda de RAM: con menos de 1900 MB se para salvo `ALLOW_LOW_MEMORY=1`. Construye las imágenes de una en una.
+  - `.env.production.example`, `docs/docker/DEPLOY_VPS.md` (pasos de la usuaria) y `docs/docker/PR_DESCRIPTION.md`, con los huecos `[CAPTURA LOCAL]` y `[CAPTURA VPS]`.
+  - Pendiente, de la usuaria: decidir si redimensiona el droplet, ejecutar el despliegue, hacer un login real en el navegador, las capturas y abrir el PR. Riesgo sin verificar: `allowedDevOrigins` de Next 16 al abrirse desde la IP.
 
 ## En curso / próximos pasos
 
