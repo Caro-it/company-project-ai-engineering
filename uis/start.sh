@@ -9,8 +9,10 @@ set -uo pipefail
 (cd /app/uis/website && exec ./node_modules/.bin/astro dev --host 0.0.0.0 --port 3000) &
 website_pid=$!
 
-# Backoffice: Next.js en modo dev en el 3001.
-(cd /app/uis/backoffice && exec ./node_modules/.bin/next dev --hostname 0.0.0.0 --port 3001) &
+# Backoffice: Next.js en modo dev en el 3001. Con webpack y no con Turbopack:
+# Turbopack ignora WATCHPACK_POLLING y, con bind mounts en Docker Desktop
+# (Windows), no detecta los cambios. Fuera de Docker, npm run dev sigue con Turbopack.
+(cd /app/uis/backoffice && exec ./node_modules/.bin/next dev --webpack --hostname 0.0.0.0 --port 3001) &
 backoffice_pid=$!
 
 stop_all() {
