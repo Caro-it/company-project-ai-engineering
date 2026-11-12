@@ -1,0 +1,69 @@
+Diagnóstico de solo lectura del VPS (ticket #infra-40, fase 2)
+Fecha: 2026-11-12 · Conexión: ssh -o BatchMode=yes (clave SSH, sin contraseña)
+Saneado: sin IPs, sin nombre de host y sin nombres de usuario.
+No se ha modificado nada en el servidor.
+
+$ uname -a
+Linux <HOST> 5.15.0-185-generic #195-Ubuntu SMP Fri Jun 19 17:11:50 UTC 2026 x86_64 x86_64 x86_64 GNU/Linux
+
+$ lsb_release -a
+No LSB modules are available.
+Distributor ID:	Ubuntu
+Description:	Ubuntu 22.04.5 LTS
+Release:	22.04
+Codename:	jammy
+
+$ nproc
+1
+
+$ free -h
+               total        used        free      shared  buff/cache   available
+Mem:           957Mi       479Mi        82Mi       3.0Mi       396Mi       320Mi
+Swap:          2.0Gi       317Mi       1.7Gi
+
+$ swapon --show
+NAME      TYPE SIZE   USED PRIO
+/swapfile file   2G 317.7M   -2
+
+$ df -h /
+Filesystem      Size  Used Avail Use% Mounted on
+/dev/vda1        25G   14G   11G  57% /
+
+$ docker --version
+bash: line 1: docker: command not found
+
+$ docker compose version
+bash: line 1: docker: command not found
+
+$ docker ps
+bash: line 1: docker: command not found
+
+$ sudo -n ufw status
+Status: inactive
+
+$ ss -tlnp | grep -E ':(3000|3001|8000)\b'
+(sin salida: los puertos 3000, 3001 y 8000 están libres)
+
+--- Comprobaciones adicionales de solo lectura ---
+
+$ ss -tlnp (resumen)
+22     sshd                        escucha en todas las interfaces
+18789  node (OpenClaw gateway)     solo loopback (127.0.0.1 y ::1)
+41805  VS Code Server              solo loopback
+53     systemd-resolved            solo loopback
+
+$ ps -eo rss,args --sort=-rss | head (resumen)
+~360 MiB  /usr/bin/node /usr/lib/node_modules/openclaw/dist/index.js gateway --port 18789
+~86 MiB   systemd-journald
+< 30 MiB  el resto (multipathd, snapd, sshd, VS Code Server…)
+
+$ journalctl -k | grep -i 'out of memory|oom-kill'
+(sin resultados)
+
+Conclusiones
+- 1 vCPU y 957 MiB de RAM: muy justo para next dev + astro dev + uvicorn + OpenClaw.
+- El swap de 2 GB ya existe (/swapfile) y ya está en uso (317 MiB).
+- Docker no está instalado.
+- ufw está inactivo. OpenClaw solo escucha en loopback, así que activar ufw
+  (con OpenSSH permitido) no le afecta.
+- Los puertos 3000, 3001 y 8000 están libres. Quedan 11 GB libres en disco.
