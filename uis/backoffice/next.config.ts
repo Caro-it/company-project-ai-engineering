@@ -1,5 +1,5 @@
-import path from "node:path";
 import type { NextConfig } from "next";
+import path from "node:path";
 
 // Raíz del monorepo: permite importar packages/shared por ruta relativa
 // (Turbopack no resuelve archivos fuera de turbopack.root).
@@ -10,7 +10,7 @@ const nextConfig: NextConfig = {
   distDir: process.env.NEXT_DIST_DIR || ".next",
   turbopack: { root: monorepoRoot },
   outputFileTracingRoot: monorepoRoot,
-    // Next 16 en modo dev bloquea sus recursos (/_next/*) si el navegador no abre desde localhost.
+  // Next 16 en modo dev bloquea sus recursos (/_next/*) si el navegador no abre desde localhost.
   // En el VPS: ALLOWED_DEV_ORIGINS=<IP_VPS> en el .env (lista separada por comas).
   allowedDevOrigins: (process.env.ALLOWED_DEV_ORIGINS ?? "")
     .split(",")
