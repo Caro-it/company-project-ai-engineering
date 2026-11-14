@@ -10,5 +10,12 @@ export default defineConfig({
   build: { format: 'file' },
   server: { port: 4321 },
   devToolbar: { enabled: false },
-  vite: { plugins: [tailwindcss()] },
+  vite: {
+    plugins: [tailwindcss()],
+    // En Docker Desktop (Windows) los eventos de fichero de los bind mounts no
+    // siempre llegan al contenedor: docker-compose.yml activa el polling.
+    server: {
+      watch: process.env.CHOKIDAR_USEPOLLING === 'true' ? { usePolling: true, interval: 300 } : undefined,
+    },
+  },
 });

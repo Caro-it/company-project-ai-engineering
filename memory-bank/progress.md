@@ -1,6 +1,6 @@
 # Progress
 
-_Última actualización: 2026-11-09 · rama `feature/inventory-orm`_
+_Última actualización: 2026-11-15 · rama `feature/docker-monorepo`_
 
 ## Hecho
 
@@ -82,6 +82,21 @@ _Última actualización: 2026-11-09 · rama `feature/inventory-orm`_
   - `uv run seed-inventory` (idempotente). Stock sembrado: 12 / 8 / 0 / 4 / 16 / 0.
   - `uv run pytest`: 148 tests correctos (30 de inventario), también contra PostgreSQL 16 local con `TEST_DATABASE_URL`. Prueba manual con uvicorn + PostgreSQL: seed, stock, 400 y 422.
   - Pendiente de la usuaria: poner su `DATABASE_URL` real y lanzar `seed-inventory` contra Supabase.
+
+- **Contenedorización del monorepo (ticket #infra-40), rama `feature/docker-monorepo` (sale de `main`), Fase 1 (local) hecha, push sin PR:**
+  - `uis/Dockerfile` (`node:22-alpine`, `npm ci` por app, `start.sh` con `wait -n`: si una app muere, el contenedor sale), `services/Dockerfile` (`python:3.12-slim` + uv), `.dockerignore` de cada uno, `docker-compose.yml` (red `nexova-net`, `env_file: .env`, bind mounts + volúmenes anónimos, polling), `.env.example` raíz y `.gitattributes` (LF en `uis/start.sh`). Sección "Docker" en `README.md` y `README.es.md`.
+  - Desviaciones: web Astro en modo dev en el 3000 (el ticket dice Next.js); `packages/shared` como `additional_contexts`; en Docker el backoffice usa `next dev --webpack` porque Turbopack ignora `WATCHPACK_POLLING` y no veía los cambios.
+  - URLs: todas las llamadas del backoffice a la API salen del navegador → `NEXT_PUBLIC_API_URL=http://localhost:8000` (VPS: IP pública). `http://api:8000` solo dentro de la red de Docker.
+  - Verificado el 2026-11-12 con Docker 29.9.3 / Compose v5.7.0: build y up sin pasos extra; 2 servicios `running`; 200 en 3000, 3001 y 8000/docs; `wget http://api:8000` desde `uis`; preflight CORS + registro + login + `/auth/me` con origen 3001 (usuario de prueba `docker.check@nexova-demo.com` en la TinyDB de desarrollo); hot reload de web, backoffice y API sin rebuild; sin secretos en Dockerfiles/YAML/imágenes. Evidencia en `docs/docker/compose-ps-local.txt`.
+  - El login se probó reproduciendo las peticiones del navegador con curl, no en un navegador real. La `SECRET_KEY` del `.env` local es el placeholder `cambia-esto`: en el VPS hay que generar una real.
+- **#infra-40, Fase 2 (VPS) completada (preparada el 2026-11-12, desplegada y verificada el 2026-11-15):**
+  - Diagnóstico de solo lectura por SSH en `docs/docker/vps-diagnostico.txt`. El VPS tiene 1 vCPU y **957 MiB de RAM**, swap de 2 GB ya creado y Docker sin instalar. ufw está inactivo; OpenClaw escucha en el 18789, solo en loopback, y usa ~360 MiB. Los puertos 3000/3001/8000 están libres.
+  - `infra/deploy-vps.sh`: idempotente, sin ejecutar. Hace swap si falta, Docker si falta, `ufw allow OpenSSH` antes que el resto, clonado o actualización, y se para si no hay `.env` o si quedan huecos. Tiene una salvaguarda de RAM: con menos de 1900 MB se para salvo `ALLOW_LOW_MEMORY=1`. Construye las imágenes de una en una.
+  - `.env.production.example`, `docs/docker/DEPLOY_VPS.md` (pasos de la usuaria) y `docs/docker/PR_DESCRIPTION.md`.
+  - Desplegado en el VPS: `docker compose ps` con `api` y `uis` en `Up`; `curl` → 200 en 3000, 3001 y 8000; health de la API desde el contenedor `uis` OK; login real en el navegador contra `http://<IP_VPS>:3001`.
+  - **`allowedDevOrigins` resuelto:** Next 16 en modo dev bloqueaba sus recursos de desarrollo desde la IP del VPS. `uis/backoffice/next.config.ts` lo lee ahora de `ALLOWED_DEV_ORIGINS` (commit `fix(backoffice)`); en el VPS, `ALLOWED_DEV_ORIGINS=<IP_VPS>` en `.env` + `docker compose up -d --force-recreate uis`. Recogido como desviación 5 en `PR_DESCRIPTION.md` y en la tabla "Si algo falla" de `DEPLOY_VPS.md`.
+  - Evidencias en `docs/docker/`: `compose-ps-vps.txt` y las capturas `vps-compose-ps.png`, `vps-backoffice.png`, `vps-website.png` y `vps-api-docs.png`. Checklist del PR cerrada.
+  - Pendiente: abrir el PR de `feature/docker-monorepo` con `docs/docker/PR_DESCRIPTION.md`. Sigue abierto el riesgo de RAM del droplet (957 MiB).
 
 ## En curso / próximos pasos
 
