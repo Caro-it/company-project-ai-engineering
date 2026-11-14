@@ -10,6 +10,12 @@ const nextConfig: NextConfig = {
   distDir: process.env.NEXT_DIST_DIR || ".next",
   turbopack: { root: monorepoRoot },
   outputFileTracingRoot: monorepoRoot,
+    // Next 16 en modo dev bloquea sus recursos (/_next/*) si el navegador no abre desde localhost.
+  // En el VPS: ALLOWED_DEV_ORIGINS=<IP_VPS> en el .env (lista separada por comas).
+  allowedDevOrigins: (process.env.ALLOWED_DEV_ORIGINS ?? "")
+    .split(",")
+    .map((o) => o.trim())
+    .filter(Boolean),
 };
 
 export default nextConfig;
