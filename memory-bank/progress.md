@@ -1,6 +1,6 @@
 # Progress
 
-_Última actualización: 2026-11-12 · rama `feature/docker-monorepo`_
+_Última actualización: 2026-11-15 · rama `feature/docker-monorepo`_
 
 ## Hecho
 
@@ -89,11 +89,14 @@ _Última actualización: 2026-11-12 · rama `feature/docker-monorepo`_
   - URLs: todas las llamadas del backoffice a la API salen del navegador → `NEXT_PUBLIC_API_URL=http://localhost:8000` (VPS: IP pública). `http://api:8000` solo dentro de la red de Docker.
   - Verificado el 2026-11-12 con Docker 29.9.3 / Compose v5.7.0: build y up sin pasos extra; 2 servicios `running`; 200 en 3000, 3001 y 8000/docs; `wget http://api:8000` desde `uis`; preflight CORS + registro + login + `/auth/me` con origen 3001 (usuario de prueba `docker.check@nexova-demo.com` en la TinyDB de desarrollo); hot reload de web, backoffice y API sin rebuild; sin secretos en Dockerfiles/YAML/imágenes. Evidencia en `docs/docker/compose-ps-local.txt`.
   - El login se probó reproduciendo las peticiones del navegador con curl, no en un navegador real. La `SECRET_KEY` del `.env` local es el placeholder `cambia-esto`: en el VPS hay que generar una real.
-- **#infra-40, Fase 2 (VPS) preparada, sin desplegar (2026-11-12):**
+- **#infra-40, Fase 2 (VPS) completada (preparada el 2026-11-12, desplegada y verificada el 2026-11-15):**
   - Diagnóstico de solo lectura por SSH en `docs/docker/vps-diagnostico.txt`. El VPS tiene 1 vCPU y **957 MiB de RAM**, swap de 2 GB ya creado y Docker sin instalar. ufw está inactivo; OpenClaw escucha en el 18789, solo en loopback, y usa ~360 MiB. Los puertos 3000/3001/8000 están libres.
   - `infra/deploy-vps.sh`: idempotente, sin ejecutar. Hace swap si falta, Docker si falta, `ufw allow OpenSSH` antes que el resto, clonado o actualización, y se para si no hay `.env` o si quedan huecos. Tiene una salvaguarda de RAM: con menos de 1900 MB se para salvo `ALLOW_LOW_MEMORY=1`. Construye las imágenes de una en una.
-  - `.env.production.example`, `docs/docker/DEPLOY_VPS.md` (pasos de la usuaria) y `docs/docker/PR_DESCRIPTION.md`, con los huecos `[CAPTURA LOCAL]` y `[CAPTURA VPS]`.
-  - Pendiente, de la usuaria: decidir si redimensiona el droplet, ejecutar el despliegue, hacer un login real en el navegador, las capturas y abrir el PR. Riesgo sin verificar: `allowedDevOrigins` de Next 16 al abrirse desde la IP.
+  - `.env.production.example`, `docs/docker/DEPLOY_VPS.md` (pasos de la usuaria) y `docs/docker/PR_DESCRIPTION.md`.
+  - Desplegado en el VPS: `docker compose ps` con `api` y `uis` en `Up`; `curl` → 200 en 3000, 3001 y 8000; health de la API desde el contenedor `uis` OK; login real en el navegador contra `http://<IP_VPS>:3001`.
+  - **`allowedDevOrigins` resuelto:** Next 16 en modo dev bloqueaba sus recursos de desarrollo desde la IP del VPS. `uis/backoffice/next.config.ts` lo lee ahora de `ALLOWED_DEV_ORIGINS` (commit `fix(backoffice)`); en el VPS, `ALLOWED_DEV_ORIGINS=<IP_VPS>` en `.env` + `docker compose up -d --force-recreate uis`. Recogido como desviación 5 en `PR_DESCRIPTION.md` y en la tabla "Si algo falla" de `DEPLOY_VPS.md`.
+  - Evidencias en `docs/docker/`: `compose-ps-vps.txt` y las capturas `vps-compose-ps.png`, `vps-backoffice.png`, `vps-website.png` y `vps-api-docs.png`. Checklist del PR cerrada.
+  - Pendiente: abrir el PR de `feature/docker-monorepo` con `docs/docker/PR_DESCRIPTION.md`. Sigue abierto el riesgo de RAM del droplet (957 MiB).
 
 ## En curso / próximos pasos
 
