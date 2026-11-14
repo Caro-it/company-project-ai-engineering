@@ -160,7 +160,7 @@ Panel → Networking → Firewalls. Si el droplet tiene un firewall asignado, a�
 
 | Síntoma | Causa probable | Qué hacer |
 |---|---|---|
-| El backoffice carga pero el login no hace nada. En la consola del navegador (F12) aparece *cross-origin* o `allowedDevOrigins` | Next 16 en modo dev bloquea sus recursos de desarrollo cuando se abre desde una IP que no es localhost (**no verificado**) | Añadir `allowedDevOrigins: ["<IP_VPS>"]` en `uis/backoffice/next.config.ts` (commit aparte) |
+| El backoffice carga pero el login no hace nada. En la consola del navegador (F12) aparece *cross-origin* o `allowedDevOrigins` | Next 16 en modo dev bloquea sus recursos de desarrollo cuando se abre desde una IP que no es localhost (**comprobado en el VPS**) | `uis/backoffice/next.config.ts` ya lee `allowedDevOrigins` de `ALLOWED_DEV_ORIGINS`: poner `ALLOWED_DEV_ORIGINS=<IP_VPS>` en `.env` y ejecutar `docker compose up -d --force-recreate uis` |
 | Error CORS en el login | `CORS_ORIGINS` o `NEXT_PUBLIC_API_URL` no coinciden con la URL del navegador | Revisar `.env` y ejecutar `docker compose up -d --force-recreate` |
 | `docker compose logs uis` muestra `Killed`, o el contenedor sale con 137 | Sin memoria | Paso 0, opción A |
 | `api` se reinicia o no arranca | `DATABASE_URL` mal copiada (o con `$` sin duplicar) | `docker compose logs api` |

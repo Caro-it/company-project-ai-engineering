@@ -38,6 +38,7 @@ El monorepo de Nexova se levanta con un solo comando, `docker compose up`, en lo
    - No hace falta `API_URL_INTERNAL` porque no hay llamadas servidor → servidor.
    - `CORS_ORIGINS` y `FRONTEND_URL` usan los mismos orígenes que el navegador.
 4. **`next dev --webpack` dentro de Docker.** Turbopack ignora `WATCHPACK_POLLING` y no detectaba los cambios de los bind mounts en Docker Desktop (Windows): el backoffice no recargaba. Con webpack el hot reload funciona. Fuera de Docker, `npm run dev` sigue usando Turbopack.
+5. **`allowedDevOrigins` leído de `ALLOWED_DEV_ORIGINS` (resuelta).** Next 16 en modo dev bloqueaba sus recursos de desarrollo al abrir el backoffice desde la IP del VPS, y el login no respondía. `uis/backoffice/next.config.ts` lee ahora `allowedDevOrigins` de la variable `ALLOWED_DEV_ORIGINS`: en el VPS basta con `ALLOWED_DEV_ORIGINS=<IP_VPS>` en `.env` y `docker compose up -d --force-recreate uis`. Comprobado con un login real en el navegador contra `http://<IP_VPS>:3001`.
 
 ## Lo que evaluaremos
 
@@ -54,24 +55,28 @@ El monorepo de Nexova se levanta con un solo comando, `docker compose up`, en lo
 - [x] `docker compose build` + `docker compose up -d` sin pasos extra en local; `docker compose ps` con los 2 servicios en `running`
 - [x] `curl` a `localhost:3000`, `localhost:3001` y `localhost:8000/docs` → 200
 - [x] Login del backoffice contra la API en local (preflight CORS, registro, login y `/auth/me` desde el origen `localhost:3001`, reproducidos con `curl`)
-- [ ] Login probado en un navegador real
-- [ ] Despliegue en el VPS con `docker compose up -d --build`
-- [ ] `docker compose ps` del VPS con los 2 servicios en `running`
-- [ ] Web, backoffice y API accesibles en `http://<IP_VPS>:3000`, `:3001` y `:8000/docs`
+- [x] Login probado en un navegador real (`http://<IP_VPS>:3001`)
+- [x] Despliegue en el VPS con `docker compose up -d --build`
+- [x] `docker compose ps` del VPS con los 2 servicios en `running`
+- [x] Web, backoffice y API accesibles en `http://<IP_VPS>:3000`, `:3001` y `:8000/docs` (`curl` → 200; health de la API desde el contenedor `uis` OK)
 
 ## Evidencias
 
 ### `docker compose ps` en local
 
-[CAPTURA LOCAL]
-
-(Texto en `docs/docker/compose-ps-local.txt`.)
+Salida en texto: [`compose-ps-local.txt`](./compose-ps-local.txt).
 
 ### `docker compose ps` y login en el VPS
 
-[CAPTURA VPS]
+![docker compose ps en el VPS](./vps-compose-ps.png)
 
-(Texto en `docs/docker/compose-ps-vps.txt`.)
+![Backoffice en el VPS](./vps-backoffice.png)
+
+![Web en el VPS](./vps-website.png)
+
+![API /docs en el VPS](./vps-api-docs.png)
+
+Salida en texto: [`compose-ps-vps.txt`](./compose-ps-vps.txt).
 
 ## Cómo probarlo
 
@@ -89,6 +94,5 @@ docker compose up --build
 - Es un entorno de **desarrollo** (modo dev y hot reload), no un build de producción optimizado: consume bastante más RAM.
 - **RAM del VPS:** el droplet actual tiene 1 vCPU y 957 MiB de RAM, y comparte servidor con OpenClaw. El script se para si hay menos de ~1,9 GB, salvo que se fuerce con `ALLOW_LOW_MEMORY=1`. Lo recomendado es redimensionar a 2 GB o más.
 - Los puertos se publican directamente por HTTP, sin dominio, HTTPS ni proxy inverso. Docker publica los puertos saltándose ufw.
-- Sin verificar todavía: si Next 16 en modo dev bloquea sus recursos de desarrollo al abrirse desde la IP del VPS (`allowedDevOrigins`). Si pasa, se arregla con una línea en `next.config.ts`.
 
 🤖 Generated with [Claude Code](https://claude.com/claude-code)
