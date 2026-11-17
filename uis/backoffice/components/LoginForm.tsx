@@ -59,8 +59,9 @@ export function LoginForm({ resetOk = false }: { resetOk?: boolean }) {
     }
   }
 
-  // Sin comprobar aún la sesión, o con sesión (redirigiendo), no se muestra el formulario
-  if (hasSession !== false) return null;
+  // El formulario se pinta ya en el HTML del servidor (hasSession === null), para que no
+  // espere a la hidratación (LCP). Solo se oculta con sesión, mientras se redirige a /.
+  if (hasSession) return null;
 
   return (
     <section

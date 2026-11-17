@@ -1,0 +1,455 @@
+{
+  "phase": "after",
+  "date": "2026-11-10T20:52:58.362Z",
+  "runs": 3,
+  "pages": {
+    "web-home.mobile": {
+      "median": {
+        "finalUrl": "http://localhost:4321/",
+        "performance": 100,
+        "accessibility": 100,
+        "bestPractices": 100,
+        "seo": 100,
+        "fcpMs": 702,
+        "lcpMs": 702,
+        "cls": 0,
+        "tbtMs": 0,
+        "siMs": 702,
+        "totalBytes": 7919
+      },
+      "all": [
+        {
+          "finalUrl": "http://localhost:4321/",
+          "performance": 100,
+          "accessibility": 100,
+          "bestPractices": 100,
+          "seo": 100,
+          "fcpMs": 702,
+          "lcpMs": 756,
+          "cls": 0,
+          "tbtMs": 0,
+          "siMs": 702,
+          "totalBytes": 7919
+        },
+        {
+          "finalUrl": "http://localhost:4321/",
+          "performance": 100,
+          "accessibility": 100,
+          "bestPractices": 100,
+          "seo": 100,
+          "fcpMs": 702,
+          "lcpMs": 702,
+          "cls": 0,
+          "tbtMs": 0,
+          "siMs": 702,
+          "totalBytes": 7919
+        },
+        {
+          "finalUrl": "http://localhost:4321/",
+          "performance": 100,
+          "accessibility": 100,
+          "bestPractices": 100,
+          "seo": 100,
+          "fcpMs": 706,
+          "lcpMs": 706,
+          "cls": 0,
+          "tbtMs": 0,
+          "siMs": 706,
+          "totalBytes": 7919
+        }
+      ]
+    },
+    "web-home.desktop": {
+      "median": {
+        "finalUrl": "http://localhost:4321/",
+        "performance": 100,
+        "accessibility": 100,
+        "bestPractices": 100,
+        "seo": 100,
+        "fcpMs": 197,
+        "lcpMs": 197,
+        "cls": 0,
+        "tbtMs": 0,
+        "siMs": 251,
+        "totalBytes": 7919
+      },
+      "all": [
+        {
+          "finalUrl": "http://localhost:4321/",
+          "performance": 100,
+          "accessibility": 100,
+          "bestPractices": 100,
+          "seo": 100,
+          "fcpMs": 194,
+          "lcpMs": 194,
+          "cls": 0,
+          "tbtMs": 0,
+          "siMs": 270,
+          "totalBytes": 7919
+        },
+        {
+          "finalUrl": "http://localhost:4321/",
+          "performance": 100,
+          "accessibility": 100,
+          "bestPractices": 100,
+          "seo": 100,
+          "fcpMs": 233,
+          "lcpMs": 233,
+          "cls": 0,
+          "tbtMs": 0,
+          "siMs": 371,
+          "totalBytes": 7919
+        },
+        {
+          "finalUrl": "http://localhost:4321/",
+          "performance": 100,
+          "accessibility": 100,
+          "bestPractices": 100,
+          "seo": 100,
+          "fcpMs": 197,
+          "lcpMs": 197,
+          "cls": 0,
+          "tbtMs": 0,
+          "siMs": 251,
+          "totalBytes": 7919
+        }
+      ]
+    },
+    "bo-login.mobile": {
+      "median": {
+        "finalUrl": "http://localhost:3001/login",
+        "performance": 97,
+        "accessibility": 100,
+        "bestPractices": 100,
+        "seo": 60,
+        "fcpMs": 770,
+        "lcpMs": 2173,
+        "cls": 0,
+        "tbtMs": 153,
+        "siMs": 770,
+        "totalBytes": 180133
+      },
+      "all": [
+        {
+          "finalUrl": "http://localhost:3001/login",
+          "performance": 98,
+          "accessibility": 100,
+          "bestPractices": 100,
+          "seo": 60,
+          "fcpMs": 787,
+          "lcpMs": 787,
+          "cls": 0,
+          "tbtMs": 154,
+          "siMs": 787,
+          "totalBytes": 180133
+        },
+        {
+          "finalUrl": "http://localhost:3001/login",
+          "performance": 97,
+          "accessibility": 100,
+          "bestPractices": 100,
+          "seo": 60,
+          "fcpMs": 770,
+          "lcpMs": 2173,
+          "cls": 0,
+          "tbtMs": 153,
+          "siMs": 770,
+          "totalBytes": 180133
+        },
+        {
+          "finalUrl": "http://localhost:3001/login",
+          "performance": 98,
+          "accessibility": 100,
+          "bestPractices": 100,
+          "seo": 60,
+          "fcpMs": 767,
+          "lcpMs": 767,
+          "cls": 0,
+          "tbtMs": 152,
+          "siMs": 767,
+          "totalBytes": 180133
+        }
+      ]
+    },
+    "bo-login.desktop": {
+      "median": {
+        "finalUrl": "http://localhost:3001/login",
+        "performance": 100,
+        "accessibility": 100,
+        "bestPractices": 100,
+        "seo": 60,
+        "fcpMs": 218,
+        "lcpMs": 527,
+        "cls": 0,
+        "tbtMs": 8,
+        "siMs": 218,
+        "totalBytes": 180133
+      },
+      "all": [
+        {
+          "finalUrl": "http://localhost:3001/login",
+          "performance": 100,
+          "accessibility": 100,
+          "bestPractices": 100,
+          "seo": 60,
+          "fcpMs": 218,
+          "lcpMs": 527,
+          "cls": 0,
+          "tbtMs": 8,
+          "siMs": 218,
+          "totalBytes": 180133
+        },
+        {
+          "finalUrl": "http://localhost:3001/login",
+          "performance": 100,
+          "accessibility": 100,
+          "bestPractices": 100,
+          "seo": 60,
+          "fcpMs": 218,
+          "lcpMs": 218,
+          "cls": 0,
+          "tbtMs": 4,
+          "siMs": 218,
+          "totalBytes": 180133
+        },
+        {
+          "finalUrl": "http://localhost:3001/login",
+          "performance": 100,
+          "accessibility": 100,
+          "bestPractices": 100,
+          "seo": 60,
+          "fcpMs": 225,
+          "lcpMs": 225,
+          "cls": 0,
+          "tbtMs": 31,
+          "siMs": 248,
+          "totalBytes": 180133
+        }
+      ]
+    },
+    "bo-incidencias.mobile": {
+      "median": {
+        "finalUrl": "http://localhost:3001/incidencias",
+        "performance": 92,
+        "accessibility": 100,
+        "bestPractices": 100,
+        "seo": 60,
+        "fcpMs": 769,
+        "lcpMs": 769,
+        "cls": 0,
+        "tbtMs": 351,
+        "siMs": 769,
+        "totalBytes": 242896
+      },
+      "all": [
+        {
+          "finalUrl": "http://localhost:3001/incidencias",
+          "performance": 85,
+          "accessibility": 100,
+          "bestPractices": 100,
+          "seo": 60,
+          "fcpMs": 772,
+          "lcpMs": 2897,
+          "cls": 0,
+          "tbtMs": 413,
+          "siMs": 772,
+          "totalBytes": 242896
+        },
+        {
+          "finalUrl": "http://localhost:3001/incidencias",
+          "performance": 89,
+          "accessibility": 100,
+          "bestPractices": 100,
+          "seo": 60,
+          "fcpMs": 768,
+          "lcpMs": 768,
+          "cls": 0,
+          "tbtMs": 458,
+          "siMs": 768,
+          "totalBytes": 242896
+        },
+        {
+          "finalUrl": "http://localhost:3001/incidencias",
+          "performance": 92,
+          "accessibility": 100,
+          "bestPractices": 100,
+          "seo": 60,
+          "fcpMs": 769,
+          "lcpMs": 769,
+          "cls": 0,
+          "tbtMs": 351,
+          "siMs": 769,
+          "totalBytes": 242896
+        }
+      ]
+    },
+    "bo-incidencias.desktop": {
+      "median": {
+        "finalUrl": "http://localhost:3001/incidencias",
+        "performance": 100,
+        "accessibility": 100,
+        "bestPractices": 100,
+        "seo": 60,
+        "fcpMs": 217,
+        "lcpMs": 217,
+        "cls": 0.004,
+        "tbtMs": 7,
+        "siMs": 263,
+        "totalBytes": 242896
+      },
+      "all": [
+        {
+          "finalUrl": "http://localhost:3001/incidencias",
+          "performance": 100,
+          "accessibility": 100,
+          "bestPractices": 100,
+          "seo": 60,
+          "fcpMs": 219,
+          "lcpMs": 219,
+          "cls": 0.004,
+          "tbtMs": 4,
+          "siMs": 256,
+          "totalBytes": 242896
+        },
+        {
+          "finalUrl": "http://localhost:3001/incidencias",
+          "performance": 100,
+          "accessibility": 100,
+          "bestPractices": 100,
+          "seo": 60,
+          "fcpMs": 217,
+          "lcpMs": 217,
+          "cls": 0.004,
+          "tbtMs": 7,
+          "siMs": 263,
+          "totalBytes": 242896
+        },
+        {
+          "finalUrl": "http://localhost:3001/incidencias",
+          "performance": 100,
+          "accessibility": 100,
+          "bestPractices": 100,
+          "seo": 60,
+          "fcpMs": 219,
+          "lcpMs": 219,
+          "cls": 0.004,
+          "tbtMs": 0,
+          "siMs": 261,
+          "totalBytes": 242896
+        }
+      ]
+    },
+    "bo-proveedores.mobile": {
+      "median": {
+        "finalUrl": "http://localhost:3001/proveedores",
+        "performance": 95,
+        "accessibility": 100,
+        "bestPractices": 100,
+        "seo": 60,
+        "fcpMs": 766,
+        "lcpMs": 766,
+        "cls": 0,
+        "tbtMs": 257,
+        "siMs": 766,
+        "totalBytes": 216280
+      },
+      "all": [
+        {
+          "finalUrl": "http://localhost:3001/proveedores",
+          "performance": 95,
+          "accessibility": 100,
+          "bestPractices": 100,
+          "seo": 60,
+          "fcpMs": 766,
+          "lcpMs": 766,
+          "cls": 0,
+          "tbtMs": 257,
+          "siMs": 766,
+          "totalBytes": 216280
+        },
+        {
+          "finalUrl": "http://localhost:3001/proveedores",
+          "performance": 94,
+          "accessibility": 100,
+          "bestPractices": 100,
+          "seo": 60,
+          "fcpMs": 770,
+          "lcpMs": 770,
+          "cls": 0,
+          "tbtMs": 282,
+          "siMs": 770,
+          "totalBytes": 216280
+        },
+        {
+          "finalUrl": "http://localhost:3001/proveedores",
+          "performance": 96,
+          "accessibility": 100,
+          "bestPractices": 100,
+          "seo": 60,
+          "fcpMs": 765,
+          "lcpMs": 765,
+          "cls": 0,
+          "tbtMs": 232,
+          "siMs": 765,
+          "totalBytes": 216280
+        }
+      ]
+    },
+    "bo-proveedores.desktop": {
+      "median": {
+        "finalUrl": "http://localhost:3001/proveedores",
+        "performance": 100,
+        "accessibility": 100,
+        "bestPractices": 100,
+        "seo": 60,
+        "fcpMs": 219,
+        "lcpMs": 219,
+        "cls": 0.001,
+        "tbtMs": 1,
+        "siMs": 273,
+        "totalBytes": 216280
+      },
+      "all": [
+        {
+          "finalUrl": "http://localhost:3001/proveedores",
+          "performance": 100,
+          "accessibility": 100,
+          "bestPractices": 100,
+          "seo": 60,
+          "fcpMs": 216,
+          "lcpMs": 607,
+          "cls": 0.001,
+          "tbtMs": 0,
+          "siMs": 237,
+          "totalBytes": 216280
+        },
+        {
+          "finalUrl": "http://localhost:3001/proveedores",
+          "performance": 100,
+          "accessibility": 100,
+          "bestPractices": 100,
+          "seo": 60,
+          "fcpMs": 216,
+          "lcpMs": 216,
+          "cls": 0.001,
+          "tbtMs": 0,
+          "siMs": 266,
+          "totalBytes": 216280
+        },
+        {
+          "finalUrl": "http://localhost:3001/proveedores",
+          "performance": 100,
+          "accessibility": 100,
+          "bestPractices": 100,
+          "seo": 60,
+          "fcpMs": 219,
+          "lcpMs": 219,
+          "cls": 0.001,
+          "tbtMs": 1,
+          "siMs": 273,
+          "totalBytes": 216280
+        }
+      ]
+    }
+  }
+}

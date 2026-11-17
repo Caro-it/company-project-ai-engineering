@@ -1,8 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
+import { RetryAlert } from "@/components/RetryAlert";
 import {
   ALLOWED_TRANSITIONS,
   BRANCHES,
@@ -22,12 +23,7 @@ import {
   type IncidentFilters,
   type IncidentStatus,
 } from "@/lib/incidents";
-
-interface Result {
-  key: string;
-  incidents: Incident[];
-  error: string | null;
-}
+import { useApiResource } from "@/lib/useApiResource";
 
 const STATUS_BADGE: Record<IncidentStatus, string> = {
   open: "bg-sky-100 text-sky-800",
@@ -85,35 +81,18 @@ export function IncidentsList({
   onStatusChanged: () => void;
 }) {
   const [filters, setFilters] = useState<IncidentFilters>(EMPTY_FILTERS);
-  const [retries, setRetries] = useState(0);
-  const [result, setResult] = useState<Result>({
-    key: "",
-    incidents: [],
-    error: null,
-  });
-
-  // Cada cambio de filtro (o reintento) es una petición nueva a la API
-  const requestKey = JSON.stringify({ ...filters, retries });
-  const loading = result.key !== requestKey;
-
-  useEffect(() => {
-    let cancelled = false;
-    listIncidents(filters)
-      .then((incidents) => {
-        if (!cancelled) setResult({ key: requestKey, incidents, error: null });
-      })
-      .catch((e) => {
-        if (!cancelled)
-          setResult({
-            key: requestKey,
-            incidents: [],
-            error: incidentErrorMessage(e),
-          });
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [filters, requestKey]);
+  // Cada cambio de filtro es una petición nueva a la API
+  const {
+    data: incidents,
+    error,
+    loading,
+    retry,
+    setData: setIncidents,
+  } = useApiResource<Incident[]>(
+    JSON.stringify(filters),
+    () => listIncidents(filters),
+    { initialData: [], toMessage: incidentErrorMessage },
+  );
 
   function setFilter<K extends keyof IncidentFilters>(
     key: K,
@@ -123,21 +102,14 @@ export function IncidentsList({
   }
 
   function setRowStatus(id: string, status: IncidentStatus) {
-    setResult((prev) => ({
-      ...prev,
-      incidents: prev.incidents.map((i) => (i.id === id ? { ...i, status } : i)),
-    }));
+    setIncidents((prev) => prev.map((i) => (i.id === id ? { ...i, status } : i)));
   }
 
   function replaceIncident(updated: Incident) {
-    setResult((prev) => ({
-      ...prev,
-      incidents: prev.incidents.map((i) => (i.id === updated.id ? updated : i)),
-    }));
+    setIncidents((prev) => prev.map((i) => (i.id === updated.id ? updated : i)));
   }
 
   const hasFilters = Object.values(filters).some(Boolean);
-  const { incidents, error } = result;
 
   return (
     <div className="space-y-4">
@@ -221,19 +193,9 @@ export function IncidentsList({
             Cargando incidencias…
           </p>
         ) : error ? (
-          <div
-            role="alert"
-            className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800"
-          >
-            <span>No se ha podido cargar el listado. {error}</span>
-            <button
-              type="button"
-              onClick={() => setRetries((n) => n + 1)}
-              className="rounded-md bg-rose-700 px-3 py-1.5 font-medium text-white hover:bg-rose-800"
-            >
-              Reintentar
-            </button>
-          </div>
+          <RetryAlert onRetry={retry}>
+            No se ha podido cargar el listado. {error}
+          </RetryAlert>
         ) : incidents.length === 0 ? (
           <div className="rounded-lg border border-slate-200 bg-white p-6 text-center text-sm text-slate-600">
             {hasFilters ? (
