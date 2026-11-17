@@ -13,6 +13,7 @@ from app.supplier_models import (
     StatusUpdate,
     Supplier,
     SupplierCreate,
+    SupplierListItem,
 )
 
 router = APIRouter(
@@ -46,7 +47,7 @@ def create_supplier(payload: SupplierCreate):
     return _to_supplier(suppliers_table.get(doc_id=new_id))
 
 
-@router.get("", response_model=list[Supplier])
+@router.get("", response_model=list[SupplierListItem])
 def list_suppliers(country: Country | None = None, category: Category | None = None):
     S = Query()
     conditions = []
@@ -63,7 +64,7 @@ def list_suppliers(country: Country | None = None, category: Category | None = N
             condition = condition & extra
         docs = suppliers_table.search(condition)
 
-    return [_to_supplier(doc) for doc in docs]
+    return [SupplierListItem(id=doc.doc_id, **doc) for doc in docs]
 
 
 @router.get("/{supplier_id}", response_model=Supplier)
