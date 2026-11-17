@@ -126,7 +126,9 @@ Ordenados por impacto. "Se corrige" indica si entra en esta rama.
 
 ## 4. Análisis de refactorización
 
-### Lógica duplicada: carga de datos con loading / error / reintento
+Se identifican dos casos de duplicación que se aplican (commit `829a058`) y un tercero que queda solo como candidato.
+
+### Caso 1 — Lógica de carga de datos (loading / error / reintento) → hook `useApiResource`
 
 Tres componentes del backoffice repiten la misma máquina de estados para pedir datos a la API:
 
@@ -136,15 +138,47 @@ Tres componentes del backoffice repiten la misma máquina de estados para pedir 
 | `components/incidents/IncidentsList.tsx` | `listIncidents(filters)` | El mismo, con filtros en la clave |
 | `components/SuppliersDirectory.tsx` | `listSuppliers({ country, category })` | Variante con `loading`/`error`/`reloadKey` sueltos y `setLoading(true)` repetido en cuatro manejadores |
 
-Cada uno escribe su `useEffect` con la bandera `cancelled`, su `then`/`catch`, su tipo `Result` y su contador de reintentos (unas 25–30 líneas por componente). Además, los tres pintan el mismo bloque de error con botón "Reintentar" (`role="alert"`, mismas clases rosa).
+Cada uno escribe su `useEffect` con la bandera `cancelled`, su `then`/`catch`, su tipo `Result` y su contador de reintentos (unas 25–30 líneas por componente). Además, los tres pintan el mismo bloque de error con botón "Reintentar" (ver Caso 2).
 
 **Riesgos de la duplicación:** el patrón existe porque `react-hooks/set-state-in-effect` (eslint-config-next 16) rechaza el `setLoading(true)` síncrono dentro del efecto. `SuppliersDirectory` lo esquiva con `setLoading(true)` en cada manejador; si alguien añade un filtro y olvida esa línea, el indicador de carga deja de funcionar. Centralizarlo evita ese tipo de olvidos.
 
 **Propuesta:**
 
 - Hook `useApiResource(requestKey, fetcher, toMessage)` en `lib/useApiResource.ts`: devuelve `{ data, error, loading, retry, setData }`. Mantiene el patrón de clave de petición (sin `setState` síncrono en el efecto), cancela respuestas obsoletas y permite actualizaciones optimistas (`setData`).
-- Componente `RetryAlert` en `components/RetryAlert.tsx` para el aviso de error con "Reintentar".
 - Se usa en `IncidentsStats`, `IncidentsList` y `SuppliersDirectory` sin cambiar textos, `data-testid` ni comportamiento visible (los e2e de Playwright dependen de ellos).
 - Con tests de Jest del hook (carga, éxito, error, reintento y descarte de respuestas obsoletas).
 
-Fuera de alcance: los formularios (`LoginForm`, `RegisterForm`, `ProfileForm`…) también repiten validación y envío, pero cada uno tiene reglas y errores de API distintos; unificarlos sería un rediseño, no una refactorización acotada.
+### Caso 2 — Bloque de error con botón "Reintentar" → componente `RetryAlert`
+
+**Dónde aparece.** Antes del refactor (commit `d2a3209`, el anterior a `829a058`), el mismo marcado está copiado tres veces en `uis/backoffice/`:
+
+| Archivo | Líneas | Mensaje | Acción del botón | Caja |
+|---|---|---|---|---|
+| `components/incidents/IncidentsStats.tsx` | 113–127 | `No se ha podido cargar el resumen. {error}` | `setRetries((n) => n + 1)` | `mt-3 rounded-md p-3` (dentro de la tarjeta del resumen) |
+| `components/incidents/IncidentsList.tsx` | 223–236 | `No se ha podido cargar el listado. {error}` | `setRetries((n) => n + 1)` | `rounded-lg p-4` (ocupa el lugar del listado) |
+| `components/SuppliersDirectory.tsx` | 172–186 | `{error}` | `reload` | `rounded-lg p-4` |
+
+Los tres bloques son un `<div role="alert">` con `flex flex-wrap items-center justify-between gap-3 border border-rose-200 bg-rose-50 text-sm text-rose-800`, un `<span>` con el mensaje y un `<button type="button">` con `rounded-md bg-rose-700 px-3 py-1.5 font-medium text-white hover:bg-rose-800` y el texto "Reintentar". Solo cambian el mensaje, la función de reintento y el espaciado de la caja (dos variantes).
+
+(Los `<p role="alert">` de error por fila, en las líneas 403–410 de `IncidentsList.tsx` y 385–392 de `SuppliersDirectory.tsx`, son otro patrón —sin botón ni caja— y no entran en este caso.)
+
+**Por qué es candidato:**
+
+- Es marcado idéntico salvo tres parámetros claros (mensaje, `onRetry`, variante de caja): la abstracción no necesita opciones artificiales.
+- Fija en un solo sitio el `role="alert"` (lo anuncian los lectores de pantalla) y el contraste del botón, que es justo lo que revisa Lighthouse en Accessibility; una copia que se desviara podría romperlo sin que nadie lo notara.
+- Los e2e de Playwright (`e2e/01-resumen.spec.ts` y `e2e/02-listado.spec.ts`) localizan el aviso por `getByRole("alert")` y el botón por `getByRole("button", { name: "Reintentar" })`: con un único componente ese contrato no puede divergir entre pantallas.
+
+**Abstracción aplicada** — `components/RetryAlert.tsx`:
+
+```tsx
+<RetryAlert onRetry={retry}>No se ha podido cargar el listado. {error}</RetryAlert>
+<RetryAlert variant="inline" onRetry={retry}>…</RetryAlert>   // IncidentsStats, dentro de la tarjeta
+{error && <RetryAlert onRetry={reload}>{error}</RetryAlert>}   // SuppliersDirectory
+```
+
+- Props: `children` (mensaje), `onRetry` y `variant: "inline" | "block"` (por defecto `"block"`). `"inline"` aplica `mt-3 rounded-md p-3`; `"block"`, `rounded-lg p-4`. El resto de clases, el `role` y el texto "Reintentar" son los de antes.
+- Cada uno de los tres bloques de 14–15 líneas pasa a una línea o tres. Las clases y el DOM resultante son los mismos, así que no cambia nada visible ni en los e2e.
+
+### Caso 3 — Formularios (candidato identificado, no aplicado)
+
+Los formularios (`components/LoginForm.tsx`, `components/RegisterForm.tsx`, `components/ProfileForm.tsx`…) también repiten validación y envío, pero cada uno tiene reglas y errores de API distintos; unificarlos sería un rediseño, no una refactorización acotada. Queda fuera de alcance.

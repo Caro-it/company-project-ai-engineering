@@ -114,6 +114,8 @@ No había nada que corregir: ninguna app usa imágenes ni fuentes web, y los 19 
 
 ## 5. Refactorización
 
+Se aplicaron los **Casos 1 y 2** del análisis de [`AUDIT.md`](./AUDIT.md) (sección 4): el Caso 1 (lógica de carga de datos) con el hook `useApiResource` y el Caso 2 (bloque de error con "Reintentar") con el componente `RetryAlert`. El Caso 3 (formularios) queda identificado pero fuera de alcance.
+
 **Hook `useApiResource`** ([`uis/backoffice/lib/useApiResource.ts`](./uis/backoffice/lib/useApiResource.ts)) y **componente `RetryAlert`** ([`uis/backoffice/components/RetryAlert.tsx`](./uis/backoffice/components/RetryAlert.tsx)), commit `829a058`.
 
 ```ts
@@ -126,7 +128,7 @@ const { data, error, loading, retry, setData } = useApiResource(
 
 - Encapsula el patrón "clave de petición" que ya usaba el backoffice: `loading` se deriva de la clave de la última respuesta, sin `setState` síncrono en el efecto (`react-hooks/set-state-in-effect`), las respuestas obsoletas se descartan y `retry()` repite la petición. `fetcher` y las opciones se leen con `useEffectEvent` (React 19.2), así que no son dependencias del efecto.
 - `setData` permite las actualizaciones optimistas de fila que ya hacían los listados.
-- `RetryAlert` sustituye los tres bloques de error con "Reintentar" que estaban copiados.
+- `RetryAlert` (Caso 2) sustituye los tres bloques de error con "Reintentar" que estaban copiados, con las mismas clases, `role="alert"` y texto; la prop `variant` cubre las dos cajas que había (`inline` en el resumen, `block` en los listados).
 
 **Dónde se usa:** `IncidentsStats` (con `keepDataOnError: true`, como antes), `IncidentsList` y `SuppliersDirectory`.
 
