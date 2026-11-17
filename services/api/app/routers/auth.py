@@ -9,7 +9,7 @@ from app.auth_models import (
     ForgotPasswordRequest,
     MeOut,
     MessageOut,
-    Profile,
+    ProfileOut,
     ResetPasswordRequest,
     Token,
     UserUpdate,
@@ -62,7 +62,7 @@ def read_me(current_user: dict = Depends(get_current_user)):
     return MeOut(
         email=current_user["email"],
         role=current_user["role"],
-        profile=Profile(**profile) if profile else None,
+        profile=ProfileOut.model_validate(profile) if profile else None,
     )
 
 

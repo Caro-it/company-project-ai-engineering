@@ -27,9 +27,9 @@ def test_perfil_devuelve_el_del_usuario_del_token(client, auth_headers):
     res = client.get(BASE, headers=auth_headers)
 
     assert res.status_code == 200
-    assert res.json()["user_id"] == get_user_by_email(OWNER_EMAIL)["id"]
-    # El registro de la fixture no manda nombre: no es el perfil de la otra usuaria
-    assert res.json()["name"] is None
+    # El registro de la fixture no manda nombre: no es el perfil de la otra usuaria.
+    # La respuesta no lleva el id interno del perfil ni user_id (FK al usuario de la sesión)
+    assert res.json() == {"name": None, "phone": None, "address": None}
 
 
 def test_perfil_inexistente_es_404(client, auth_headers):
