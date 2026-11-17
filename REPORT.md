@@ -23,6 +23,19 @@ FCP, LCP y TBT en ms. `a → b` = antes → después; un solo valor = sin cambio
 | BO · /proveedores · móvil | 96 → 95 | 96 → **100** | 100 | 60 | 763 → 766 | 763 → 766 | 0 | 236 → 257 |
 | BO · /proveedores · escritorio | 100 | 96 → **100** | 100 | 60 | 215 → 219 | 215 → 219 | 0.001 | 0 → 1 |
 
+**Capturas antes / después** de esos mismos informes (4 puntuaciones + FCP, LCP, TBT, CLS y Speed Index), generadas con [`audit/scripts/screenshot-reports.mjs`](./audit/scripts/screenshot-reports.mjs):
+
+| Página | Antes | Después |
+|---|---|---|
+| Web · home · móvil | [before](./audit/before/web-home.mobile.png) | [after](./audit/after/web-home.mobile.png) |
+| Web · home · escritorio | [before](./audit/before/web-home.desktop.png) | [after](./audit/after/web-home.desktop.png) |
+| BO · /login · móvil | [before](./audit/before/bo-login.mobile.png) | [after](./audit/after/bo-login.mobile.png) |
+| BO · /login · escritorio | [before](./audit/before/bo-login.desktop.png) | [after](./audit/after/bo-login.desktop.png) |
+| BO · /incidencias · móvil | [before](./audit/before/bo-incidencias.mobile.png) | [after](./audit/after/bo-incidencias.mobile.png) |
+| BO · /incidencias · escritorio | [before](./audit/before/bo-incidencias.desktop.png) | [after](./audit/after/bo-incidencias.desktop.png) |
+| BO · /proveedores · móvil | [before](./audit/before/bo-proveedores.mobile.png) | [after](./audit/after/bo-proveedores.mobile.png) |
+| BO · /proveedores · escritorio | [before](./audit/before/bo-proveedores.desktop.png) | [after](./audit/after/bo-proveedores.desktop.png) |
+
 ### 2.2 Mediana de cada métrica por separado
 
 `computeMedianRun` elige **una** ejecución completa (la más cercana a la mediana de FCP y LCP a la vez). Cuando una de las tres ejecuciones es atípica, puede elegir justo esa: en `/login` móvil el LCP de las tres ejecuciones fue 787 / **2173** / 767 ms y el informe mediano es el de 2173. Por eso esta tabla toma la mediana de cada métrica por separado, que describe mejor el efecto de los cambios:

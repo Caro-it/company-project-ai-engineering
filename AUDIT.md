@@ -68,6 +68,15 @@ LCP, FCP y TBT en milisegundos.
 
 Performance de las tres ejecuciones en móvil: web 100/100/100, login 97/97/98, incidencias 86/86/87, proveedores 93/97/96.
 
+**Capturas** de la parte superior de cada informe HTML (las 4 puntuaciones y las métricas FCP, LCP, TBT, CLS y Speed Index), generadas desde los propios informes con [`audit/scripts/screenshot-reports.mjs`](./audit/scripts/screenshot-reports.mjs), sin volver a ejecutar Lighthouse:
+
+| Página | Móvil | Escritorio |
+|---|---|---|
+| Web · home | [web-home.mobile.png](./audit/before/web-home.mobile.png) | [web-home.desktop.png](./audit/before/web-home.desktop.png) |
+| Backoffice · /login | [bo-login.mobile.png](./audit/before/bo-login.mobile.png) | [bo-login.desktop.png](./audit/before/bo-login.desktop.png) |
+| Backoffice · /incidencias | [bo-incidencias.mobile.png](./audit/before/bo-incidencias.mobile.png) | [bo-incidencias.desktop.png](./audit/before/bo-incidencias.desktop.png) |
+| Backoffice · /proveedores | [bo-proveedores.mobile.png](./audit/before/bo-proveedores.mobile.png) | [bo-proveedores.desktop.png](./audit/before/bo-proveedores.desktop.png) |
+
 ## 3. Problemas identificados y causa raíz
 
 Ordenados por impacto. "Se corrige" indica si entra en esta rama.

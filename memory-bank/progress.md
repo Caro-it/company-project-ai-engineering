@@ -1,6 +1,6 @@
 # Progress
 
-_Última actualización: 2026-11-10 · rama `feature/performance-audit`_
+_Última actualización: 2026-11-18 · rama `feature/performance-audit`_
 
 ## Hecho
 
@@ -88,6 +88,7 @@ _Última actualización: 2026-11-10 · rama `feature/performance-audit`_
   - Correcciones: el formulario de login/registro se pinta desde el servidor (LCP de `/login` 2162 → 787 ms en móvil); esqueleto del resumen de incidencias (CLS 0,152 → 0); contraste en proveedores; favicon en las dos apps (Best Practices 100); CSS en línea en la web (`inlineStylesheets`).
   - `experimental.inlineCss` del backoffice se probó y se revirtió: en un A/B de 3 ejecuciones no mejoraba y el HTML crecía de 13 a 88 KB.
   - Refactorización: hook `lib/useApiResource.ts` y componente `RetryAlert` en `IncidentsStats`, `IncidentsList` y `SuppliersDirectory`. Jest 57/57 y e2e 16/16.
+  - 2026-11-18 (PR #16): capturas PNG de los 16 informes en `audit/before/` y `audit/after/` (`audit/scripts/screenshot-reports.mjs`, sin volver a ejecutar Lighthouse), enlazadas desde `AUDIT.md` y `REPORT.md`; `AUDIT.md` documenta el Caso 2 de refactorización (`RetryAlert`) y deja los formularios como Caso 3 no aplicado.
   - SEO 60 del backoffice intencionado (`noindex`). Pendiente: TBT móvil de `/incidencias` (~350–450 ms), por el `AuthGuard` en cliente y las 96 filas sin paginar.
 
 ## En curso / próximos pasos
