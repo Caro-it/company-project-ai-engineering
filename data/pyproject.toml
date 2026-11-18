@@ -1,0 +1,20 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "nexova-data"
+version = "0.1.0"
+description = "Pipelines de datos de Nexova (Prefect) y transformaciones reutilizables"
+requires-python = ">=3.11"
+dependencies = [
+    "pandas>=2.3",
+    "prefect>=3",
+    "sqlalchemy>=2",
+    "python-dotenv>=1",
+]
+
+# Se instala en el entorno de services/api como dependencia de ruta: la API importa
+# `pipelines` y `process`; el pipeline nunca importa nada de la API.
+[tool.setuptools]
+packages = ["pipelines", "process"]

@@ -1,0 +1,2 @@
+# Copias CSV que genera el pipeline en cada ejecución (paso opcional export_weekly_snapshot)
+weekly_office_program_performance/
