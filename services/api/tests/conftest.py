@@ -30,6 +30,7 @@ from fastapi.testclient import TestClient  # noqa: E402
 
 from app import database  # noqa: E402
 from app.main import app  # noqa: E402
+from app.telemetry.report import report_cache  # noqa: E402
 
 CSV_PATH = REPO_ROOT / "scripts" / "incidents-nexova.csv"
 
@@ -40,6 +41,8 @@ def clean_db():
     for db in (database.db, database.auth_db, database.incidents_db):
         db.drop_tables()
     database.create_db_and_tables()
+    # La caché del reporte de telemetría vive en memoria: sin esto un test vería la de otro
+    report_cache.clear()
     yield
     SQLModel.metadata.drop_all(database.engine)
 

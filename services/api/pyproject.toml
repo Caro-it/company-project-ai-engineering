@@ -21,6 +21,7 @@ dependencies = [
     "sqlmodel>=0.0.48",
     "psycopg2-binary>=2.9.13",
     "jsonschema>=4.23",
+    "pandas>=2.3",
 ]
 
 [project.scripts]

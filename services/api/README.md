@@ -202,6 +202,16 @@ uv run seed-inventory     # idempotente: activos por SKU; órdenes solo si aún 
 - **En Supabase hay que añadir esas columnas una vez:** `uv run migrate-telemetry --dry-run`
   (ver el SQL) y `uv run migrate-telemetry` (aplicarlo). Es idempotente y no borra datos.
 
+## Reporte técnico de telemetría
+
+- `GET /telemetry/report?start_date=…&end_date=…` (ISO 8601, opcionales; por defecto los últimos
+  7 días, fin exclusivo, UTC). Con token. Devuelve `{"period": {"from", "to"}, "metrics": {…}}`.
+- Pipeline Pandas en `app/telemetry/analysis.py`: una función por métrica (volumen por día y
+  tipo, tasa de errores/avisos por día, LCP por página, fallos de login, peticiones sin respuesta
+  y errores de JS por fingerprint). Detalle: `docs/telemetry/telemetry-plan.md` §5.4.
+- Caché en memoria de 60 s por período (`app/telemetry/report.py`): el pipeline no corre en cada
+  petición. Sin parámetros, `now` se redondea al minuto para que la caché funcione.
+
 ## Autenticación
 
 Autenticación JWT stateless (ticket AUTH-01). Los usuarios y sus perfiles se guardan en TinyDB, en `data/auth.json`, separados de los proveedores (`data/suppliers.json`). Las contraseñas se guardan con bcrypt y nunca salen en las respuestas.
