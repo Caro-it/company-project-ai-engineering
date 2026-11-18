@@ -46,6 +46,11 @@ docker compose up --build   # first run; afterwards docker compose up is enough
 | `uis` | Public website (Astro) | http://localhost:3000 |
 | `uis` | Backoffice (Next.js) | http://localhost:3001 |
 | `api` | FastAPI API | http://localhost:8000/docs |
+| `redis` | Celery broker and result backend | `localhost:6379` |
+| `worker` | Celery worker (task queue, separate from the API process) | — |
+| `flower` | Queue monitor | http://localhost:5555 |
+
+Task queue (DEV-55): [`docs/background-jobs/message-queue.md`](./docs/background-jobs/message-queue.md) (Spanish). Stop or start the worker: `docker compose stop worker` / `docker compose start worker`.
 
 - **Website on port 3000:** the ticket asks for Next.js on 3000, but Nexova's website is **Astro**. It runs with `astro dev` on 3000 (outside Docker it stays on 4321). The tracker (`uis/talent-pipeline-tracker`), which also uses 3000, is left out of the container.
 - **Files:** `uis/Dockerfile` (installs website and backoffice separately; `uis/start.sh` starts both and stops the container if either dies), `services/Dockerfile`, `docker-compose.yml` and `.env.example`. Both services share the `nexova-net` network and read `.env` through `env_file`: no secrets in the Dockerfiles or the YAML.

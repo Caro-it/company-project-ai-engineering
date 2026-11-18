@@ -274,3 +274,9 @@ _Última actualización: 2026-11-18 · rama `feature/message-queue`_
 - `scripts/nightly_export.py` (DEV-53): exporta `telemetry_events` de ayer (UTC) a `data/raw/telemetry_YYYY-MM-DD.csv` si no existe, lanza el pipeline del Hito 6 y registra cada ejecución en `job_runs` (pending → processing → completed | failed). Lock = estado `processing` (índice único parcial); idempotencia por `target_date`; `TARGET_DATE` para otros días.
 - Estado en `services/api/app/services/job_runner.py`; disparador crontab `15 2 * * *` UTC (Windows: `scripts/cron/register-windows-task.ps1`). Detalle y texto del PR en `docs/background-jobs/nightly-export.md`.
 - Pendiente de hacer en local: `uv run migrate-job-runs` contra Supabase (o dejar que el script la cree), una ejecución real y la captura del CSV para el PR.
+
+## Cola de tareas con Redis y Celery (feature/message-queue, DEV-55)
+
+- La rama sale de `feature/nightly-export` e incluye un merge de `origin/feature/docker-monorepo` (PR sin mergear en `main`): el `docker-compose.yml` es el de ese PR más `redis` (noeviction, appendonly), `worker` y `flower` (5555). `services/Dockerfile` copia también `data/` (nexova-data); `requirements.txt` regenerado con `uv export`.
+- `POST /reporting/pipeline-runs` ya no usa BackgroundTasks: encola `reporting.run_weekly_pipeline` (Celery, `app/celery_app.py`) y responde 202 con `task_id` y `run_id`; `GET /tasks/{task_id}` y `GET /tasks/dead-letters`. 3 reintentos con backoff 10/20/40 s, DLQ en `task_dead_letters`. El dashboard `/reporting` sigue la tarea.
+- Verificado con Redis + worker + Flower reales (sin Docker: Docker Hub no accesible desde el entorno de trabajo). Pendiente: `docker compose up --build` en local y capturas para el PR. Detalle en `docs/background-jobs/message-queue.md`.

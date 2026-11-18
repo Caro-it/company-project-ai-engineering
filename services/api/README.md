@@ -335,3 +335,17 @@ En las rutas `/users/{user_id}` el permiso se comprueba antes que la existencia:
 `scripts/nightly_export.py`). La API crea la tabla al arrancar; a mano:
 `uv run migrate-job-runs --dry-run` (ver el SQL) y `uv run migrate-job-runs` (aplicarlo).
 Detalle en [`docs/background-jobs/nightly-export.md`](../../docs/background-jobs/nightly-export.md).
+
+## Cola de tareas (Celery + Redis, DEV-55)
+
+`POST /reporting/pipeline-runs` encola el pipeline del Hito 6 y responde `202` con `task_id`;
+lo ejecuta un worker, nunca la API. Estado en `GET /tasks/{task_id}`; tareas que agotan sus 3
+reintentos en `GET /tasks/dead-letters` (tabla `task_dead_letters`).
+
+```bash
+uv run celery -A app.celery_app worker --loglevel=INFO   # en Windows, añade --pool=solo
+uv run celery -A app.celery_app flower --port=5555
+```
+
+Necesita Redis (`REDIS_URL`, por defecto `redis://localhost:6379/0`): `docker compose up -d redis`.
+Detalle en [`docs/background-jobs/message-queue.md`](../../docs/background-jobs/message-queue.md).
