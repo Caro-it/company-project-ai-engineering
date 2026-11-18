@@ -1,0 +1,4 @@
+# Exportaciones nocturnas de telemetry_events (scripts/nightly_export.py): copias de respaldo
+# con datos de uso (userId, sessionId…), no se suben al repositorio
+telemetry_*.csv
+telemetry_*.csv.tmp
