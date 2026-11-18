@@ -9,6 +9,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlmodel import Session
 
+from app.cache import inventory_products_cache
 from app.database import get_db
 from app.deps import get_current_user
 from app.inventory_catalog import AssetCategory, Office
@@ -42,18 +43,28 @@ def list_products(
     category: AssetCategory | None = None,
     session: Session = Depends(get_db),
 ) -> list[AssetListItem]:
-    """Todos los activos con su current_stock calculado. Filtros opcionales: office, category."""
-    assets = inventory.list_assets(session, office=office, category=category)
-    return [AssetListItem.model_validate(asset.model_dump()) for asset in assets]
+    """Todos los activos con su current_stock calculado. Filtros opcionales: office, category.
+
+    Cacheado 60 s por combinación de filtros (app/cache.py): el catálogo es el mismo
+    para todos los usuarios. Altas de activos y órdenes de entrada/salida lo invalidan.
+    """
+
+    def compute() -> list[AssetListItem]:
+        assets = inventory.list_assets(session, office=office, category=category)
+        return [AssetListItem.model_validate(asset.model_dump()) for asset in assets]
+
+    return inventory_products_cache.get_or_set((office, category), compute)
 
 
 @router.post("/products", response_model=AssetRead, status_code=201)
 def create_product(data: AssetCreate, session: Session = Depends(get_db)) -> AssetRead:
     """Registra un activo nuevo. Empieza con stock 0: solo sube con entradas."""
     try:
-        return inventory.create_asset(session, data)
+        asset = inventory.create_asset(session, data)
     except InventoryError as error:
         raise _http(error) from None
+    inventory_products_cache.invalidate()
+    return asset
 
 
 @router.get("/products/{asset_id}", response_model=AssetRead)
@@ -76,6 +87,8 @@ def create_inbound_order(
         entry = inventory.create_entry(session, data, user_uuid=current_user["id"])
     except InventoryError as error:
         raise _http(error) from None
+    # current_stock del activo cambia
+    inventory_products_cache.invalidate()
     return AssetEntryRead.model_validate(entry, from_attributes=True)
 
 
@@ -91,6 +104,8 @@ def create_outbound_order(
         exit_ = inventory.create_exit(session, data, user_uuid=current_user["id"])
     except InventoryError as error:
         raise _http(error) from None
+    # current_stock del activo cambia
+    inventory_products_cache.invalidate()
     return AssetExitRead.model_validate(exit_, from_attributes=True)
 
 

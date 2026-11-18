@@ -3,6 +3,7 @@ import csv
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from fastapi.responses import Response
 
+from app.cache import incidents_summary_cache
 from app.deps import get_current_user
 from app.errors import ApiError
 from app.incident_models import (
@@ -108,7 +109,10 @@ def _not_found() -> ApiError:
 @router.post("", response_model=Incident, status_code=201)
 def create(payload: IncidentCreate) -> Incident:
     """Alta de incidencia. Siempre empieza en open."""
-    return Incident.model_validate(create_incident(payload))
+    incident = create_incident(payload)
+    # Los totales del resumen cambian: se invalida su caché
+    incidents_summary_cache.invalidate()
+    return Incident.model_validate(incident)
 
 
 @router.get("", response_model=list[IncidentListItem])
@@ -126,8 +130,13 @@ def read_incidents(
 # Antes de /{incident_id}: si no, "summary" se tomaría como un id
 @router.get("/summary", response_model=IncidentStats)
 def read_summary() -> IncidentStats:
-    """Totales por status, category, origin y branch, con todas las claves aunque valgan 0."""
-    return IncidentStats.model_validate(incidents_summary())
+    """Totales por status, category, origin y branch, con todas las claves aunque valgan 0.
+
+    Cacheado 30 s (app/cache.py): es el mismo para todos los usuarios y recorre todas
+    las incidencias. El alta y el cambio de estado lo invalidan al momento.
+    """
+    summary = incidents_summary_cache.get_or_set("all", incidents_summary)
+    return IncidentStats.model_validate(summary)
 
 
 @router.get("/{incident_id}", response_model=Incident)
@@ -151,4 +160,6 @@ def update_status(incident_id: str, payload: IncidentStatusUpdate):
         ) from None
     if incident is None:
         raise _not_found()
+    # by_status del resumen cambia: se invalida su caché
+    incidents_summary_cache.invalidate()
     return Incident.model_validate(incident)

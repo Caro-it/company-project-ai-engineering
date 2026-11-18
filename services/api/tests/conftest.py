@@ -28,7 +28,7 @@ sys.path.insert(0, str(REPO_ROOT / "scripts"))
 
 from fastapi.testclient import TestClient  # noqa: E402
 
-from app import database  # noqa: E402
+from app import cache, database  # noqa: E402
 from app.main import app  # noqa: E402
 
 CSV_PATH = REPO_ROOT / "scripts" / "incidents-nexova.csv"
@@ -40,6 +40,8 @@ def clean_db():
     for db in (database.db, database.auth_db, database.incidents_db):
         db.drop_tables()
     database.create_db_and_tables()
+    # Los cachés viven en memoria del proceso: sin esto un test vería datos de otro
+    cache.clear_all()
     yield
     SQLModel.metadata.drop_all(database.engine)
 
