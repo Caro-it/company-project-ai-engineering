@@ -215,3 +215,8 @@ _Última actualización: 2026-11-10 · rama `feature/inventory-backoffice`_
 
 - El responsable de Ventas (Megan Clarke o Marcos Ibáñez); ver `projectbrief.md`.
 - Las etiquetas para mostrar de estados, orígenes y categorías del gestor de incidencias; ver `projectbrief.md`.
+
+## Plan de telemetría (feature/telemetry-plan)
+
+- Diseño, sin código: `docs/telemetry/telemetry-plan.md` + `docs/telemetry/event-schemas.json` (JSON Schema draft-07, 32 eventos: 5 obligatorios del BRIEFING + 27 identificados). BRIEFING en `docs/CONTEXT-telemetry-nexova.md`.
+- Brecha a resolver en el proyecto de captura: el inventario no tiene `programme_id`, `unit_cost`/`currency` en las entradas, `min_stock` ni las categorías del BRIEFING (`training_kit`/`certification`/`onboarding_equipment`). Mapeo de categorías pendiente de confirmar con el mentor.
