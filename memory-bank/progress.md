@@ -280,3 +280,9 @@ _Última actualización: 2026-11-18 · rama `feature/message-queue`_
 - La rama sale de `feature/nightly-export` e incluye un merge de `origin/feature/docker-monorepo` (PR sin mergear en `main`): el `docker-compose.yml` es el de ese PR más `redis` (noeviction, appendonly), `worker` y `flower` (5555). `services/Dockerfile` copia también `data/` (nexova-data); `requirements.txt` regenerado con `uv export`.
 - `POST /reporting/pipeline-runs` ya no usa BackgroundTasks: encola `reporting.run_weekly_pipeline` (Celery, `app/celery_app.py`) y responde 202 con `task_id` y `run_id`; `GET /tasks/{task_id}` y `GET /tasks/dead-letters`. 3 reintentos con backoff 10/20/40 s, DLQ en `task_dead_letters`. El dashboard `/reporting` sigue la tarea.
 - Verificado con Redis + worker + Flower reales (sin Docker: Docker Hub no accesible desde el entorno de trabajo). Pendiente: `docker compose up --build` en local y capturas para el PR. Detalle en `docs/background-jobs/message-queue.md`.
+
+## Procesamiento asíncrono con proveedor externo (feature/async-processing)
+
+- Sale de `feature/message-queue`. El email de recuperación (Resend) ya no se envía dentro de la API: `POST /auth/forgot-password` crea el token (TinyDB, en la API) y registra el envío en `email_deliveries` (Supabase); el worker `emails.send_delivery` lo manda con 3 reintentos y backoff, y si sigue fallando queda `failed` + DLQ.
+- Idempotencia: clave `password_reset:<sha256 del token>` única en `email_deliveries`, comprobación `completed` + toma con UPDATE condicional en el worker, y `Idempotency-Key` en Resend. Estado en `GET /email-deliveries` (admin/manager). Detalle en `docs/background-jobs/async-processing.md`.
+- Pendiente: probar un envío real con la `RESEND_API_KEY` de `.env` y el worker levantado.
