@@ -227,3 +227,8 @@ _Última actualización: 2026-11-10 · rama `feature/inventory-backoffice`_
 - Backoffice: `lib/telemetry.ts` (`track()`, cola, lotes 10 s/20, `sendBeacon`, 3 reintentos con backoff), eventos en `lib/telemetryTrackers.ts`, allowlist generado del JSON. Instrumentados los 5 obligatorios + rechazos de órdenes, `stock_depleted`, abandono y validación de formularios, login, sesión caducada, errores, `api_request_failed`, vistas de página, Web Vitals, alta de incidencias y cambio de tarifa.
 - Nuevo en la interfaz: «Coste unitario» en las entradas, «Destinatario» en las salidas y «Ajustar stock» en la tabla (la API lo rechaza siempre y queda como `direct_stock_edit_rejected`).
 - Pendiente de confirmar con el mentor: mapeo de categorías y que el plan (PR #20) se ajustó para emitir los eventos de negocio desde el backoffice tras el 2xx de la API.
+
+## Telemetría — almacenamiento (feature/telemetry-storage)
+
+- `POST /telemetry/events` ya guarda en Supabase: tabla `telemetry_events` (8 columnas, índices en timestamp, event_type y GIN en tags, trigger de solo inserción), validación por evento (TelemetryEvent sin cambios + allowlist de event-schemas.json), un único INSERT por lote, respuesta `{received, stored, rejected}`, idempotente por eventId. Mapeo en `telemetry-plan.md` §5.3. El backoffice no cambia.
+- La tabla la crea la API al arrancar; `uv run migrate-telemetry` deja el trigger y el default del id si ya existía.
