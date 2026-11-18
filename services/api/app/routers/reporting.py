@@ -10,7 +10,8 @@ Contrato: docs/CONTEXT-data-pipelines-nexova.md §6 · Diseño: data/pipelines/P
 from datetime import date
 from uuid import uuid4
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
+from kombu.exceptions import OperationalError
 from pipelines import queries
 from pydantic import BaseModel
 
@@ -55,15 +56,9 @@ class PipelineRun(BaseModel):
 
 
 class RunAccepted(BaseModel):
+    task_id: str
     run_id: str
     status: str
-
-
-def run_pipeline(run_id) -> None:
-    """Corre el flow de data/pipelines en segundo plano (tras responder 202)."""
-    from pipelines.pipeline import weekly_office_program_performance
-
-    weekly_office_program_performance(trigger="manual", run_id=run_id)
 
 
 @router.get("/weekly-office-program-performance", response_model=WeeklyPerformance)
@@ -89,15 +84,20 @@ def latest_pipeline_run() -> dict:
 
 
 @router.post("/pipeline-runs", response_model=RunAccepted, status_code=202)
-def trigger_pipeline_run(
-    background_tasks: BackgroundTasks, current_user: dict = Depends(get_current_user)
-) -> RunAccepted:
-    """Disparo manual. Responde 202 con el run_id; la ejecución sigue en segundo plano y su
-    estado se consulta en GET /reporting/pipeline-runs/latest."""
+def trigger_pipeline_run(current_user: dict = Depends(get_current_user)) -> RunAccepted:
+    """Disparo manual. Encola la tarea de Celery y responde 202 al momento con el `task_id`
+    (estado en GET /tasks/{task_id}) y el `run_id` (fila de pipeline_runs del primer intento).
+    La API nunca ejecuta el pipeline: lo hace un worker."""
+    from app.tasks.reporting import run_weekly_pipeline
+
     if current_user["role"] not in (Role.ADMIN, Role.MANAGER):
         raise HTTPException(status_code=403, detail="Solo admin o manager pueden ejecutar el pipeline")
     if queries.has_running_run(database.engine):
         raise HTTPException(status_code=409, detail="Ya hay una ejecución del pipeline en curso")
-    run_id = uuid4()
-    background_tasks.add_task(run_pipeline, run_id)
-    return RunAccepted(run_id=str(run_id), status="accepted")
+    run_id = str(uuid4())
+    try:
+        # retry=False: si Redis no responde, error al momento en vez de colgar la petición
+        task = run_weekly_pipeline.apply_async(kwargs={"run_id": run_id, "trigger": "manual"}, retry=False)
+    except OperationalError as exc:
+        raise HTTPException(status_code=503, detail="La cola de tareas no está disponible") from exc
+    return RunAccepted(task_id=task.id, run_id=run_id, status="pending")

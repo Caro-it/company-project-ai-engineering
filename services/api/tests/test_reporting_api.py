@@ -3,6 +3,7 @@ from datetime import UTC, date, datetime
 from uuid import uuid4
 
 import pytest
+from pipelines import pipeline as pipeline_module
 from pipelines.db import (
     ensure_reporting_tables,
     pipeline_runs,
@@ -11,7 +12,6 @@ from pipelines.db import (
 
 from app import database
 from app.auth_models import Role
-from app.routers import reporting
 
 ROWS = [
     ("valencia", "ventas-b2b", date(2026, 11, 9), 185.0, 1, 1, 1, "EUR"),
@@ -108,24 +108,39 @@ def admin_headers(client, auth_headers):
     return auth_headers
 
 
-def test_manual_trigger_runs_the_flow_in_background(client, admin_headers, monkeypatch):
+def test_manual_trigger_enqueues_the_flow(client, admin_headers, monkeypatch):
     calls = []
-    monkeypatch.setattr(reporting, "run_pipeline", lambda run_id: calls.append(run_id))
+    monkeypatch.setattr(
+        pipeline_module, "weekly_office_program_performance",
+        lambda trigger, run_id: calls.append((trigger, run_id)) or {"run_id": str(run_id)},
+    )
     res = client.post("/reporting/pipeline-runs", headers=admin_headers)
     assert res.status_code == 202
-    assert res.json()["status"] == "accepted"
-    assert [str(c) for c in calls] == [res.json()["run_id"]]
+    body = res.json()
+    assert body["status"] == "pending" and body["task_id"]
+    assert [(t, str(r)) for t, r in calls] == [("manual", body["run_id"])]
 
 
-def test_manual_trigger_conflict_when_running(client, admin_headers, monkeypatch):
-    monkeypatch.setattr(reporting, "run_pipeline", lambda run_id: None)
+def test_manual_trigger_conflict_when_running(client, admin_headers):
     _run(status="running")
     assert client.post("/reporting/pipeline-runs", headers=admin_headers).status_code == 409
 
 
-def test_manual_trigger_forbidden_for_basic_user(client, auth_headers, monkeypatch):
-    monkeypatch.setattr(reporting, "run_pipeline", lambda run_id: None)
+def test_manual_trigger_forbidden_for_basic_user(client, auth_headers):
     assert client.post("/reporting/pipeline-runs", headers=auth_headers).status_code == 403
+
+
+def test_manual_trigger_503_when_the_queue_is_down(client, admin_headers, monkeypatch):
+    from kombu.exceptions import OperationalError
+
+    from app.tasks.reporting import run_weekly_pipeline
+
+    def down(*_args, **_kwargs):
+        raise OperationalError("Error 111 connecting to localhost:6379")
+
+    monkeypatch.setattr(run_weekly_pipeline, "apply_async", down)
+    res = client.post("/reporting/pipeline-runs", headers=admin_headers)
+    assert res.status_code == 503
 
 
 def test_telemetry_report_still_separate(client, auth_headers):
