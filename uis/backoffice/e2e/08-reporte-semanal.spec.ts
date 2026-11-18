@@ -25,7 +25,8 @@ test("el reporte semanal muestra los cuatro KPIs del BRIEFING por oficina y prog
   const headers = { Authorization: `Bearer ${(await login.json()).access_token}` };
   const trigger = await request.post(`${API_URL}/reporting/pipeline-runs`, { headers });
   expect(trigger.status()).toBe(202);
-  const { run_id: runId } = await trigger.json();
+  const { run_id: runId, task_id: taskId } = await trigger.json();
+  expect(taskId).toBeTruthy();
   await expect
     .poll(
       async () => {
@@ -36,6 +37,8 @@ test("el reporte semanal muestra los cuatro KPIs del BRIEFING por oficina y prog
       { timeout: 90_000, intervals: [2_000] },
     )
     .toBe("completed");
+  const task = await request.get(`${API_URL}/tasks/${taskId}`, { headers });
+  expect((await task.json()).status).toBe("success");
 
   await page.goto("/reporting");
   await expect(
