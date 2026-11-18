@@ -1,6 +1,6 @@
 # Progress
 
-_Última actualización: 2026-11-09 · rama `feature/inventory-orm`_
+_Última actualización: 2026-11-18 · rama `feature/serialization-audit`_
 
 ## Hecho
 
@@ -82,6 +82,7 @@ _Última actualización: 2026-11-09 · rama `feature/inventory-orm`_
   - `uv run seed-inventory` (idempotente). Stock sembrado: 12 / 8 / 0 / 4 / 16 / 0.
   - `uv run pytest`: 148 tests correctos (30 de inventario), también contra PostgreSQL 16 local con `TEST_DATABASE_URL`. Prueba manual con uvicorn + PostgreSQL: seed, stock, 400 y 422.
   - Pendiente de la usuaria: poner su `DATABASE_URL` real y lanzar `seed-inventory` contra Supabase.
+- **Auditoría de serialización de la API, rama `feature/serialization-audit` (sale de `main`, 2026-11-18):** `docs/serialization-audit.md` con los 32 endpoints (antes 16 ✅ / 13 ⚠️ / 3 ❌, después 32 ✅). Registro sin email (`RegisterOut`), perfiles sin `id`/`user_id` (`ProfileOut`), esquemas de lista propios (`UserListItem`, `SupplierListItem`, `IncidentListItem`, `AssetListItem`), `AnalyzeOut`/`IncidentStats`/`HealthOut`, export CSV y DELETE 204 declarados, y órdenes de inventario con `asset` anidado en vez de `asset_id`. Backoffice adaptado (tipos de lista). pytest 167/167, Jest 51/51, e2e 16/16.
 
 ## En curso / próximos pasos
 
@@ -206,3 +207,10 @@ _Última actualización: 2026-11-09 · rama `feature/inventory-orm`_
 
 - El responsable de Ventas (Megan Clarke o Marcos Ibáñez); ver `projectbrief.md`.
 - Las etiquetas para mostrar de estados, orígenes y categorías del gestor de incidencias; ver `projectbrief.md`.
+
+## Caching (feature/caching-optimisation)
+
+- Caché en proceso con TTL (`services/api/app/cache.py`) en `GET /api/incidents/summary` (30 s) y `GET /inventory/products` (60 s, clave por filtros), invalidada en cada escritura que los afecta. Middleware de timing, `GET /api/cache/stats`, `uv run seed-load` y `uv run bench-cache`.
+- Backoffice: lazy loading del formulario de alta de proveedores y de los resultados del analizador; `useMemo` en el resumen del directorio de proveedores.
+- Detalle, mediciones y lo que no se cacheó: `CACHING_REPORT.md`.
+- Si la API pasa a varios workers, el caché en proceso deja de ser coherente: pasar a Redis.

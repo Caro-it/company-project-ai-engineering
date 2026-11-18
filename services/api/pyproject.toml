@@ -26,6 +26,8 @@ dependencies = [
 seed = "app.seed:main"
 create-admin = "app.create_admin:main"
 seed-inventory = "app.seed_inventory:main"
+seed-load = "app.seed_load:main"
+bench-cache = "app.bench_cache:main"
 
 [tool.setuptools]
 packages = ["app", "app.routers", "app.services"]

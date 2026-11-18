@@ -1,7 +1,7 @@
 """Endpoints de usuarios: alta pública y gestión protegida (propio usuario o admin)."""
 from fastapi import APIRouter, Depends, HTTPException, Response
 
-from app.auth_models import Role, UserCreate, UserOut, UserUpdate
+from app.auth_models import RegisterOut, Role, UserCreate, UserListItem, UserOut, UserUpdate
 from app.deps import get_current_user, require_admin, require_self_or_admin
 from app.services.users import (
     EmailAlreadyExistsError,
@@ -29,14 +29,23 @@ def _to_user_out(doc: dict) -> UserOut:
     )
 
 
+def _to_list_item(doc: dict) -> UserListItem:
+    return UserListItem(
+        id=doc["id"],
+        email=doc["email"],
+        role=doc["role"],
+        is_active=doc["is_active"],
+    )
+
+
 def _not_found() -> HTTPException:
     # Detail fijo: no se repite el id recibido
     return HTTPException(status_code=404, detail="Usuario no encontrado")
 
 
-@router.post("", response_model=UserOut, status_code=201)
+@router.post("", response_model=RegisterOut, status_code=201)
 def register_user(payload: UserCreate):
-    """Alta pública. El rol siempre es "user"."""
+    """Alta pública. El rol siempre es "user". La respuesta no incluye el email."""
     try:
         user = create_user(payload, role=Role.USER)
     except EmailAlreadyExistsError:
@@ -44,13 +53,13 @@ def register_user(payload: UserCreate):
         raise HTTPException(
             status_code=409, detail="No se ha podido crear la cuenta con esos datos"
         ) from None
-    return _to_user_out(user)
+    return RegisterOut(id=user["id"], role=user["role"], created_at=user["created_at"])
 
 
-@router.get("", response_model=list[UserOut])
+@router.get("", response_model=list[UserListItem])
 def read_users(current_user: dict = Depends(require_admin)):
-    """Listado completo de usuarios: solo admin."""
-    return [_to_user_out(doc) for doc in list_users()]
+    """Listado de usuarios: solo admin."""
+    return [_to_list_item(doc) for doc in list_users()]
 
 
 @router.get("/{user_id}", response_model=UserOut)
@@ -79,9 +88,9 @@ def edit_user(user_id: str, payload: UserUpdate, current_user: dict = Depends(ge
     return _to_user_out(user)
 
 
-@router.delete("/{user_id}", status_code=204)
-def remove_user(user_id: str, current_user: dict = Depends(get_current_user)):
-    """Borra el usuario y su perfil."""
+@router.delete("/{user_id}", status_code=204, response_model=None, response_class=Response)
+def remove_user(user_id: str, current_user: dict = Depends(get_current_user)) -> Response:
+    """Borra el usuario y su perfil. 204 sin cuerpo: no hay nada que serializar."""
     require_self_or_admin(user_id, current_user)
     if not delete_user(user_id):
         raise _not_found()

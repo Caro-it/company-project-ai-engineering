@@ -38,9 +38,8 @@ def test_me_token_valido_devuelve_el_usuario_del_token(client, register_user):
     body = res.json()
     assert body["email"] == EMAIL
     assert body["role"] == "user"
-    # El perfil es el vinculado a ese usuario, no otro cualquiera
-    assert body["profile"]["user_id"] == user_id
-    assert body["profile"]["name"] == "Ana Pérez"
+    # El perfil es el vinculado a ese usuario (su nombre), sin id interno ni user_id
+    assert body["profile"] == {"name": "Ana Pérez", "phone": None, "address": None}
 
 
 def test_me_usuario_borrado_despues_es_401(client, register_user):

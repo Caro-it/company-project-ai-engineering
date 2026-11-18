@@ -1,7 +1,7 @@
 "use client";
 
 import { SupplierForm } from "@/components/SupplierForm";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import {
   CATEGORIES,
@@ -13,7 +13,7 @@ import {
   updateStatus,
   type Category,
   type Country,
-  type Supplier,
+  type SupplierListItem,
 } from "@/lib/suppliers";
 import { ApiError, errorMessage } from "@/lib/account";
 
@@ -30,10 +30,45 @@ function errorText(e: unknown): string {
   return errorMessage(e);
 }
 
+// Un Intl.NumberFormat por moneda, creado una sola vez: construir el formateador es
+// mucho más caro que usarlo, y antes se creaba uno nuevo por fila y por render
+const moneyFormatters = new Map<string, Intl.NumberFormat>();
+
 function formatMoney(amount: number, currency: string): string {
-  return new Intl.NumberFormat("es-ES", { style: "currency", currency }).format(
-    amount,
-  );
+  let formatter = moneyFormatters.get(currency);
+  if (!formatter) {
+    formatter = new Intl.NumberFormat("es-ES", { style: "currency", currency });
+    moneyFormatters.set(currency, formatter);
+  }
+  return formatter.format(amount);
+}
+
+interface DirectorySummary {
+  active: number;
+  renewalsSoon: number;
+  // Gasto mensual de los proveedores activos, por moneda (no se suman EUR y USD)
+  monthlyByCurrency: [string, number][];
+}
+
+// Recorre todo el listado: parsea la fecha de renovación de cada proveedor y acumula
+// tarifas por moneda. Va memoizado (useMemo) para que no se repita en cada render
+// provocado por estados que no cambian el listado (loading, errores de fila…).
+function summarize(suppliers: SupplierListItem[]): DirectorySummary {
+  let active = 0;
+  let renewalsSoon = 0;
+  const totals = new Map<string, number>();
+  for (const s of suppliers) {
+    if (s.status !== "active") continue;
+    active += 1;
+    totals.set(s.currency, (totals.get(s.currency) ?? 0) + s.monthly_rate);
+    const days = daysUntil(s.contract_renewal_date);
+    if (days !== null && days >= 0 && days <= RENEWAL_WINDOW_DAYS) renewalsSoon += 1;
+  }
+  return {
+    active,
+    renewalsSoon,
+    monthlyByCurrency: [...totals.entries()].sort(([a], [b]) => a.localeCompare(b)),
+  };
 }
 
 // Una fecha vacía o mal formada se muestra como «—» en vez de romper la tabla
@@ -53,7 +88,7 @@ function formatDate(value: string): string {
 }
 
 export function SuppliersDirectory() {
-  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
+  const [suppliers, setSuppliers] = useState<SupplierListItem[]>([]);
   const [country, setCountry] = useState<Country | "">("");
   const [category, setCategory] = useState<Category | "">("");
   const [loading, setLoading] = useState(true);
@@ -88,13 +123,16 @@ export function SuppliersDirectory() {
   }
 
   // Sustituye la fila por lo que devolvió la API tras un PATCH
-  function replaceSupplier(updated: Supplier) {
+  function replaceSupplier(updated: SupplierListItem) {
     setSuppliers((prev) =>
       prev.map((s) => (s.id === updated.id ? updated : s)),
     );
   }
 
   const hasFilters = country !== "" || category !== "";
+
+  // Solo se recalcula cuando cambia el listado (nueva respuesta de la API o un PATCH)
+  const summary = useMemo(() => summarize(suppliers), [suppliers]);
 
   return (
     <div className="space-y-6">
@@ -167,6 +205,16 @@ export function SuppliersDirectory() {
             {loading ? "Cargando…" : error ? "" : `${suppliers.length} proveedores`}
           </p>
         </div>
+        {!loading && !error && summary.active > 0 && (
+          <p className="mt-3 text-sm text-slate-600">
+            {summary.active} activos · gasto mensual{" "}
+            {summary.monthlyByCurrency
+              .map(([currency, total]) => formatMoney(total, currency))
+              .join(" + ")}
+            {summary.renewalsSoon > 0 &&
+              ` · ${summary.renewalsSoon} renuevan en los próximos ${RENEWAL_WINDOW_DAYS} días`}
+          </p>
+        )}
       </section>
 
       {error && (
@@ -244,8 +292,8 @@ function SupplierRow({
   supplier,
   onUpdated,
 }: {
-  supplier: Supplier;
-  onUpdated: (s: Supplier) => void;
+  supplier: SupplierListItem;
+  onUpdated: (s: SupplierListItem) => void;
 }) {
   const [editingRate, setEditingRate] = useState(false);
   const [rateInput, setRateInput] = useState("");
