@@ -207,3 +207,10 @@ _Última actualización: 2026-11-18 · rama `feature/serialization-audit`_
 
 - El responsable de Ventas (Megan Clarke o Marcos Ibáñez); ver `projectbrief.md`.
 - Las etiquetas para mostrar de estados, orígenes y categorías del gestor de incidencias; ver `projectbrief.md`.
+
+## Caching (feature/caching-optimisation)
+
+- Caché en proceso con TTL (`services/api/app/cache.py`) en `GET /api/incidents/summary` (30 s) y `GET /inventory/products` (60 s, clave por filtros), invalidada en cada escritura que los afecta. Middleware de timing, `GET /api/cache/stats`, `uv run seed-load` y `uv run bench-cache`.
+- Backoffice: lazy loading del formulario de alta de proveedores y de los resultados del analizador; `useMemo` en el resumen del directorio de proveedores.
+- Detalle, mediciones y lo que no se cacheó: `CACHING_REPORT.md`.
+- Si la API pasa a varios workers, el caché en proceso deja de ser coherente: pasar a Redis.
