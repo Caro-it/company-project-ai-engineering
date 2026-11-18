@@ -128,9 +128,9 @@ engine = _build_engine(settings.DATABASE_URL)
 
 
 def create_db_and_tables() -> None:
-    """Crea en Supabase las tablas de inventario que aún no existan (no borra nada)."""
+    """Crea en Supabase las tablas que aún no existan (inventario y telemetry_events). No borra nada."""
     # Importar los modelos los registra en SQLModel.metadata
-    from app import models  # noqa: F401
+    from app import models, telemetry_store  # noqa: F401
 
     SQLModel.metadata.create_all(engine)
 
