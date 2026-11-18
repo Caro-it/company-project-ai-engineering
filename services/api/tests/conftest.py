@@ -29,6 +29,7 @@ sys.path.insert(0, str(REPO_ROOT / "scripts"))
 from fastapi.testclient import TestClient  # noqa: E402
 
 from app import database  # noqa: E402
+from pipelines import db as pipelines_db  # noqa: E402
 from app.main import app  # noqa: E402
 from app.telemetry.report import report_cache  # noqa: E402
 
@@ -45,6 +46,7 @@ def clean_db():
     report_cache.clear()
     yield
     SQLModel.metadata.drop_all(database.engine)
+    pipelines_db.metadata.drop_all(database.engine)  # esquema reporting (Hito 6)
 
 
 @pytest.fixture
