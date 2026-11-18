@@ -1,10 +1,24 @@
 "use client"; // Las fronteras de error de Next son Client Components
 
 import Link from "next/link";
+import { useEffect } from "react";
+
+import { trackFrontendError } from "@/lib/telemetryTrackers";
 
 // Fallo al renderizar una página del panel. El mensaje del error no se muestra:
 // en producción Next lo sustituye y en desarrollo podría incluir detalles internos.
-export default function PanelError({ reset }: { error: Error & { digest?: string }; reset: () => void }) {
+export default function PanelError({
+  error,
+  reset,
+}: {
+  error: Error & { digest?: string };
+  reset: () => void;
+}) {
+  // Telemetría: frontend_error_captured (sin mostrar el mensaje al usuario)
+  useEffect(() => {
+    trackFrontendError(error, "error_boundary", window.location.pathname);
+  }, [error]);
+
   return (
     <div className="mx-auto max-w-2xl">
       <div role="alert" className="rounded-lg border border-rose-200 bg-rose-50 p-6 text-rose-800">

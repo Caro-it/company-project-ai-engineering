@@ -4,8 +4,10 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
-import { ApiError, errorMessage, login } from "@/lib/account";
+import { ApiError, errorMessage, getMe, login } from "@/lib/account";
 import { setToken } from "@/lib/auth";
+import { startTelemetrySession } from "@/lib/telemetry";
+import { rememberUserRole, trackLoginFailed, trackLoginSucceeded } from "@/lib/telemetryTrackers";
 import { useTokenStatus } from "@/lib/useTokenStatus";
 
 type Field = "email" | "password";
@@ -52,8 +54,20 @@ export function LoginForm({ resetOk = false }: { resetOk?: boolean }) {
     setSubmitting(true);
     try {
       setToken(await login(email.trim(), password));
+      // Telemetría: sesión nueva en cada login y login_succeeded con el rol de /auth/me.
+      // Si /auth/me falla, el login sigue adelante sin el evento
+      startTelemetrySession();
+      try {
+        const { role } = await getMe();
+        rememberUserRole(role);
+        trackLoginSucceeded(role);
+      } catch {
+        // sin rol no hay evento; el panel volverá a pedir /auth/me
+      }
       router.replace("/");
     } catch (e) {
+      // Solo el motivo (deducido del status): nunca el email ni la contraseña
+      trackLoginFailed(e instanceof ApiError ? e.status : 0);
       setApiError(loginErrorText(e));
       setSubmitting(false);
     }

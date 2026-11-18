@@ -16,6 +16,7 @@ import {
   type Supplier,
 } from "@/lib/suppliers";
 import { ApiError, errorMessage } from "@/lib/account";
+import { trackSupplierRateChanged } from "@/lib/telemetryTrackers";
 
 const RENEWAL_WINDOW_DAYS = 60;
 
@@ -272,7 +273,15 @@ function SupplierRow({
     setRowError(null);
     try {
       // El 0 y los negativos los rechaza la API (422) y su mensaje se muestra aquí
-      onUpdated(await updateRate(supplier.id, Number(rateInput)));
+      const updated = await updateRate(supplier.id, Number(rateInput));
+      trackSupplierRateChanged({
+        supplierId: String(supplier.id),
+        category: supplier.categories[0],
+        currency: updated.currency,
+        previous: supplier.monthly_rate,
+        next: updated.monthly_rate,
+      });
+      onUpdated(updated);
       setEditingRate(false);
     } catch (e) {
       setRowError(errorText(e));

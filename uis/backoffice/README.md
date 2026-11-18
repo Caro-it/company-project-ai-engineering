@@ -47,6 +47,24 @@ Fuente de verdad: [`docs/CONTEXT-inventory-nexova.md`](../../docs/CONTEXT-invent
 - **Umbrales de stock** (`lib/inventory.ts`): hasta 5 uds., «Stock bajo» en rojo (o «Agotado» con 0); hasta 15 uds., «Stock justo» en ámbar; por encima, «Stock correcto» en verde.
 - **Etiquetas:** Activo, Entrada de activos, Salida de activos, Asignación a empleado y Consumo, según el BRIEFING. Los valores que se envían a la API son los del CONTEXT (`allocation`, `consumption`, `Valencia`, `Miami`…).
 
+## Telemetría (captura en el frontend)
+
+Contrato: [`docs/telemetry/telemetry-plan.md`](../../docs/telemetry/telemetry-plan.md) y
+[`event-schemas.json`](../../docs/telemetry/event-schemas.json).
+
+- `lib/telemetry.ts` — el `TelemetryService`: única función pública `track(eventType, properties)`.
+  Añade el envelope (eventId, timestamp, sessionId, userId, schemaVersion, requestId), aplica el
+  allowlist de cada evento, acumula en cola y envía en lotes cada 10 s o cada 20 eventos; al
+  ocultar o cerrar la pestaña vacía la cola con `navigator.sendBeacon`; reintenta 3 veces con
+  backoff (1 s, 2 s, 4 s) y después descarta.
+- `lib/telemetryTrackers.ts` — traduce lo que pasa en el backoffice a eventos del plan.
+- `lib/telemetryEvents.generated.ts` — tipos y allowlist generados desde el JSON
+  (`npm run telemetry:generate` si cambia el plan).
+- `components/telemetry/TelemetryProvider.tsx` (vistas de página y Web Vitals) e
+  `instrumentation-client.ts` (errores globales).
+- Receptor: `NEXT_PUBLIC_TELEMETRY_ENDPOINT` en `.env.local` (hoy el stub
+  `http://localhost:8000/telemetry/events`). Sin la variable, la telemetría está apagada.
+
 ## Tests end-to-end
 
 Playwright (`@playwright/test`, dependencia de desarrollo), solo con Chromium. La primera vez hay que instalar el navegador:
