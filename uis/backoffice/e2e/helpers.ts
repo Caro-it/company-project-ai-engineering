@@ -2,7 +2,9 @@ import path from "node:path";
 
 import type { Page, Route } from "@playwright/test";
 
-import { WEB_URL } from "./ports.mjs";
+import { API_URL, WEB_URL } from "./ports.mjs";
+
+const API_ORIGIN = new URL(API_URL).origin;
 
 export const SCREENSHOTS_DIR = path.resolve(
   __dirname,
@@ -26,7 +28,9 @@ type Method = "GET" | "POST" | "PATCH";
 
 /**
  * Intercepta las peticiones `method` a una ruta exacta de la API (sin query) y deja pasar
- * el resto. `handler` decide la respuesta; el preflight OPTIONS se responde aquí.
+ * el resto. Solo mira el origen de la API: una página del backoffice con la misma ruta
+ * (p. ej. /inventory/products) no se intercepta. `handler` decide la respuesta; el
+ * preflight OPTIONS se responde aquí.
  */
 export async function mockApi(
   page: Page,
@@ -36,9 +40,10 @@ export async function mockApi(
 ) {
   await page.route(
     (url) =>
-      typeof pathname === "string"
+      url.origin === API_ORIGIN &&
+      (typeof pathname === "string"
         ? url.pathname === pathname
-        : pathname.test(url.pathname),
+        : pathname.test(url.pathname)),
     async (route) => {
       const req = route.request();
       if (req.method() === "OPTIONS") {

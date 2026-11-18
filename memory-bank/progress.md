@@ -1,6 +1,6 @@
 # Progress
 
-_Última actualización: 2026-11-09 · rama `feature/inventory-orm`_
+_Última actualización: 2026-11-10 · rama `feature/inventory-backoffice`_
 
 ## Hecho
 
@@ -81,9 +81,18 @@ _Última actualización: 2026-11-09 · rama `feature/inventory-orm`_
   - Router `/inventory` con auth en todas las rutas, stock calculado en la consulta, 400 literal del BRIEFING antes de escribir, `FOR UPDATE` en salidas, FK y `CHECK` en la BD, sin N+1.
   - `uv run seed-inventory` (idempotente). Stock sembrado: 12 / 8 / 0 / 4 / 16 / 0.
   - `uv run pytest`: 148 tests correctos (30 de inventario), también contra PostgreSQL 16 local con `TEST_DATABASE_URL`. Prueba manual con uvicorn + PostgreSQL: seed, stock, 400 y 422.
-  - Pendiente de la usuaria: poner su `DATABASE_URL` real y lanzar `seed-inventory` contra Supabase.
+  - Verificado contra Supabase el 2026-11-09: conexión, admin de pruebas, `seed-inventory` (6 activos, 5 entradas y 3 salidas) y prueba manual de los endpoints (stock, 400, 422, 401). PR #13 (`feature/inventory-orm`) mergeada en `main`.
 
 ## En curso / próximos pasos
+
+- **Hito 5 — Backoffice: interfaz de inventario, rama `feature/inventory-backoffice` (sale de `feature/inventory-orm`, ya en `main`).** Enunciado: `content/projects/ai-eng-inventory-management-backoffice/` del syllabus.
+  - Rutas `/inventory/products`, `/inventory/orders/inbound`, `/inventory/orders/outbound` y `/inventory/orders` dentro de `(panel)` (AuthGuard), enlazadas en el Sidebar. Son las del README sin el prefijo `/backoffice`, porque la app ya es el backoffice; `next.config.ts` redirige (308) `/backoffice/inventory/:path*` a `/inventory/:path*`, así que las URLs del README también funcionan.
+  - `lib/inventory.ts` es la única capa de `/inventory` (reutiliza `apiFetch`), con tipos en `types/inventory.ts`. `NEXT_PUBLIC_INVENTORY_API_URL` es opcional y recae en `NEXT_PUBLIC_API_URL`.
+  - Los 4xx de inventario salvo 401 y 422 (400 de negocio, 404, 409) muestran el `detail` de texto de la API (excepción documentada a la regla de no mostrarlo), con el texto fijo como respaldo; 401 y 5xx, siempre texto fijo; los 422 son legibles por campo.
+  - Los e2e (`05-inventario`) usan un SQLite temporal; `start-api.mjs` crea un admin de test y siembra con `seed-inventory`.
+  - Verificado el 2026-11-10: lint, build, Jest (88 tests) y `npm run test:e2e` (27 tests, SQLite temporal). Capturas en `docs/screenshots/inventory-backoffice/`. `mockApi` (e2e) solo intercepta el origen de la API, para no capturar páginas del backoffice con la misma ruta.
+  - Prueba manual con la API contra Supabase y `npm run dev`: listado 12 / 8 / 0 / 4 / 16 / 0 y salida de 999 uds. → 400 junto a la cantidad, sin escribir nada (8 órdenes antes y después).
+  - Rama subida a `origin/feature/inventory-backoffice`; falta abrir el PR contra `main`.
 
 - **Gestor de Incidencias Centralizado, rama `feature/incident-manager`.** Fuente de verdad: `docs/CONTEXT-incident-manager-nexova.md`.
   - Fase 1 (capa de datos y seed) hecha, en dos commits (`refactor(shared)` y `feat(incidents)`), sin push:

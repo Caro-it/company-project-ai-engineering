@@ -31,6 +31,18 @@ export function Sidebar() {
               <NavLink href="/proveedores">Directorio de proveedores</NavLink>
             </li>
             <li>
+              <NavLink href="/inventory/products">Stock de activos</NavLink>
+            </li>
+            <li>
+              <NavLink href="/inventory/orders/inbound">Entrada de activos</NavLink>
+            </li>
+            <li>
+              <NavLink href="/inventory/orders/outbound">Salida de activos</NavLink>
+            </li>
+            <li>
+              <NavLink href="/inventory/orders">Historial de entradas y salidas</NavLink>
+            </li>
+            <li>
               <NavLink href="/account/profile">Mi perfil</NavLink>
             </li>
             <li>

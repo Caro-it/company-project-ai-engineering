@@ -15,9 +15,11 @@ export const TIMEOUT_STATUS = 408;
 
 // Igual que fetch (los fallos de red y el timeout se propagan): añade Authorization si hay
 // token y, ante un 401 fuera del login, cierra la sesión y vuelve a /login.
+// baseUrl permite apuntar a otra API con la misma sesión (p. ej. el inventario, lib/inventory.ts).
 export async function apiFetch(
   path: string,
   init: RequestInit = {},
+  baseUrl: string = API_URL,
 ): Promise<Response> {
   const headers = new Headers(init.headers);
   const token = getToken();
@@ -27,7 +29,7 @@ export async function apiFetch(
 
   const timeout = AbortSignal.timeout(TIMEOUT_MS);
   const signal = init.signal ? AbortSignal.any([init.signal, timeout]) : timeout;
-  const res = await fetch(`${API_URL}${path}`, { ...init, headers, signal });
+  const res = await fetch(`${baseUrl}${path}`, { ...init, headers, signal });
 
   if (res.status === 401 && path.split("?")[0] !== LOGIN_PATH) {
     clearToken();
