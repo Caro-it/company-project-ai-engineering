@@ -1,5 +1,7 @@
 // fetch contra services/api con el token de sesión.
 import { clearToken, getToken } from "@/lib/auth";
+import { newId, noteRequestId } from "@/lib/telemetry";
+import { trackApiRequestFailed, trackSessionExpired } from "@/lib/telemetryTrackers";
 
 export const API_URL =
   process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
@@ -26,12 +28,33 @@ export async function apiFetch(
   if (token && !headers.has("Authorization")) {
     headers.set("Authorization", `Bearer ${token}`);
   }
+  // Correlación de telemetría: el mismo id viaja a la API, vuelve en la respuesta y lo
+  // usan los eventos que se capturan justo después (requestId del envelope)
+  const requestId = newId();
+  headers.set("X-Request-ID", requestId);
 
   const timeout = AbortSignal.timeout(TIMEOUT_MS);
   const signal = init.signal ? AbortSignal.any([init.signal, timeout]) : timeout;
-  const res = await fetch(`${baseUrl}${path}`, { ...init, headers, signal });
+  const started = performance.now();
+  let res: Response;
+  try {
+    res = await fetch(`${baseUrl}${path}`, { ...init, headers, signal });
+  } catch (e) {
+    noteRequestId(requestId);
+    const aborted = e instanceof DOMException && e.name === "AbortError";
+    trackApiRequestFailed({
+      method: init.method ?? "GET",
+      path,
+      failureType: failedRequestStatus(e) === TIMEOUT_STATUS ? "timeout" : aborted ? "aborted" : "network",
+      elapsedMs: performance.now() - started,
+    });
+    throw e;
+  }
+  noteRequestId(res.headers?.get?.("X-Request-ID") ?? requestId);
 
   if (res.status === 401 && path.split("?")[0] !== LOGIN_PATH) {
+    // Antes de borrar el token: el evento aún lleva el userId de la sesión que caduca
+    trackSessionExpired(window.location.pathname);
     clearToken();
     window.location.replace("/login");
   }
