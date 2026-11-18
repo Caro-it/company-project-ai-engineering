@@ -1,0 +1,12 @@
+# Contexto de build: ./services
+**/__pycache__
+**/*.pyc
+**/.env*
+**/*.log
+**/.venv
+**/.coverage
+**/.pytest_cache
+**/*.egg-info
+api/tests
+# TinyDB de desarrollo: se monta desde el host, nunca se copia a la imagen
+api/data

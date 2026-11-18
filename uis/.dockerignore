@@ -1,0 +1,15 @@
+# Contexto de build: ./uis
+**/node_modules
+**/.next
+**/.env*
+**/*.log
+**/dist
+**/.astro
+**/coverage
+**/test-results
+**/playwright-report
+**/*.tsbuildinfo
+backoffice/e2e
+
+# Fuera del alcance del ticket #infra-40: no va en la imagen
+talent-pipeline-tracker
