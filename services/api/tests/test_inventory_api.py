@@ -11,9 +11,9 @@ from app import database, seed_inventory
 from app.models import Asset, AssetEntry, AssetExit
 from app.services.users import get_user_by_email
 
-LAPTOP = {"name": 'Portátil 14" Business', "sku": "NXV-IT-001", "category": "hardware", "office": "Valencia"}
-PAPER = {"name": "Resma de papel A4", "sku": "NXV-OFF-001", "category": "office_supplies", "office": "Valencia"}
-HUB_MIAMI = {"name": "Hub USB-C", "sku": "NXV-PER-002", "category": "peripherals", "office": "Miami"}
+LAPTOP = {"name": 'Portátil 14" Business', "sku": "NXV-IT-001", "category": "hardware", "office": "Valencia", "programme_id": "onboarding-soporte", "product_category": "onboarding_equipment"}
+PAPER = {"name": "Resma de papel A4", "sku": "NXV-OFF-001", "category": "office_supplies", "office": "Valencia", "programme_id": "onboarding-general", "product_category": "onboarding_equipment"}
+HUB_MIAMI = {"name": "Hub USB-C", "sku": "NXV-PER-002", "category": "peripherals", "office": "Miami", "programme_id": "onboarding-soporte", "product_category": "onboarding_equipment"}
 
 
 @pytest.fixture
@@ -81,7 +81,7 @@ def test_all_inventory_routes_require_token(client, method, path):
 
 def test_new_asset_starts_with_zero_stock(create_asset):
     asset = create_asset(LAPTOP)
-    assert asset == {**LAPTOP, "id": asset["id"], "current_stock": 0}
+    assert asset == {**LAPTOP, "id": asset["id"], "min_stock": 5, "current_stock": 0}
 
 
 def test_asset_cannot_be_created_with_stock(client, auth_headers):

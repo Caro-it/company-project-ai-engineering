@@ -13,10 +13,22 @@ from typing import Annotated, Literal, Self
 
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints, model_validator
 
-from app.inventory_catalog import AssetCategory, ExitType, Office
+from app.inventory_catalog import (
+    DEFAULT_MIN_STOCK,
+    PROGRAMME_ID_PATTERN,
+    AssetCategory,
+    Currency,
+    ExitType,
+    Office,
+    ProductCategory,
+    RecipientType,
+)
 
 NonEmptyText = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=200)]
 Sku = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=50)]
+ProgrammeId = Annotated[
+    str, StringConstraints(strip_whitespace=True, max_length=60, pattern=PROGRAMME_ID_PATTERN)
+]
 
 
 class _CreateSchema(BaseModel):
@@ -33,6 +45,9 @@ class AssetCreate(_CreateSchema):
     sku: Sku = Field(examples=["NXV-IT-003"])
     category: AssetCategory
     office: Office
+    programme_id: ProgrammeId = Field(examples=["ventas-b2b"])
+    product_category: ProductCategory
+    min_stock: int = Field(default=DEFAULT_MIN_STOCK, ge=0, description="Umbral de stock mínimo")
 
 
 class AssetRead(BaseModel):
@@ -43,6 +58,9 @@ class AssetRead(BaseModel):
     sku: str
     category: AssetCategory
     office: Office
+    programme_id: str
+    product_category: ProductCategory
+    min_stock: int
     current_stock: int
 
 
@@ -54,6 +72,8 @@ class AssetSummary(BaseModel):
     sku: str
     category: AssetCategory
     office: Office
+    programme_id: str
+    product_category: ProductCategory
 
 
 # --- AssetEntry (orden de entrada) -------------------------------------------------
@@ -66,6 +86,19 @@ class AssetEntryCreate(_CreateSchema):
     quantity: int = Field(gt=0, description="Unidades recibidas")
     supplier: NonEmptyText = Field(examples=["TechDistrib Valencia S.L."])
     office: Office = Field(description="Oficina receptora: debe ser la oficina del activo")
+    unit_cost: float | None = Field(
+        default=None,
+        gt=0,
+        le=1_000_000,
+        description="Coste unitario en la moneda de la oficina (EUR Valencia, USD Miami)",
+    )
+
+
+class CostBaseline(BaseModel):
+    """Media del coste unitario de las últimas entradas del mismo activo y proveedor."""
+
+    unit_cost: float
+    sample_size: int
 
 
 class AssetEntryRead(BaseModel):
@@ -76,6 +109,11 @@ class AssetEntryRead(BaseModel):
     office: Office
     created_at: datetime
     user_uuid: str
+    unit_cost: float | None = None
+    currency: Currency | None = None
+    # Solo en la respuesta del POST (calculados tras guardar la entrada; ver telemetría)
+    stock_after: int | None = None
+    cost_baseline: CostBaseline | None = None
 
 
 # --- AssetExit (orden de salida) ---------------------------------------------------
@@ -92,6 +130,9 @@ class AssetExitCreate(_CreateSchema):
         description='Obligatorio si exit_type = "allocation"; nulo si es "consumption"',
     )
     office: Office = Field(description="Oficina de la salida: debe ser la oficina del activo")
+    recipient_type: RecipientType | None = Field(
+        default=None, description="A quién se entrega, como tipo (nunca el nombre)"
+    )
 
     @model_validator(mode="after")
     def check_assigned_to(self) -> Self:
@@ -112,6 +153,10 @@ class AssetExitRead(BaseModel):
     office: Office
     created_at: datetime
     user_uuid: str
+    recipient_type: RecipientType | None = None
+    # Solo en la respuesta del POST (calculados tras guardar la salida; ver telemetría)
+    stock_after: int | None = None
+    min_stock: int | None = None
 
 
 # --- Historial combinado ------------------------------------------------------------
@@ -129,6 +174,9 @@ class OrderRead(BaseModel):
     user_uuid: str
     # Solo en entradas
     supplier: str | None = None
+    unit_cost: float | None = None
+    currency: Currency | None = None
     # Solo en salidas
     exit_type: ExitType | None = None
     assigned_to: str | None = None
+    recipient_type: RecipientType | None = None

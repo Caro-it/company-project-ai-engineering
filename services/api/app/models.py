@@ -11,10 +11,19 @@ Fuente de verdad: docs/CONTEXT-inventory-nexova.md
 """
 from datetime import UTC, datetime
 
-from sqlalchemy import CheckConstraint, Column, DateTime
+from sqlalchemy import CheckConstraint, Column, DateTime, Numeric
 from sqlmodel import Field, Relationship, SQLModel
 
-from app.inventory_catalog import AssetCategory, ExitType, Office, sql_in
+from app.inventory_catalog import (
+    DEFAULT_MIN_STOCK,
+    AssetCategory,
+    Currency,
+    ExitType,
+    Office,
+    ProductCategory,
+    RecipientType,
+    sql_in,
+)
 
 
 def utc_now() -> datetime:
@@ -35,6 +44,10 @@ class Asset(SQLModel, table=True):
     __table_args__ = (
         CheckConstraint(f"category IN ({sql_in(AssetCategory)})", name="ck_asset_category"),
         CheckConstraint(f"office IN ({sql_in(Office)})", name="ck_asset_office"),
+        CheckConstraint(
+            f"product_category IN ({sql_in(ProductCategory)})", name="ck_asset_product_category"
+        ),
+        CheckConstraint("min_stock >= 0", name="ck_asset_min_stock"),
     )
 
     id: int | None = Field(default=None, primary_key=True)
@@ -42,6 +55,11 @@ class Asset(SQLModel, table=True):
     sku: str = Field(max_length=50, unique=True, index=True)
     category: str = Field(max_length=30)
     office: str = Field(max_length=20, index=True)
+    # Telemetría (docs/telemetry/telemetry-plan.md §1.3): programa, categoría del BRIEFING
+    # de telemetría y umbral de stock mínimo. En Supabase los añade `uv run migrate-telemetry`
+    programme_id: str = Field(max_length=60, index=True)
+    product_category: str = Field(max_length=30)
+    min_stock: int = Field(default=DEFAULT_MIN_STOCK)
 
     entries: list["AssetEntry"] = Relationship(back_populates="asset")
     exits: list["AssetExit"] = Relationship(back_populates="asset")
@@ -54,6 +72,10 @@ class AssetEntry(SQLModel, table=True):
     __table_args__ = (
         CheckConstraint("quantity > 0", name="ck_asset_entry_quantity_positive"),
         CheckConstraint(f"office IN ({sql_in(Office)})", name="ck_asset_entry_office"),
+        CheckConstraint("unit_cost IS NULL OR unit_cost > 0", name="ck_asset_entry_unit_cost"),
+        CheckConstraint(
+            f"currency IS NULL OR currency IN ({sql_in(Currency)})", name="ck_asset_entry_currency"
+        ),
     )
 
     id: int | None = Field(default=None, primary_key=True)
@@ -64,6 +86,10 @@ class AssetEntry(SQLModel, table=True):
     created_at: datetime = _created_at_field()
     # UUID del usuario de TinyDB que registró la entrada (sin FK: no hay usuarios en Supabase)
     user_uuid: str = Field(max_length=36, index=True)
+    # Coste unitario en la moneda de la oficina (nulo en las entradas anteriores a la
+    # telemetría). currency la pone la API según la oficina, no el usuario
+    unit_cost: float | None = Field(default=None, sa_column=Column(Numeric(12, 2), nullable=True))
+    currency: str | None = Field(default=None, max_length=3)
 
     asset: Asset = Relationship(back_populates="entries")
 
@@ -82,6 +108,10 @@ class AssetExit(SQLModel, table=True):
             "(exit_type = 'consumption' AND assigned_to IS NULL)",
             name="ck_asset_exit_assigned_to",
         ),
+        CheckConstraint(
+            f"recipient_type IS NULL OR recipient_type IN ({sql_in(RecipientType)})",
+            name="ck_asset_exit_recipient_type",
+        ),
     )
 
     id: int | None = Field(default=None, primary_key=True)
@@ -92,5 +122,7 @@ class AssetExit(SQLModel, table=True):
     office: str = Field(max_length=20)
     created_at: datetime = _created_at_field()
     user_uuid: str = Field(max_length=36, index=True)
+    # A quién se entrega, como tipo (telemetría). Nulo en las salidas anteriores
+    recipient_type: str | None = Field(default=None, max_length=20)
 
     asset: Asset = Relationship(back_populates="exits")

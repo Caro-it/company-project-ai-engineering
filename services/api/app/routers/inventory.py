@@ -73,7 +73,12 @@ def create_inbound_order(
         entry = inventory.create_entry(session, data, user_uuid=current_user["id"])
     except InventoryError as error:
         raise _http(error) from None
-    return AssetEntryRead.model_validate(entry, from_attributes=True)
+    # stock_after y cost_baseline: los datos confirmados que necesita la telemetría del
+    # backoffice (inbound_order_created, kit_cost_variance_detected)
+    read = AssetEntryRead.model_validate(entry, from_attributes=True)
+    read.stock_after = inventory.stock_of(session, entry.asset_id)
+    read.cost_baseline = inventory.cost_baseline(session, entry)
+    return read
 
 
 @router.post("/orders/outbound", response_model=AssetExitRead, status_code=201)
@@ -87,7 +92,12 @@ def create_outbound_order(
         exit_ = inventory.create_exit(session, data, user_uuid=current_user["id"])
     except InventoryError as error:
         raise _http(error) from None
-    return AssetExitRead.model_validate(exit_, from_attributes=True)
+    # stock_after y min_stock: la telemetría del backoffice detecta con ellos el cruce
+    # del umbral (stock_threshold_triggered) y el agotamiento (stock_depleted)
+    read = AssetExitRead.model_validate(exit_, from_attributes=True)
+    read.stock_after = inventory.stock_of(session, exit_.asset_id)
+    read.min_stock = inventory.min_stock_of(session, exit_.asset_id)
+    return read
 
 
 @router.get("/orders", response_model=list[OrderRead])
