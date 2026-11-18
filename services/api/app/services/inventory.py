@@ -164,9 +164,7 @@ def create_exit(session: Session, data: AssetExitCreate, user_uuid: str) -> Asse
 
 
 def _summary(asset: Asset) -> AssetSummary:
-    return AssetSummary(
-        id=asset.id, name=asset.name, sku=asset.sku, category=asset.category, office=asset.office
-    )
+    return AssetSummary(id=asset.id, name=asset.name, sku=asset.sku)
 
 
 def list_orders(session: Session, office: Office | None = None) -> list[OrderRead]:
