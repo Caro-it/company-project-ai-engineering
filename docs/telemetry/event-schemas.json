@@ -194,7 +194,7 @@
       "x-nexova": {
         "group": "inventario",
         "origin": "mandatory",
-        "emitter": "api",
+        "emitter": "backoffice",
         "delivery": "batch",
         "contains_pii_at_source": false
       },
@@ -300,7 +300,7 @@
       "x-nexova": {
         "group": "inventario",
         "origin": "mandatory",
-        "emitter": "api",
+        "emitter": "backoffice",
         "delivery": "batch",
         "contains_pii_at_source": true
       },
@@ -410,7 +410,7 @@
       "x-nexova": {
         "group": "inventario",
         "origin": "mandatory",
-        "emitter": "api",
+        "emitter": "backoffice",
         "delivery": "stream",
         "contains_pii_at_source": false
       },
@@ -511,7 +511,7 @@
       "x-nexova": {
         "group": "inventario",
         "origin": "mandatory",
-        "emitter": "api",
+        "emitter": "backoffice",
         "delivery": "stream",
         "contains_pii_at_source": true
       },
@@ -629,7 +629,7 @@
       "x-nexova": {
         "group": "inventario",
         "origin": "mandatory",
-        "emitter": "api",
+        "emitter": "backoffice",
         "delivery": "stream",
         "contains_pii_at_source": false
       },
@@ -747,7 +747,7 @@
       "x-nexova": {
         "group": "inventario",
         "origin": "identified",
-        "emitter": "api",
+        "emitter": "backoffice",
         "delivery": "batch",
         "contains_pii_at_source": false
       },
@@ -836,7 +836,7 @@
       "x-nexova": {
         "group": "inventario",
         "origin": "identified",
-        "emitter": "api",
+        "emitter": "backoffice",
         "delivery": "batch",
         "contains_pii_at_source": false
       },
@@ -930,7 +930,7 @@
       "x-nexova": {
         "group": "inventario",
         "origin": "identified",
-        "emitter": "api",
+        "emitter": "backoffice",
         "delivery": "stream",
         "contains_pii_at_source": false
       },
@@ -1138,7 +1138,7 @@
       "x-nexova": {
         "group": "autenticación",
         "origin": "identified",
-        "emitter": "api",
+        "emitter": "backoffice",
         "delivery": "batch",
         "contains_pii_at_source": false
       },
@@ -1168,15 +1168,7 @@
                     "manager",
                     "user"
                   ],
-                  "description": "Rol."
-                },
-                "office": {
-                  "type": "string",
-                  "enum": [
-                    "valencia",
-                    "miami"
-                  ],
-                  "description": "Oficina del perfil del usuario, si la tiene."
+                  "description": "Rol devuelto por `GET /auth/me`."
                 }
               }
             }
@@ -1185,11 +1177,11 @@
       ]
     },
     "login_failed": {
-      "description": "Capturamos `login_failed` porque necesitamos saber cuántos intentos fallidos hay por día y si se concentran en una cuenta (posible fuerza bruta), lo que nos permite bloquear temporalmente la cuenta o añadir rate limit / CAPTCHA en el login.",
+      "description": "Capturamos `login_failed` porque necesitamos saber cuántos intentos de login fallan por día y por qué motivo, lo que nos permite añadir rate limit o CAPTCHA en el login si los fallos de credenciales se disparan, o revisar la API si son errores de servidor.",
       "x-nexova": {
         "group": "autenticación",
         "origin": "identified",
-        "emitter": "api",
+        "emitter": "backoffice",
         "delivery": "stream",
         "contains_pii_at_source": true
       },
@@ -1209,23 +1201,18 @@
               "type": "object",
               "additionalProperties": false,
               "required": [
-                "reason",
-                "account_ref"
+                "reason"
               ],
               "properties": {
                 "reason": {
                   "type": "string",
                   "enum": [
                     "invalid_credentials",
-                    "inactive_user",
-                    "malformed_request"
+                    "rate_limited",
+                    "server_error",
+                    "network_error"
                   ],
-                  "description": "Motivo normalizado."
-                },
-                "account_ref": {
-                  "type": "string",
-                  "pattern": "^[0-9a-f]{16}$",
-                  "description": "HMAC-SHA256 del email normalizado con una clave del servidor, primeros 16 hex. Permite contar intentos por cuenta sin guardar el email."
+                  "description": "Motivo deducido del status (401 → invalid_credentials, 429 → rate_limited, 5xx → server_error, sin respuesta → network_error)."
                 }
               }
             }
@@ -1823,6 +1810,7 @@
                       "unit_cost",
                       "exit_type",
                       "assigned_to",
+                      "recipient_type",
                       "office"
                     ]
                   },
@@ -2156,6 +2144,7 @@
                     "unit_cost",
                     "exit_type",
                     "assigned_to",
+                    "recipient_type",
                     "office"
                   ],
                   "description": "Último campo tocado (nombre del campo, nunca su valor)."
@@ -2245,7 +2234,7 @@
       "x-nexova": {
         "group": "negocio",
         "origin": "identified",
-        "emitter": "api",
+        "emitter": "backoffice",
         "delivery": "batch",
         "contains_pii_at_source": false
       },
@@ -2453,7 +2442,7 @@
       "x-nexova": {
         "group": "negocio",
         "origin": "identified",
-        "emitter": "api",
+        "emitter": "backoffice",
         "delivery": "batch",
         "contains_pii_at_source": false
       },

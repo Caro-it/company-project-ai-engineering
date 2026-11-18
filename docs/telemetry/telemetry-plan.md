@@ -13,7 +13,7 @@
 - **32 eventos**: **5 obligatorios** del BRIEFING y **27 identificados** en el resto de la aplicación.
 - **Grupos:** inventario (10) · autenticación (8) · rendimiento (3) · errores (4) · navegación (3) · negocio (4).
 - **Entrega:** 9 en stream (alertas que necesitan una reacción en minutos) y 23 en batch.
-- **Quién emite:** 24 desde la API (todo lo que cambia datos o depende de una regla de negocio) y 8 desde el frontend (navegación, rendimiento percibido y errores que la API no ve).
+- **Quién emite:** 12 desde la API (todo lo que cambia datos o depende de una regla de negocio) y 20 desde el frontend (navegación, rendimiento percibido y errores que la API no ve).
 - **Regla de oro aplicada a todos:** cada evento tiene su frase *«Capturamos X porque necesitamos saber Y, lo que nos permite Z»* (§4.1). Lo que no tuvo frase está en §7 como descartado.
 
 ---
@@ -54,12 +54,18 @@ Restricciones que el plan respeta:
 
 El inventario del Hito 5 se diseñó con otro BRIEFING (activos de oficina). Para emitir las métricas
 obligatorias **tal como las define este BRIEFING**, el proyecto de captura tiene que añadir antes
-estos datos. Se listan aquí para que nadie instrumente sobre campos que no existen:
+estos datos. Se listan aquí para que nadie instrumente sobre campos que no existen.
+
+> **Estado:** resuelto en la rama `feature/telemetry-capture`. Los modelos ya tienen estos
+> campos y en Supabase los añade `uv run migrate-telemetry` (desde `services/api`;
+> `--dry-run` muestra el SQL). Los activos existentes se rellenan con
+> `programme_id` = `formacion-general` (material de formación) u `onboarding-general` (resto).
+
 
 | Falta | Para qué evento | Propuesta |
 | --- | --- | --- |
 | `programme_id` en `asset` | todos los de inventario | columna `programme_id` (slug, ej. `ventas-b2b`), obligatoria en el alta |
-| Categorías del BRIEFING | todos los de inventario | `AssetCategory` hoy es `hardware`/`peripherals`/`office_supplies`/`training_materials`. Mapeo propuesto: `training_materials` → `training_kit`; `hardware` y `peripherals` → `onboarding_equipment`; `certification` nueva; `office_supplies` queda fuera del inventario del BRIEFING. **Pendiente de confirmar con el mentor** antes de migrar |
+| Categorías del BRIEFING | todos los de inventario | columna nueva `product_category` (`training_kit`/`certification`/`onboarding_equipment`), **independiente** de `category` (tipo de activo del Hito 5: un portátil es `hardware` como activo y `onboarding_equipment` como material). Relleno inicial de los activos existentes: `training_materials` → `training_kit`; el resto → `onboarding_equipment`. **Pendiente de confirmar con el mentor**; se corrige activo por activo |
 | `unit_cost` y `currency` en `asset_entry` | `inbound_order_created`, `kit_cost_variance_detected` | columnas en la orden de entrada; `currency` se deriva de la oficina, no la elige el usuario |
 | `min_stock` por producto | `stock_threshold_triggered` | columna con valor por defecto 5 (el `LOW_STOCK_MAX` que ya usa el backoffice en `lib/inventory.ts`, PR #14) |
 | `recipient_type` en `asset_exit` | `outbound_order_created` | a quién se entrega como tipo (`client`, `candidate`, `consultant`, `support_agent`, `employee`); el nombre (`assigned_to`) nunca sale en telemetría |
@@ -74,24 +80,27 @@ emite y dónde.
 
 | # | Paso del flujo | Evento(s) | Dónde |
 | --- | --- | --- | --- |
-| 1 | Login en el backoffice | `login_succeeded` / `login_failed` | `POST /auth/login` |
+| 1 | Login en el backoffice | `login_succeeded` / `login_failed` | backoffice, formulario de login |
 | 2 | Abre Inventario → Productos | `page_viewed`, `page_load_recorded` | backoffice `/inventory/products` |
-| 3 | Filtra por oficina o categoría | `inventory_filter_applied` | backoffice |
+| 3 | Intenta fijar el stock a mano («Ajustar stock») | `direct_stock_edit_rejected` | backoffice, tras el 405/422 de la API |
 | 4 | Abre el formulario de entrada o salida y lo deja a medias | `order_form_abandoned` | backoffice `/inventory/orders/inbound` y `/outbound` |
 | 5 | Envía con errores de cliente | `order_form_validation_failed` | backoffice |
-| 6 | La API rechaza la orden | `inbound_order_rejected` / `outbound_order_rejected` | API |
-| 7 | La API registra la orden | `inbound_order_created` / `outbound_order_created` | API, después del commit |
-| 8 | La entrada sale más cara de lo habitual | `kit_cost_variance_detected` | API, misma transacción lógica que el 7 |
-| 9 | La salida deja el stock bajo el mínimo / a cero | `stock_threshold_triggered` / `stock_depleted` | API, tras el 7 |
-| 10 | Alguien intenta fijar el stock a mano | `direct_stock_edit_rejected` | API (405/422 en `/inventory/products`) |
-| 11 | Caduca el token a mitad de la tarea | `session_expired` | backoffice |
-| — | En todo momento | `api_latency_recorded`, `api_error_occurred`, `frontend_error_captured`, `api_request_failed` | API y backoffice |
+| 6 | La API rechaza la orden | `inbound_order_rejected` / `outbound_order_rejected` | backoffice, con el status de la API |
+| 7 | La API registra la orden | `inbound_order_created` / `outbound_order_created` | backoffice, tras el 201 (commit hecho) |
+| 8 | La entrada sale más cara de lo habitual | `kit_cost_variance_detected` | backoffice, con `cost_baseline` de la respuesta |
+| 9 | La salida deja el stock bajo el mínimo / a cero | `stock_threshold_triggered` / `stock_depleted` | backoffice, con `stock_after` y `min_stock` de la respuesta |
+| 10 | Caduca el token a mitad de la tarea | `session_expired` | backoffice |
+| — | En todo momento | `frontend_error_captured`, `api_request_failed` (backoffice); `api_latency_recorded`, `api_error_occurred` (API) | backoffice y API |
 
-**Por qué los eventos de negocio salen de la API y no del frontend:** la API es la única que sabe si
-la orden se guardó de verdad (después del `commit`), cuál es el stock resultante y si una regla de
-negocio la rechazó. Si el frontend emitiera `outbound_order_created`, un fallo de red después del
-click contaría una entrega que no existe. El frontend solo emite lo que solo él ve: navegación,
-abandonos, errores de JavaScript y Web Vitals.
+**Quién emite y con qué datos.** El proyecto de captura pide que todo el tracking del
+backoffice pase por una única función `track()`. Para no contar operaciones que no existen,
+los eventos de negocio se emiten **solo después de la respuesta 2xx de la API** (la orden ya
+está guardada) y **con los datos que devuelve la API**: `stock_after`, `min_stock` y
+`cost_baseline` los calcula la API en la respuesta de cada orden; el navegador no calcula el
+stock por su cuenta. Un fallo de red después del clic no genera `outbound_order_created`,
+sino `api_request_failed`. Los eventos que solo la API puede ver (latencia agregada, 5xx,
+403, cambios de rol, restablecimiento de contraseña) siguen marcados como emitidos por la
+API: se instrumentan en la fase de almacenamiento.
 
 ---
 
@@ -165,18 +174,18 @@ Ejemplo completo:
 
 | # | `event_type` | Grupo | Origen | Emite | Entrega |
 | --- | --- | --- | --- | --- | --- |
-| 1 | [`inbound_order_created`](#inbound_order_created) | inventario | **Obligatorio** | API (FastAPI) | batch |
-| 2 | [`outbound_order_created`](#outbound_order_created) | inventario | **Obligatorio** | API (FastAPI) | batch |
-| 3 | [`stock_threshold_triggered`](#stock_threshold_triggered) | inventario | **Obligatorio** | API (FastAPI) | stream |
-| 4 | [`direct_stock_edit_rejected`](#direct_stock_edit_rejected) | inventario | **Obligatorio** | API (FastAPI) | stream |
-| 5 | [`kit_cost_variance_detected`](#kit_cost_variance_detected) | inventario | **Obligatorio** | API (FastAPI) | stream |
-| 6 | [`inbound_order_rejected`](#inbound_order_rejected) | inventario | Identificado | API (FastAPI) | batch |
-| 7 | [`outbound_order_rejected`](#outbound_order_rejected) | inventario | Identificado | API (FastAPI) | batch |
-| 8 | [`stock_depleted`](#stock_depleted) | inventario | Identificado | API (FastAPI) | stream |
+| 1 | [`inbound_order_created`](#inbound_order_created) | inventario | **Obligatorio** | Frontend (backoffice / web) | batch |
+| 2 | [`outbound_order_created`](#outbound_order_created) | inventario | **Obligatorio** | Frontend (backoffice / web) | batch |
+| 3 | [`stock_threshold_triggered`](#stock_threshold_triggered) | inventario | **Obligatorio** | Frontend (backoffice / web) | stream |
+| 4 | [`direct_stock_edit_rejected`](#direct_stock_edit_rejected) | inventario | **Obligatorio** | Frontend (backoffice / web) | stream |
+| 5 | [`kit_cost_variance_detected`](#kit_cost_variance_detected) | inventario | **Obligatorio** | Frontend (backoffice / web) | stream |
+| 6 | [`inbound_order_rejected`](#inbound_order_rejected) | inventario | Identificado | Frontend (backoffice / web) | batch |
+| 7 | [`outbound_order_rejected`](#outbound_order_rejected) | inventario | Identificado | Frontend (backoffice / web) | batch |
+| 8 | [`stock_depleted`](#stock_depleted) | inventario | Identificado | Frontend (backoffice / web) | stream |
 | 9 | [`product_created`](#product_created) | inventario | Identificado | API (FastAPI) | batch |
 | 10 | [`product_create_rejected`](#product_create_rejected) | inventario | Identificado | API (FastAPI) | batch |
-| 11 | [`login_succeeded`](#login_succeeded) | autenticación | Identificado | API (FastAPI) | batch |
-| 12 | [`login_failed`](#login_failed) | autenticación | Identificado | API (FastAPI) | stream |
+| 11 | [`login_succeeded`](#login_succeeded) | autenticación | Identificado | Frontend (backoffice / web) | batch |
+| 12 | [`login_failed`](#login_failed) | autenticación | Identificado | Frontend (backoffice / web) | stream |
 | 13 | [`session_expired`](#session_expired) | autenticación | Identificado | Frontend (backoffice / web) | batch |
 | 14 | [`password_reset_requested`](#password_reset_requested) | autenticación | Identificado | API (FastAPI) | batch |
 | 15 | [`password_reset_completed`](#password_reset_completed) | autenticación | Identificado | API (FastAPI) | batch |
@@ -193,10 +202,10 @@ Ejemplo completo:
 | 26 | [`inventory_filter_applied`](#inventory_filter_applied) | navegación | Identificado | Frontend (backoffice / web) | batch |
 | 27 | [`order_form_abandoned`](#order_form_abandoned) | navegación | Identificado | Frontend (backoffice / web) | batch |
 | 28 | [`page_viewed`](#page_viewed) | navegación | Identificado | Frontend (backoffice / web) | batch |
-| 29 | [`incident_created`](#incident_created) | negocio | Identificado | API (FastAPI) | batch |
+| 29 | [`incident_created`](#incident_created) | negocio | Identificado | Frontend (backoffice / web) | batch |
 | 30 | [`incident_status_changed`](#incident_status_changed) | negocio | Identificado | API (FastAPI) | batch |
 | 31 | [`incident_file_analyzed`](#incident_file_analyzed) | negocio | Identificado | API (FastAPI) | batch |
-| 32 | [`supplier_rate_changed`](#supplier_rate_changed) | negocio | Identificado | API (FastAPI) | batch |
+| 32 | [`supplier_rate_changed`](#supplier_rate_changed) | negocio | Identificado | Frontend (backoffice / web) | batch |
 
 **La frase de cada evento** (si no se pudo completar, el evento no existe):
 
@@ -211,7 +220,7 @@ Ejemplo completo:
 - Capturamos **`product_created`** porque necesitamos saber a qué ritmo crece el catálogo de material por programa y categoría, lo que nos permite detectar programas nuevos que todavía no tienen kits dados de alta antes de abrir matrículas.
 - Capturamos **`product_create_rejected`** porque necesitamos saber si el alta de material falla por SKUs duplicados o datos mal formados, lo que nos permite decidir si hace falta una convención de SKU o validación previa en el formulario.
 - Capturamos **`login_succeeded`** porque necesitamos saber cuántos operadores usan el backoffice cada día por oficina y en qué horario, lo que nos permite dimensionar soporte y elegir ventanas de mantenimiento fuera de las horas pico.
-- Capturamos **`login_failed`** porque necesitamos saber cuántos intentos fallidos hay por día y si se concentran en una cuenta (posible fuerza bruta), lo que nos permite bloquear temporalmente la cuenta o añadir rate limit / CAPTCHA en el login.
+- Capturamos **`login_failed`** porque necesitamos saber cuántos intentos de login fallan por día y por qué motivo, lo que nos permite añadir rate limit o CAPTCHA en el login si los fallos de credenciales se disparan, o revisar la API si son errores de servidor.
 - Capturamos **`session_expired`** porque necesitamos saber si la duración del token corta el trabajo de los operadores a mitad de una tarea, lo que nos permite ajustar la caducidad del JWT o añadir refresh token.
 - Capturamos **`password_reset_requested`** porque necesitamos saber con qué frecuencia la gente olvida la contraseña y si hay picos anómalos, lo que nos permite decidir si hace falta SSO o si un pico indica un abuso del endpoint (no tiene rate limit).
 - Capturamos **`password_reset_completed`** porque necesitamos saber cuántos restablecimientos se completan frente a los pedidos, lo que nos permite si muchos no se completan, revisar el email (Resend) o la caducidad del token.
@@ -243,8 +252,8 @@ valide. *Oblig.* = la clave tiene que estar siempre.
 
 ##### `inbound_order_created`
 
-- **Se dispara cuando:** `POST /inventory/orders/inbound` responde 201 (después del commit).
-- **Emite:** API (FastAPI) · **Entrega:** batch · **Datos personales:** No
+- **Se dispara cuando:** El backoffice recibe el 201 de `POST /inventory/orders/inbound` (la API ya hizo commit). Datos de la respuesta: `order_id`, `unit_cost`, `currency`, `stock_after`.
+- **Emite:** Frontend (backoffice / web) · **Entrega:** batch · **Datos personales:** No
 
 | Propiedad (allowlist) | Tipo | Oblig. | Descripción |
 | --- | --- | --- | --- |
@@ -262,8 +271,8 @@ valide. *Oblig.* = la clave tiene que estar siempre.
 
 ##### `outbound_order_created`
 
-- **Se dispara cuando:** `POST /inventory/orders/outbound` responde 201 (después del commit).
-- **Emite:** API (FastAPI) · **Entrega:** batch · **Datos personales:** Sí en origen: `assigned_to` (nombre de la persona). **No se emite**; solo `recipient_type`.
+- **Se dispara cuando:** El backoffice recibe el 201 de `POST /inventory/orders/outbound` (la API ya hizo commit). Datos de la respuesta: `order_id`, `stock_after`.
+- **Emite:** Frontend (backoffice / web) · **Entrega:** batch · **Datos personales:** Sí en origen: `assigned_to` (nombre de la persona). **No se emite**; solo `recipient_type`.
 
 | Propiedad (allowlist) | Tipo | Oblig. | Descripción |
 | --- | --- | --- | --- |
@@ -280,8 +289,8 @@ valide. *Oblig.* = la clave tiene que estar siempre.
 
 ##### `stock_threshold_triggered`
 
-- **Se dispara cuando:** Tras una salida, el stock **cruza** el mínimo: `stock_before >= min_stock` y `stock_after < min_stock`. Se emite una vez por cruce, no en cada salida mientras siga por debajo.
-- **Emite:** API (FastAPI) · **Entrega:** stream · **Datos personales:** No
+- **Se dispara cuando:** Tras el 201 de una salida, con `stock_after` y `min_stock` de la respuesta: el stock **cruza** el mínimo (`stock_before >= min_stock` y `stock_after < min_stock`, con `stock_before = stock_after + quantity`). Una vez por cruce, no en cada salida mientras siga por debajo.
+- **Emite:** Frontend (backoffice / web) · **Entrega:** stream · **Datos personales:** No
 
 | Propiedad (allowlist) | Tipo | Oblig. | Descripción |
 | --- | --- | --- | --- |
@@ -298,8 +307,8 @@ valide. *Oblig.* = la clave tiene que estar siempre.
 
 ##### `direct_stock_edit_rejected`
 
-- **Se dispara cuando:** Petición que intenta cambiar el stock fuera de una orden y la API rechaza: `PUT`/`PATCH`/`DELETE` sobre `/inventory/products/{id}` (405) o un body de producto con campos de stock (`current_stock`, `stock`, `quantity`) rechazado por `extra="forbid"` (422).
-- **Emite:** API (FastAPI) · **Entrega:** stream · **Datos personales:** No. `userId` (UUID interno) va en el envelope; el body completo **no** se registra.
+- **Se dispara cuando:** Desde la tabla de stock, el usuario usa «Ajustar stock» para fijar el stock a mano; el backoffice manda la petición (`PATCH /inventory/products/{id}` con `current_stock`) y la API la rechaza (405, o 422 por `extra="forbid"`). Lo detecta el cliente de inventario (`lib/inventory.ts`) para cualquier petición de ese tipo.
+- **Emite:** Frontend (backoffice / web) · **Entrega:** stream · **Datos personales:** No. `userId` (UUID interno) va en el envelope; el body completo **no** se registra.
 
 | Propiedad (allowlist) | Tipo | Oblig. | Descripción |
 | --- | --- | --- | --- |
@@ -317,8 +326,8 @@ valide. *Oblig.* = la clave tiene que estar siempre.
 
 ##### `kit_cost_variance_detected`
 
-- **Se dispara cuando:** Al crear una orden de entrada, `|unit_cost − baseline| / baseline > 0.10`, siendo `baseline` la media del costo unitario de las últimas 5 entradas del mismo producto y proveedor (mínimo 2 previas; sin historial no se evalúa).
-- **Emite:** API (FastAPI) · **Entrega:** stream · **Datos personales:** No
+- **Se dispara cuando:** Tras el 201 de una entrada, con `unit_cost` y `cost_baseline` de la respuesta: `|unit_cost − baseline| / baseline > 0.10`. La API calcula `baseline` como la media del coste de las últimas 5 entradas del mismo producto y proveedor (mínimo 2 previas; si no, `cost_baseline` es null y no se evalúa).
+- **Emite:** Frontend (backoffice / web) · **Entrega:** stream · **Datos personales:** No
 
 | Propiedad (allowlist) | Tipo | Oblig. | Descripción |
 | --- | --- | --- | --- |
@@ -341,8 +350,8 @@ valide. *Oblig.* = la clave tiene que estar siempre.
 
 ##### `inbound_order_rejected`
 
-- **Se dispara cuando:** `POST /inventory/orders/inbound` responde 400/404/422.
-- **Emite:** API (FastAPI) · **Entrega:** batch · **Datos personales:** No
+- **Se dispara cuando:** El backoffice recibe 400/404/422 de `POST /inventory/orders/inbound`.
+- **Emite:** Frontend (backoffice / web) · **Entrega:** batch · **Datos personales:** No
 
 | Propiedad (allowlist) | Tipo | Oblig. | Descripción |
 | --- | --- | --- | --- |
@@ -356,8 +365,8 @@ valide. *Oblig.* = la clave tiene que estar siempre.
 
 ##### `outbound_order_rejected`
 
-- **Se dispara cuando:** `POST /inventory/orders/outbound` responde 400/404/422.
-- **Emite:** API (FastAPI) · **Entrega:** batch · **Datos personales:** No
+- **Se dispara cuando:** El backoffice recibe 400/404/422 de `POST /inventory/orders/outbound`.
+- **Emite:** Frontend (backoffice / web) · **Entrega:** batch · **Datos personales:** No
 
 | Propiedad (allowlist) | Tipo | Oblig. | Descripción |
 | --- | --- | --- | --- |
@@ -372,8 +381,8 @@ valide. *Oblig.* = la clave tiene que estar siempre.
 
 ##### `stock_depleted`
 
-- **Se dispara cuando:** Tras una salida el stock llega exactamente a 0.
-- **Emite:** API (FastAPI) · **Entrega:** stream · **Datos personales:** No
+- **Se dispara cuando:** Tras el 201 de una salida, `stock_after` de la respuesta es 0.
+- **Emite:** Frontend (backoffice / web) · **Entrega:** stream · **Datos personales:** No
 
 | Propiedad (allowlist) | Tipo | Oblig. | Descripción |
 | --- | --- | --- | --- |
@@ -413,23 +422,21 @@ valide. *Oblig.* = la clave tiene que estar siempre.
 
 ##### `login_succeeded`
 
-- **Se dispara cuando:** `POST /auth/login` responde 200.
-- **Emite:** API (FastAPI) · **Entrega:** batch · **Datos personales:** No
+- **Se dispara cuando:** El login responde 200 y el backoffice lee el rol con `GET /auth/me`.
+- **Emite:** Frontend (backoffice / web) · **Entrega:** batch · **Datos personales:** No
 
 | Propiedad (allowlist) | Tipo | Oblig. | Descripción |
 | --- | --- | --- | --- |
-| `user_role` | string: `admin` \| `manager` \| `user` | sí | Rol. |
-| `office` | string: `valencia` \| `miami` | no | Oficina del perfil del usuario, si la tiene. |
+| `user_role` | string: `admin` \| `manager` \| `user` | sí | Rol devuelto por `GET /auth/me`. |
 
 ##### `login_failed`
 
-- **Se dispara cuando:** `POST /auth/login` responde 401 (o 422 si el formulario llega mal).
-- **Emite:** API (FastAPI) · **Entrega:** stream · **Datos personales:** Sí en origen (email). **Nunca se emite el email**: solo `account_ref` (HMAC con clave secreta, no reversible sin la clave). Ni contraseña ni IP.
+- **Se dispara cuando:** El formulario de login recibe 401 (credenciales), 429, 5xx o no obtiene respuesta. El motivo se deduce del status: el backoffice nunca ve si el email existe.
+- **Emite:** Frontend (backoffice / web) · **Entrega:** stream · **Datos personales:** Sí en origen (email y contraseña escritos en el formulario). **Nunca se emiten**: solo `reason`.
 
 | Propiedad (allowlist) | Tipo | Oblig. | Descripción |
 | --- | --- | --- | --- |
-| `reason` | string: `invalid_credentials` \| `inactive_user` \| `malformed_request` | sí | Motivo normalizado. |
-| `account_ref` | string (patrón `^[0-9a-f]{16}$`) | sí | HMAC-SHA256 del email normalizado con una clave del servidor, primeros 16 hex. Permite contar intentos por cuenta sin guardar el email. |
+| `reason` | string: `invalid_credentials` \| `rate_limited` \| `server_error` \| `network_error` | sí | Motivo deducido del status (401 → invalid_credentials, 429 → rate_limited, 5xx → server_error, sin respuesta → network_error). |
 
 ##### `session_expired`
 
@@ -556,7 +563,7 @@ valide. *Oblig.* = la clave tiene que estar siempre.
 | Propiedad (allowlist) | Tipo | Oblig. | Descripción |
 | --- | --- | --- | --- |
 | `form` | string: `inbound_order` \| `outbound_order` | sí | Formulario. |
-| `invalid_fields` | array de `asset_id` \| `quantity` \| `supplier` \| `unit_cost` \| `exit_type` \| `assigned_to` \| `office` | sí | Campos con error (sin valores). |
+| `invalid_fields` | array de `asset_id` \| `quantity` \| `supplier` \| `unit_cost` \| `exit_type` \| `assigned_to` \| `recipient_type` \| `office` | sí | Campos con error (sin valores). |
 
 ##### `api_error_occurred`
 
@@ -625,7 +632,7 @@ valide. *Oblig.* = la clave tiene que estar siempre.
 | Propiedad (allowlist) | Tipo | Oblig. | Descripción |
 | --- | --- | --- | --- |
 | `form` | string: `inbound_order` \| `outbound_order` | sí | Formulario abandonado. |
-| `last_field` | string: `asset_id` \| `quantity` \| `supplier` \| `unit_cost` \| `exit_type` \| `assigned_to` \| `office` | no | Último campo tocado (nombre del campo, nunca su valor). |
+| `last_field` | string: `asset_id` \| `quantity` \| `supplier` \| `unit_cost` \| `exit_type` \| `assigned_to` \| `recipient_type` \| `office` | no | Último campo tocado (nombre del campo, nunca su valor). |
 | `fields_completed` | integer (≥ 0) | sí | Campos con valor al salir. |
 | `had_validation_error` | boolean | sí | Si llegó a ver un error de validación. |
 | `time_on_form_ms` | integer (≥ 0) | sí | Tiempo desde el primer cambio. |
@@ -648,8 +655,8 @@ valide. *Oblig.* = la clave tiene que estar siempre.
 
 ##### `incident_created`
 
-- **Se dispara cuando:** `POST /api/incidents` responde 201.
-- **Emite:** API (FastAPI) · **Entrega:** batch · **Datos personales:** No
+- **Se dispara cuando:** El backoffice recibe el 201 de `POST /api/incidents`.
+- **Emite:** Frontend (backoffice / web) · **Entrega:** batch · **Datos personales:** No
 
 | Propiedad (allowlist) | Tipo | Oblig. | Descripción |
 | --- | --- | --- | --- |
@@ -684,8 +691,8 @@ valide. *Oblig.* = la clave tiene que estar siempre.
 
 ##### `supplier_rate_changed`
 
-- **Se dispara cuando:** `PATCH /suppliers/{id}/rate` responde 200.
-- **Emite:** API (FastAPI) · **Entrega:** batch · **Datos personales:** No
+- **Se dispara cuando:** El backoffice recibe el 200 de `PATCH /suppliers/{id}/rate`; la tarifa anterior es la de la fila antes del cambio.
+- **Emite:** Frontend (backoffice / web) · **Entrega:** batch · **Datos personales:** No
 
 | Propiedad (allowlist) | Tipo | Oblig. | Descripción |
 | --- | --- | --- | --- |
@@ -758,8 +765,10 @@ valide. *Oblig.* = la clave tiene que estar siempre.
 | `login_failed` | puede ser muy alta en un ataque | **Sin throttle en la emisión**: el volumen es justo la señal. El rate limit va en el endpoint de login, no en la telemetría. |
 
 **Transporte desde el frontend** (se implementa en el proyecto de captura): cola en memoria; envío en
-lotes cada 10 s o al llegar a 20 eventos; `navigator.sendBeacon` en `pagehide` para no perder los
-últimos; reintento con backoff y deduplicación por `eventId` en el servidor.
+lotes cada 10 s o al llegar a 20 eventos; `navigator.sendBeacon` cuando la pestaña se oculta
+(`visibilitychange`) o se cierra (`pagehide`) para no perder los últimos; hasta 3 reintentos con
+backoff exponencial (1 s, 2 s, 4 s) y después se descarta el lote; deduplicación por `eventId`
+en el servidor. Implementado en `uis/backoffice/lib/telemetry.ts`.
 
 ---
 
@@ -767,7 +776,7 @@ lotes cada 10 s o al llegar a 20 eventos; `navigator.sendBeacon` en `pagehide` p
 
 | Dato | Dónde aparece en origen | Qué hace la telemetría |
 | --- | --- | --- |
-| Email | login, forgot-password | **No se emite.** `account_ref` = HMAC-SHA256(email normalizado, clave del servidor), 16 primeros hex. Permite contar intentos por cuenta; sin la clave no se puede revertir ni comprobar con un diccionario de emails. |
+| Email | login, forgot-password | **No se emite.** `login_failed` solo lleva el motivo. En los eventos que emite la API (`password_reset_requested`) va `account_ref` = HMAC-SHA256(email normalizado, clave del servidor), 16 primeros hex: permite contar por cuenta sin guardar el email. |
 | Nombre de la persona que recibe un kit (`assigned_to`) | orden de salida | **No se emite.** Solo `recipient_type`. |
 | Nombres de candidatos, clientes o consultores | CSV de incidencias, formularios | **No se emiten.** Solo contadores o categorías. |
 | Contraseñas, tokens JWT, tokens de reset | auth | **Nunca**, ni en eventos de error. |
@@ -802,6 +811,10 @@ lotes cada 10 s o al llegar a 20 eventos; `navigator.sendBeacon` en `pagehide` p
 - **Brecha de datos (§1.3).** Hasta que el inventario tenga `programme_id`, `unit_cost`, `min_stock` y
   las categorías del BRIEFING, tres de las cinco métricas obligatorias no se pueden emitir completas.
   Es lo primero del proyecto de captura.
+- **Fuerza bruta por cuenta.** `login_failed` sale del backoffice, que no puede calcular un
+  identificador seguro de la cuenta (el HMAC necesita la clave del servidor): sirve para ver
+  picos, no para saber si todos los fallos van contra la misma cuenta. Eso requiere emitirlo
+  también desde la API (fase de almacenamiento).
 - **Doble conteo.** Un reintento del cliente puede repetir un evento: por eso `eventId` es la clave de
   deduplicación y los eventos de negocio salen de la API tras el commit, no del frontend.
 - **Umbral de varianza ruidoso.** Con menos de 2 entradas previas del mismo producto y proveedor no hay
