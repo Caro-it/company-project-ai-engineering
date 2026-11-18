@@ -253,3 +253,9 @@ _Última actualización: 2026-11-10 · rama `feature/inventory-backoffice`_
 - El flow se divide en subflows por etapa (`extract_weekly_material_activity`, `transform_weekly_office_program_kpis`, `publish_weekly_office_program_performance`, `snapshot_weekly_office_program_performance` opcional). Tests unitarios en `tests/pipelines/test_pipeline.py`.
 - Dashboard `/reporting` en el backoffice (tarjeta por KPI, selector de semana, botón «Actualizar datos»). Detalle en `PIPELINE_DESIGN.md` §11.
 - Corregido de paso: el reporte técnico redondeaba el fin del período hacia abajo y dejaba fuera los eventos del minuto en curso.
+
+## Procesos en segundo plano — script nocturno (feature/nightly-export)
+
+- `scripts/nightly_export.py` (DEV-53): exporta `telemetry_events` de ayer (UTC) a `data/raw/telemetry_YYYY-MM-DD.csv` si no existe, lanza el pipeline del Hito 6 y registra cada ejecución en `job_runs` (pending → processing → completed | failed). Lock = estado `processing` (índice único parcial); idempotencia por `target_date`; `TARGET_DATE` para otros días.
+- Estado en `services/api/app/services/job_runner.py`; disparador crontab `15 2 * * *` UTC (Windows: `scripts/cron/register-windows-task.ps1`). Detalle y texto del PR en `docs/background-jobs/nightly-export.md`.
+- Pendiente de hacer en local: `uv run migrate-job-runs` contra Supabase (o dejar que el script la cree), una ejecución real y la captura del CSV para el PR.
