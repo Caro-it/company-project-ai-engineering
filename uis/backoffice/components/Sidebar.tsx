@@ -43,6 +43,9 @@ export function Sidebar() {
               <NavLink href="/inventory/orders">Historial de entradas y salidas</NavLink>
             </li>
             <li>
+              <NavLink href="/reporting">Reporte semanal</NavLink>
+            </li>
+            <li>
               <NavLink href="/telemetria">Telemetría técnica</NavLink>
             </li>
             <li>

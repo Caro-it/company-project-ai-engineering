@@ -65,6 +65,15 @@ Contrato: [`docs/telemetry/telemetry-plan.md`](../../docs/telemetry/telemetry-pl
 - Receptor: `NEXT_PUBLIC_TELEMETRY_ENDPOINT` en `.env.local` (hoy el stub
   `http://localhost:8000/telemetry/events`). Sin la variable, la telemetría está apagada.
 
+## Reporte semanal de desempeño (`/reporting`)
+
+Lee la tabla que llena el pipeline de Prefect (`data/pipelines/pipeline.py`) a través de
+`lib/reporting.ts` (`GET /reporting/weekly-office-program-performance`, `GET /reporting/weeks`,
+`GET /reporting/pipeline-runs/latest`). Una tarjeta por KPI del BRIEFING con filas
+oficina × programa, selector de semana y botón «Actualizar datos» (`POST /reporting/pipeline-runs`,
+solo admin y manager). Los importes de Valencia (EUR) y Miami (USD) nunca se suman. Diseño
+completo en [`data/pipelines/PIPELINE_DESIGN.md`](../../data/pipelines/PIPELINE_DESIGN.md) §11.
+
 ## Tests end-to-end
 
 Playwright (`@playwright/test`, dependencia de desarrollo), solo con Chromium. La primera vez hay que instalar el navegador:

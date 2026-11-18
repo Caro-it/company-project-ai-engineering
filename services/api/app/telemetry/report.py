@@ -23,11 +23,12 @@ def resolve_period(
 ) -> tuple[datetime, datetime]:
     """[start, end) en UTC. Por defecto los últimos 7 días.
 
-    `now` se redondea al minuto: así las peticiones sin parámetros de un mismo minuto
-    comparten clave de caché (si no, cada petición tendría un `now` distinto y la caché
-    no serviría nunca).
+    `now` se redondea al minuto siguiente: así las peticiones sin parámetros de un mismo
+    minuto comparten clave de caché (si no, cada petición tendría un `now` distinto y la
+    caché no serviría nunca) y los eventos del minuto en curso entran en el período (con
+    el redondeo hacia abajo quedaban fuera hasta el minuto siguiente).
     """
-    now = to_utc(now or datetime.now(UTC)).replace(second=0, microsecond=0)
+    now = to_utc(now or datetime.now(UTC)).replace(second=0, microsecond=0) + timedelta(minutes=1)
     end = to_utc(end_date) if end_date else now
     start = to_utc(start_date) if start_date else end - DEFAULT_WINDOW
     if start >= end:

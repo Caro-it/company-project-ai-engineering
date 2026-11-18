@@ -181,7 +181,9 @@ def test_report_is_cached_for_the_same_period(client, auth_headers, monkeypatch)
 def test_resolve_period_rounds_now_and_assumes_utc():
     now = datetime(2026, 11, 18, 21, 30, 45, 123, tzinfo=UTC)
     start, end = resolve_period(None, None, now=now)
-    assert end == datetime(2026, 11, 18, 21, 30, tzinfo=UTC)
+    # Fin = minuto siguiente: los eventos del minuto en curso (21:30:xx) entran
+    assert end == datetime(2026, 11, 18, 21, 31, tzinfo=UTC)
+    assert resolve_period(None, None, now=now.replace(second=5)) == (start, end)  # misma clave de caché
     assert end - start == timedelta(days=7)
     naive_start, _ = resolve_period(datetime(2026, 11, 10), None, now=now)  # noqa: DTZ001 (fecha sin zona a propósito)
     assert naive_start.tzinfo is UTC

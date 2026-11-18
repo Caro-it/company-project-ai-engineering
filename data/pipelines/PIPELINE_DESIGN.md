@@ -1,4 +1,4 @@
-# Pipeline de Desempeño de Negocio — Nexova (diseño · Hito 6, parte 1/3)
+# Pipeline de Desempeño de Negocio — Nexova (Hito 6: diseño, implementación y mejora)
 
 > Documento de diseño. El código de orquestación llega en la parte 2 (`data/pipelines/pipeline.py`).
 > BRIEFING: [`docs/CONTEXT-data-pipelines-nexova.md`](../../docs/CONTEXT-data-pipelines-nexova.md)
@@ -227,9 +227,10 @@ tasks con red).
 **Segundo flow (opcional):** `backfill_weekly_office_program_performance(from_week, to_week)`,
 que llama al principal semana a semana.
 
-**Parte 3:** las tres etapas pasan a ser **subflows** (`extract_weekly_material_activity`,
-`transform_weekly_office_program_kpis`, `load_weekly_office_program_performance_subflow`), con
-tests unitarios de la transformación en `tests/pipelines/test_pipeline.py`.
+**Parte 3:** las etapas pasan a ser **subflows** (`extract_weekly_material_activity`,
+`transform_weekly_office_program_kpis`, `publish_weekly_office_program_performance` y, opcional,
+`snapshot_weekly_office_program_performance`), con tests unitarios de la transformación en
+`tests/pipelines/test_pipeline.py` (ver §11).
 
 **Prefect blocks:**
 
@@ -311,3 +312,38 @@ copia CSV opcional la ejecución se completa igual.
 | 8. Buffer offline en el navegador | No en v1: la cola en memoria + `sendBeacon` cubre cierres de pestaña; un buffer en `localStorage` sería posible porque el servidor ya deduplica por `eventId` |
 | 9. Reintentos de `POST /telemetry/events` | Ya resuelto: el receptor devuelve 200 y cuenta como guardado un `eventId` que ya existe |
 | 10. Ejecuciones concurrentes | Advisory lock del pipeline + `409` en el disparo manual si hay una en `running` |
+
+
+---
+
+## 11. Mejora y dashboard (parte 3/3)
+
+**Subflows.** El flow principal `weekly_office_program_performance` orquesta cuatro subflows, uno
+por etapa. Cada uno aparece como ejecución propia en la UI de Prefect, así que un fallo se ve en
+la etapa donde ocurrió (y queda en `pipeline_runs.failed_phase`):
+
+| Subflow | Envuelve | Notas |
+| --- | --- | --- |
+| `extract_weekly_material_activity` | `extract_material_events` | `retries=3` en la task |
+| `transform_weekly_office_program_kpis` | `compute_weekly_office_program_kpis_task` | Caché de 1 h por `event_id` |
+| `publish_weekly_office_program_performance` | `load_weekly_office_program_performance` | Upsert + advisory lock en una transacción |
+| `snapshot_weekly_office_program_performance` | `export_weekly_snapshot` | Opcional: se llama con `return_state=True` y su fallo no cambia el estado del flow |
+
+**Tests unitarios** (`tests/pipelines/test_pipeline.py`, sin base de datos): los cuatro KPIs con
+las definiciones del BRIEFING, monedas sin mezclar, semana ISO en UTC, separación por programa y
+semana, eventos inválidos descartados sin romper el lote (incluidos `tags` que no son objeto),
+normalización de oficina y programa, entrada vacía y columna obligatoria ausente.
+
+```bash
+uv run --project services/api python -m pytest tests/pipelines
+```
+
+**Dashboard** en el backoffice: `/reporting` («Reporte semanal» en el menú). Una tarjeta por KPI
+con el nombre del BRIEFING, filas oficina × programa, selector de semana (`GET /reporting/weeks`),
+estado de la última ejecución (`GET /reporting/pipeline-runs/latest`) y botón «Actualizar datos»
+(`POST /reporting/pipeline-runs`; solo admin y manager, `409` si ya hay una en curso). Valencia
+en euros y Miami en dólares: los importes nunca se suman entre oficinas. Captura en
+`docs/screenshots/reporting/reporte-semanal.png`; e2e en `uis/backoffice/e2e/08-reporte-semanal.spec.ts`.
+
+**Mejoras opcionales ya cubiertas:** ejecuciones concurrentes (advisory lock + `409`),
+idempotencia (upsert por la clave única) y trazabilidad (`run_id` ↔ `flow_run_id`).

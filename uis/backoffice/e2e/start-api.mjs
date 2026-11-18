@@ -26,6 +26,10 @@ const env = {
   SECRET_KEY: "e2e-secret-key-solo-para-tests",
   CORS_ORIGINS: JSON.stringify([WEB_URL]),
   RESEND_API_KEY: "",
+  // Pipeline de negocio (08-reporte-semanal): el backoffice de e2e es un build de producción,
+  // así que sus eventos llevan environment "production"
+  PIPELINE_ENVIRONMENT: "production",
+  PREFECT_SERVER_ANALYTICS_ENABLED: "false",
 };
 
 // uv run usa el entorno de services/api (lo crea si no existe)
