@@ -232,3 +232,7 @@ _Última actualización: 2026-11-10 · rama `feature/inventory-backoffice`_
 
 - `POST /telemetry/events` ya guarda en Supabase: tabla `telemetry_events` (8 columnas, índices en timestamp, event_type y GIN en tags, trigger de solo inserción), validación por evento (TelemetryEvent sin cambios + allowlist de event-schemas.json), un único INSERT por lote, respuesta `{received, stored, rejected}`, idempotente por eventId. Mapeo en `telemetry-plan.md` §5.3. El backoffice no cambia.
 - La tabla la crea la API al arrancar; `uv run migrate-telemetry` deja el trigger y el default del id si ya existía.
+
+## Telemetría — reporte técnico (feature/telemetry-report)
+
+- `GET /telemetry/report` (con token, últimos 7 días por defecto, caché 60 s por período) sobre el pipeline Pandas `services/api/app/telemetry/analysis.py` (6 métricas técnicas; el enunciado pide `services/telemetry/analysis.py`, aquí sigue la estructura de `services/api/app`). Vista `/telemetria` en el backoffice (tablas y barras CSS). Detalle en `telemetry-plan.md` §5.4.

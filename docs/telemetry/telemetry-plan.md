@@ -796,6 +796,26 @@ stub. Valida **cada evento por separado** (envelope con `TelemetryEvent` + allow
 - La tabla la crea la API al arrancar (`create_all`); `uv run migrate-telemetry` asegura el
   default del `id` y el trigger si la tabla ya existía.
 
+### 5.4 Reporte técnico: `GET /telemetry/report`
+
+Pipeline en `services/api/app/telemetry/analysis.py` (equivale al `services/telemetry/analysis.py`
+del enunciado). Cada métrica: SQL (ventana `[start_date, end_date)` en UTC y `event_type`) →
+Pandas (extraer `tags`, `pd.to_datetime(..., utc=True)`, `groupby`, agregación) → lista de dicts.
+El endpoint resuelve el período (por defecto, los últimos 7 días), llama al pipeline y guarda el
+resultado 60 s en caché por período. Con token. Vista en el backoffice: `/telemetria`.
+
+| Clave | Pregunta técnica | Eventos | Dimensión |
+| --- | --- | --- | --- |
+| `events_per_day` | ¿Qué eventos ocurren y con qué frecuencia? | todos | día × `event_type` |
+| `error_rate_by_day` | ¿Qué parte son errores (`level=error`) o avisos (`warn`)? | todos | día |
+| `page_load_by_day` | ¿Qué tan rápido cargan las páginas (LCP mediana y p75)? | `page_load_recorded` | día × `page` |
+| `auth_failure_rate` | ¿Cuántos intentos de login fallan? | `login_failed`, `login_succeeded` | día |
+| `request_failures_by_route` | ¿Dónde se pierde la conexión con la API? | `api_request_failed` | día × `route` × `failure_type` |
+| `frontend_errors_by_fingerprint` | ¿Qué errores de JS se repiten y a cuántas sesiones afectan? | `frontend_error_captured` | `fingerprint` |
+
+No hay métricas de negocio (ventas, conversión, consumo por programa): eso va en los pipelines
+de datos.
+
 ---
 
 ## 6. Privacidad y datos personales
