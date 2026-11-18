@@ -5,8 +5,11 @@ Fuente de verdad: docs/CONTEXT-inventory-nexova.md
 Son clases distintas de los modelos ORM de app/models.py, aunque compartan campos:
 - Los *Create* son lo único que acepta la API. Prohíben campos extra (extra="forbid"):
   no se puede enviar `current_stock`, `user_uuid`, `id` ni `created_at`.
-- Los *Read* son lo único que devuelve la API. `current_stock` solo existe aquí,
-  calculado a partir de las órdenes.
+- Los *Read* / *ListItem* son lo único que devuelve la API. `current_stock` solo existe
+  aquí, calculado a partir de las órdenes.
+- Relaciones: una orden lleva su activo anidado como `AssetSummary` (id, name, sku), nunca
+  el `asset_id` crudo. `user_uuid` se devuelve como ID: el usuario vive en TinyDB y no hay
+  objeto que anidar (BRIEFING, regla 4).
 """
 from datetime import datetime
 from typing import Annotated, Literal, Self
@@ -36,7 +39,22 @@ class AssetCreate(_CreateSchema):
 
 
 class AssetRead(BaseModel):
-    """Activo con su stock actual (calculado, no almacenado)."""
+    """Detalle de un activo (POST /products y GET /products/{id}) con su stock actual
+    (calculado, no almacenado)."""
+
+    id: int
+    name: str
+    sku: str
+    category: AssetCategory
+    office: Office
+    current_stock: int
+
+
+class AssetListItem(BaseModel):
+    """Fila de GET /inventory/products. Hoy coincide en campos con AssetRead porque el
+    activo no tiene más datos que estos y todos son necesarios para elegir y filtrar
+    (`office` lo exige el BRIEFING en las respuestas; `current_stock` es el objetivo del
+    listado). Es una clase propia para que el detalle pueda crecer sin engordar el listado."""
 
     id: int
     name: str
@@ -47,13 +65,12 @@ class AssetRead(BaseModel):
 
 
 class AssetSummary(BaseModel):
-    """Datos del activo que acompañan a cada orden en GET /inventory/orders."""
+    """Activo anidado en las órdenes (respuestas de POST /orders/* y GET /orders).
+    Sin `office` (es siempre la de la orden, regla del BRIEFING) ni `category`."""
 
     id: int
     name: str
     sku: str
-    category: AssetCategory
-    office: Office
 
 
 # --- AssetEntry (orden de entrada) -------------------------------------------------
@@ -70,7 +87,7 @@ class AssetEntryCreate(_CreateSchema):
 
 class AssetEntryRead(BaseModel):
     id: int
-    asset_id: int
+    asset: AssetSummary
     quantity: int
     supplier: str
     office: Office
@@ -105,7 +122,7 @@ class AssetExitCreate(_CreateSchema):
 
 class AssetExitRead(BaseModel):
     id: int
-    asset_id: int
+    asset: AssetSummary
     quantity: int
     exit_type: ExitType
     assigned_to: str | None

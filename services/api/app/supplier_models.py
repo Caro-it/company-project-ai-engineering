@@ -74,6 +74,21 @@ class Supplier(SupplierBase):
     updated_at: datetime
 
 
+class SupplierListItem(BaseModel):
+    """Fila de GET /suppliers: lo que pinta la tabla del directorio del backoffice.
+    Sin `notes` (texto libre, solo en el detalle). Plano: sin objetos anidados."""
+    id: int
+    name: str
+    country: Country
+    categories: list[Category]
+    monthly_rate: float
+    currency: Currency
+    status: Status
+    contract_renewal_date: date | None = None
+    contact_email: str | None = None
+    updated_at: datetime
+
+
 class RateUpdate(BaseModel):
     """Entrada de PATCH /suppliers/{id}/rate."""
     model_config = ConfigDict(extra="forbid")

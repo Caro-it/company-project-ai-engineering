@@ -53,6 +53,9 @@ export interface Supplier {
   notes: string | null;
 }
 
+// Fila de GET /suppliers (SupplierListItem en la API): el detalle sin `notes`
+export type SupplierListItem = Omit<Supplier, "notes">;
+
 // Lo que envía el formulario: sin id ni updated_at (los genera el sistema)
 export type SupplierCreate = Omit<Supplier, "id" | "updated_at">;
 
@@ -65,12 +68,12 @@ const JSON_HEADERS = { "Content-Type": "application/json" };
 
 export function listSuppliers(
   filters: SupplierFilters = {},
-): Promise<Supplier[]> {
+): Promise<SupplierListItem[]> {
   const params = new URLSearchParams();
   if (filters.country) params.set("country", filters.country);
   if (filters.category) params.set("category", filters.category);
   const qs = params.toString();
-  return request<Supplier[]>(`/suppliers${qs ? `?${qs}` : ""}`);
+  return request<SupplierListItem[]>(`/suppliers${qs ? `?${qs}` : ""}`);
 }
 
 export function createSupplier(data: SupplierCreate): Promise<Supplier> {

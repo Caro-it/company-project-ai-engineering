@@ -1,8 +1,10 @@
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+from typing import Literal
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
 
 from app.config import settings
 from app.database import create_db_and_tables
@@ -39,6 +41,10 @@ app.include_router(suppliers.router)
 app.include_router(inventory.router)
 
 
-@app.get("/api/health")
-def health() -> dict:
-    return {"status": "ok"}
+class HealthOut(BaseModel):
+    status: Literal["ok"]
+
+
+@app.get("/api/health", response_model=HealthOut)
+def health() -> HealthOut:
+    return HealthOut(status="ok")

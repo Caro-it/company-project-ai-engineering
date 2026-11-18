@@ -13,7 +13,7 @@ import {
   updateStatus,
   type Category,
   type Country,
-  type Supplier,
+  type SupplierListItem,
 } from "@/lib/suppliers";
 import { ApiError, errorMessage } from "@/lib/account";
 
@@ -53,7 +53,7 @@ function formatDate(value: string): string {
 }
 
 export function SuppliersDirectory() {
-  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
+  const [suppliers, setSuppliers] = useState<SupplierListItem[]>([]);
   const [country, setCountry] = useState<Country | "">("");
   const [category, setCategory] = useState<Category | "">("");
   const [loading, setLoading] = useState(true);
@@ -88,7 +88,7 @@ export function SuppliersDirectory() {
   }
 
   // Sustituye la fila por lo que devolvió la API tras un PATCH
-  function replaceSupplier(updated: Supplier) {
+  function replaceSupplier(updated: SupplierListItem) {
     setSuppliers((prev) =>
       prev.map((s) => (s.id === updated.id ? updated : s)),
     );
@@ -244,8 +244,8 @@ function SupplierRow({
   supplier,
   onUpdated,
 }: {
-  supplier: Supplier;
-  onUpdated: (s: Supplier) => void;
+  supplier: SupplierListItem;
+  onUpdated: (s: SupplierListItem) => void;
 }) {
   const [editingRate, setEditingRate] = useState(false);
   const [rateInput, setRateInput] = useState("");

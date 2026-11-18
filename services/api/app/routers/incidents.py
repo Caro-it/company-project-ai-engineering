@@ -5,7 +5,14 @@ from fastapi.responses import Response
 
 from app.deps import get_current_user
 from app.errors import ApiError
-from app.incident_models import Incident, IncidentCreate, IncidentStatusUpdate
+from app.incident_models import (
+    AnalyzeOut,
+    Incident,
+    IncidentCreate,
+    IncidentListItem,
+    IncidentStats,
+    IncidentStatusUpdate,
+)
 from app.services.incidents import (
     InvalidTransitionError,
     change_status,
@@ -32,8 +39,8 @@ MAX_FILE_SIZE = 50 * 1024 * 1024  # 50 MB
 _last_summary: dict | None = None
 
 
-@router.post("/analyze")
-async def analyze_incidents(file: UploadFile = File(...)) -> dict:
+@router.post("/analyze", response_model=AnalyzeOut)
+async def analyze_incidents(file: UploadFile = File(...)) -> AnalyzeOut:
     global _last_summary
 
     if not file.filename or not file.filename.lower().endswith(".csv"):
@@ -65,14 +72,17 @@ async def analyze_incidents(file: UploadFile = File(...)) -> dict:
     summary = analyze_rows(rows)
     _last_summary = summary
 
-    return {
-        "filename": file.filename,
-        "summary": summary,
-        "invalid_rule_labels": RULES,
-    }
+    return AnalyzeOut(filename=file.filename, summary=summary, invalid_rule_labels=RULES)
 
 
-@router.get("/results/export")
+# Fichero, no JSON: response_model=None y response_class=Response; el contenido se
+# documenta en OpenAPI como text/csv
+@router.get(
+    "/results/export",
+    response_model=None,
+    response_class=Response,
+    responses={200: {"content": {"text/csv": {}}, "description": "CSV del último análisis"}},
+)
 def export_results() -> Response:
     if _last_summary is None:
         raise HTTPException(
@@ -96,12 +106,12 @@ def _not_found() -> ApiError:
 
 
 @router.post("", response_model=Incident, status_code=201)
-def create(payload: IncidentCreate):
+def create(payload: IncidentCreate) -> Incident:
     """Alta de incidencia. Siempre empieza en open."""
-    return create_incident(payload)
+    return Incident.model_validate(create_incident(payload))
 
 
-@router.get("", response_model=list[Incident])
+@router.get("", response_model=list[IncidentListItem])
 def read_incidents(
     status: Status | None = None,
     origin: Origin | None = None,
@@ -109,14 +119,15 @@ def read_incidents(
     category: Category | None = None,
 ):
     """Listado con filtros opcionales. Con la BD vacía devuelve []."""
-    return list_incidents(status=status, origin=origin, branch=branch, category=category)
+    docs = list_incidents(status=status, origin=origin, branch=branch, category=category)
+    return [IncidentListItem.model_validate(doc) for doc in docs]
 
 
 # Antes de /{incident_id}: si no, "summary" se tomaría como un id
-@router.get("/summary")
-def read_summary() -> dict:
+@router.get("/summary", response_model=IncidentStats)
+def read_summary() -> IncidentStats:
     """Totales por status, category, origin y branch, con todas las claves aunque valgan 0."""
-    return incidents_summary()
+    return IncidentStats.model_validate(incidents_summary())
 
 
 @router.get("/{incident_id}", response_model=Incident)
@@ -125,7 +136,7 @@ def read_incident(incident_id: str):
     incident = get_valid_incident(incident_id)
     if incident is None:
         raise _not_found()
-    return incident
+    return Incident.model_validate(incident)
 
 
 @router.patch("/{incident_id}/status", response_model=Incident)
@@ -140,4 +151,4 @@ def update_status(incident_id: str, payload: IncidentStatusUpdate):
         ) from None
     if incident is None:
         raise _not_found()
-    return incident
+    return Incident.model_validate(incident)

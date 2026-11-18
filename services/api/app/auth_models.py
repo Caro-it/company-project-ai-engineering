@@ -51,7 +51,7 @@ class UserUpdate(BaseModel):
 
 
 class UserOut(BaseModel):
-    """Respuesta de la API: nunca incluye hashed_password."""
+    """Detalle de un usuario (GET/PUT /users/{id}, con sesión): nunca incluye hashed_password."""
     id: str
     email: str
     role: Role
@@ -59,9 +59,25 @@ class UserOut(BaseModel):
     created_at: datetime
 
 
-class Profile(BaseModel):
+class UserListItem(BaseModel):
+    """Fila de GET /users (solo admin): lo justo para identificar y gestionar la cuenta."""
     id: str
-    user_id: str
+    email: str
+    role: Role
+    is_active: bool
+
+
+class RegisterOut(BaseModel):
+    """Respuesta de POST /users (registro, sin sesión). Sin email: el cliente ya lo conoce
+    y un endpoint de auth sin sesión no lo devuelve."""
+    id: str
+    role: Role
+    created_at: datetime
+
+
+class ProfileOut(BaseModel):
+    """Perfil en las respuestas (/profiles/me y anidado en /auth/me). Sin el id interno
+    del documento ni user_id: el perfil siempre es el del usuario de la sesión."""
     name: str | None = None
     phone: str | None = None
     address: str | None = None
@@ -76,10 +92,10 @@ class ProfileUpdate(BaseModel):
 
 
 class MeOut(BaseModel):
-    """Respuesta de GET /auth/me."""
+    """Respuesta de GET /auth/me (con sesión: puede incluir el email del propio usuario)."""
     email: str
     role: Role
-    profile: Profile | None
+    profile: ProfileOut | None
 
 
 class Token(BaseModel):
