@@ -1,0 +1,2520 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/Caro-it/company-project-ai-engineering/docs/telemetry/event-schemas.json",
+  "title": "Nexova — esquemas de eventos de telemetría",
+  "description": "Un evento válido cumple el envelope y exactamente uno de los esquemas por event_type. additionalProperties: false en properties = allowlist. Generado desde el catálogo de telemetry-plan.md; si cambias uno, cambia el otro.",
+  "x-schema-version": "1.0.0",
+  "oneOf": [
+    {
+      "$ref": "#/definitions/inbound_order_created"
+    },
+    {
+      "$ref": "#/definitions/outbound_order_created"
+    },
+    {
+      "$ref": "#/definitions/stock_threshold_triggered"
+    },
+    {
+      "$ref": "#/definitions/direct_stock_edit_rejected"
+    },
+    {
+      "$ref": "#/definitions/kit_cost_variance_detected"
+    },
+    {
+      "$ref": "#/definitions/inbound_order_rejected"
+    },
+    {
+      "$ref": "#/definitions/outbound_order_rejected"
+    },
+    {
+      "$ref": "#/definitions/stock_depleted"
+    },
+    {
+      "$ref": "#/definitions/product_created"
+    },
+    {
+      "$ref": "#/definitions/product_create_rejected"
+    },
+    {
+      "$ref": "#/definitions/login_succeeded"
+    },
+    {
+      "$ref": "#/definitions/login_failed"
+    },
+    {
+      "$ref": "#/definitions/session_expired"
+    },
+    {
+      "$ref": "#/definitions/password_reset_requested"
+    },
+    {
+      "$ref": "#/definitions/password_reset_completed"
+    },
+    {
+      "$ref": "#/definitions/password_reset_failed"
+    },
+    {
+      "$ref": "#/definitions/permission_denied"
+    },
+    {
+      "$ref": "#/definitions/user_role_changed"
+    },
+    {
+      "$ref": "#/definitions/api_latency_recorded"
+    },
+    {
+      "$ref": "#/definitions/page_load_recorded"
+    },
+    {
+      "$ref": "#/definitions/cache_stats_recorded"
+    },
+    {
+      "$ref": "#/definitions/order_form_validation_failed"
+    },
+    {
+      "$ref": "#/definitions/api_error_occurred"
+    },
+    {
+      "$ref": "#/definitions/frontend_error_captured"
+    },
+    {
+      "$ref": "#/definitions/api_request_failed"
+    },
+    {
+      "$ref": "#/definitions/inventory_filter_applied"
+    },
+    {
+      "$ref": "#/definitions/order_form_abandoned"
+    },
+    {
+      "$ref": "#/definitions/page_viewed"
+    },
+    {
+      "$ref": "#/definitions/incident_created"
+    },
+    {
+      "$ref": "#/definitions/incident_status_changed"
+    },
+    {
+      "$ref": "#/definitions/incident_file_analyzed"
+    },
+    {
+      "$ref": "#/definitions/supplier_rate_changed"
+    }
+  ],
+  "definitions": {
+    "envelope": {
+      "type": "object",
+      "description": "Envelope común a todos los eventos de Nexova (ver telemetry-plan.md §3.1).",
+      "required": [
+        "eventId",
+        "timestamp",
+        "sessionId",
+        "userId",
+        "event_type",
+        "schemaVersion",
+        "requestId",
+        "source",
+        "environment",
+        "properties"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "eventId": {
+          "type": "string",
+          "format": "uuid",
+          "description": "UUID v4 generado por quien emite. Clave de deduplicación."
+        },
+        "timestamp": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,3})?Z$",
+          "description": "Momento del hecho, ISO 8601 en UTC con Z (ej. 2026-11-18T19:30:05.123Z)."
+        },
+        "sessionId": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "uuid",
+          "description": "UUID de la sesión del navegador (sessionStorage, rota tras 30 min de inactividad). La API lo recibe en la cabecera X-Session-ID. null en procesos sin navegador."
+        },
+        "userId": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "uuid",
+          "description": "UUID interno del usuario (TinyDB users.id). Nunca email ni nombre. null si no hay usuario autenticado."
+        },
+        "event_type": {
+          "type": "string",
+          "pattern": "^[a-z]+(_[a-z]+)+$",
+          "description": "Taxonomía entidad_acción en snake_case, verbo en participio (created, rejected, triggered…)."
+        },
+        "schemaVersion": {
+          "type": "string",
+          "pattern": "^\\d+\\.\\d+\\.\\d+$",
+          "description": "Versión semántica del esquema de este event_type."
+        },
+        "requestId": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "uuid",
+          "description": "UUID de la petición HTTP (cabecera X-Request-ID, generada por el frontend o por la API si falta). Une frontend, API y logs. null en eventos sin petición."
+        },
+        "source": {
+          "type": "string",
+          "enum": [
+            "backoffice",
+            "website",
+            "api",
+            "job"
+          ],
+          "description": "Quién emite el evento."
+        },
+        "environment": {
+          "type": "string",
+          "enum": [
+            "development",
+            "production"
+          ],
+          "description": "Entorno de despliegue."
+        },
+        "properties": {
+          "type": "object",
+          "description": "Payload propio del evento: solo las claves del allowlist de su esquema."
+        }
+      }
+    },
+    "inbound_order_created": {
+      "description": "Capturamos `inbound_order_created` porque necesitamos saber cuánto material se produce/compra, para qué programa y con qué costo, lo que nos permite planificar la producción de material según la demanda esperada de matrículas (Elena).",
+      "x-nexova": {
+        "group": "inventario",
+        "origin": "mandatory",
+        "emitter": "api",
+        "delivery": "batch",
+        "contains_pii_at_source": false
+      },
+      "allOf": [
+        {
+          "$ref": "#/definitions/envelope"
+        },
+        {
+          "properties": {
+            "event_type": {
+              "const": "inbound_order_created"
+            },
+            "schemaVersion": {
+              "const": "1.0.0"
+            },
+            "properties": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "office",
+                "product_id",
+                "product_category",
+                "programme_id",
+                "quantity",
+                "currency",
+                "order_id",
+                "supplier_id",
+                "unit_cost",
+                "total_cost",
+                "stock_after"
+              ],
+              "properties": {
+                "office": {
+                  "type": "string",
+                  "enum": [
+                    "valencia",
+                    "miami"
+                  ],
+                  "description": "Oficina del material o de la operación (minúsculas, como el BRIEFING)."
+                },
+                "product_id": {
+                  "type": "string",
+                  "description": "Id del producto (Asset.id como texto)."
+                },
+                "product_category": {
+                  "type": "string",
+                  "enum": [
+                    "training_kit",
+                    "certification",
+                    "onboarding_equipment"
+                  ],
+                  "description": "Categoría del BRIEFING."
+                },
+                "programme_id": {
+                  "type": "string",
+                  "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+                  "description": "Programa (slug, ej. ventas-b2b)."
+                },
+                "quantity": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "description": "Unidades de la orden."
+                },
+                "currency": {
+                  "type": "string",
+                  "enum": [
+                    "EUR",
+                    "USD"
+                  ],
+                  "description": "Moneda de la oficina (EUR Valencia, USD Miami). Sin conversión."
+                },
+                "order_id": {
+                  "type": "string",
+                  "description": "Id de la orden de entrada (AssetEntry.id)."
+                },
+                "supplier_id": {
+                  "type": "string",
+                  "description": "Proveedor normalizado (slug del nombre de la empresa, ej. imprenta-turia). Es una empresa, no una persona."
+                },
+                "unit_cost": {
+                  "type": "number",
+                  "minimum": 0,
+                  "description": "Costo unitario en `currency`."
+                },
+                "total_cost": {
+                  "type": "number",
+                  "minimum": 0,
+                  "description": "quantity × unit_cost en `currency`."
+                },
+                "stock_after": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "description": "Stock calculado tras la operación."
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "outbound_order_created": {
+      "description": "Capturamos `outbound_order_created` porque necesitamos saber qué programas consumen más material y a qué ritmo, lo que nos permite anticipar la reposición antes de una ola grande de matrículas (Elena).",
+      "x-nexova": {
+        "group": "inventario",
+        "origin": "mandatory",
+        "emitter": "api",
+        "delivery": "batch",
+        "contains_pii_at_source": true
+      },
+      "allOf": [
+        {
+          "$ref": "#/definitions/envelope"
+        },
+        {
+          "properties": {
+            "event_type": {
+              "const": "outbound_order_created"
+            },
+            "schemaVersion": {
+              "const": "1.0.0"
+            },
+            "properties": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "office",
+                "product_id",
+                "product_category",
+                "programme_id",
+                "quantity",
+                "currency",
+                "order_id",
+                "recipient_type",
+                "exit_type",
+                "stock_after"
+              ],
+              "properties": {
+                "office": {
+                  "type": "string",
+                  "enum": [
+                    "valencia",
+                    "miami"
+                  ],
+                  "description": "Oficina del material o de la operación (minúsculas, como el BRIEFING)."
+                },
+                "product_id": {
+                  "type": "string",
+                  "description": "Id del producto (Asset.id como texto)."
+                },
+                "product_category": {
+                  "type": "string",
+                  "enum": [
+                    "training_kit",
+                    "certification",
+                    "onboarding_equipment"
+                  ],
+                  "description": "Categoría del BRIEFING."
+                },
+                "programme_id": {
+                  "type": "string",
+                  "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+                  "description": "Programa (slug, ej. ventas-b2b)."
+                },
+                "quantity": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "description": "Unidades de la orden."
+                },
+                "currency": {
+                  "type": "string",
+                  "enum": [
+                    "EUR",
+                    "USD"
+                  ],
+                  "description": "Moneda de la oficina (EUR Valencia, USD Miami). Sin conversión."
+                },
+                "order_id": {
+                  "type": "string",
+                  "description": "Id de la orden de salida (AssetExit.id)."
+                },
+                "recipient_type": {
+                  "type": "string",
+                  "enum": [
+                    "client",
+                    "candidate",
+                    "consultant",
+                    "support_agent",
+                    "employee"
+                  ],
+                  "description": "A quién se entrega, como tipo: nunca el nombre."
+                },
+                "exit_type": {
+                  "type": "string",
+                  "enum": [
+                    "allocation",
+                    "consumption"
+                  ],
+                  "description": "Tipo de salida del sistema actual."
+                },
+                "stock_after": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "description": "Stock calculado tras la operación."
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "stock_threshold_triggered": {
+      "description": "Capturamos `stock_threshold_triggered` porque necesitamos saber con qué frecuencia un programa se queda sin material disponible, lo que nos permite ajustar el umbral mínimo o acelerar la reimpresión/reproducción de ese material.",
+      "x-nexova": {
+        "group": "inventario",
+        "origin": "mandatory",
+        "emitter": "api",
+        "delivery": "stream",
+        "contains_pii_at_source": false
+      },
+      "allOf": [
+        {
+          "$ref": "#/definitions/envelope"
+        },
+        {
+          "properties": {
+            "event_type": {
+              "const": "stock_threshold_triggered"
+            },
+            "schemaVersion": {
+              "const": "1.0.0"
+            },
+            "properties": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "office",
+                "product_id",
+                "product_category",
+                "programme_id",
+                "quantity",
+                "currency",
+                "min_stock",
+                "stock_before",
+                "stock_after",
+                "trigger_order_id"
+              ],
+              "properties": {
+                "office": {
+                  "type": "string",
+                  "enum": [
+                    "valencia",
+                    "miami"
+                  ],
+                  "description": "Oficina del material o de la operación (minúsculas, como el BRIEFING)."
+                },
+                "product_id": {
+                  "type": "string",
+                  "description": "Id del producto (Asset.id como texto)."
+                },
+                "product_category": {
+                  "type": "string",
+                  "enum": [
+                    "training_kit",
+                    "certification",
+                    "onboarding_equipment"
+                  ],
+                  "description": "Categoría del BRIEFING."
+                },
+                "programme_id": {
+                  "type": "string",
+                  "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+                  "description": "Programa (slug, ej. ventas-b2b)."
+                },
+                "quantity": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "description": "Unidades de la orden."
+                },
+                "currency": {
+                  "type": "string",
+                  "enum": [
+                    "EUR",
+                    "USD"
+                  ],
+                  "description": "Moneda de la oficina (EUR Valencia, USD Miami). Sin conversión."
+                },
+                "min_stock": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "description": "Umbral configurado del producto."
+                },
+                "stock_before": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "description": "Stock antes de la salida."
+                },
+                "stock_after": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "description": "Stock calculado tras la operación."
+                },
+                "trigger_order_id": {
+                  "type": "string",
+                  "description": "Id de la orden de salida que provocó el cruce."
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "direct_stock_edit_rejected": {
+      "description": "Capturamos `direct_stock_edit_rejected` porque necesitamos saber si el personal intenta saltarse el control de trazabilidad del material, lo que nos permite reforzar capacitación o permisos en la oficina donde ocurre con más frecuencia (Patricia).",
+      "x-nexova": {
+        "group": "inventario",
+        "origin": "mandatory",
+        "emitter": "api",
+        "delivery": "stream",
+        "contains_pii_at_source": true
+      },
+      "allOf": [
+        {
+          "$ref": "#/definitions/envelope"
+        },
+        {
+          "properties": {
+            "event_type": {
+              "const": "direct_stock_edit_rejected"
+            },
+            "schemaVersion": {
+              "const": "1.0.0"
+            },
+            "properties": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "http_method",
+                "route",
+                "status_code",
+                "user_role"
+              ],
+              "properties": {
+                "office": {
+                  "type": "string",
+                  "enum": [
+                    "valencia",
+                    "miami"
+                  ],
+                  "description": "Oficina del producto si se pudo resolver el id; si no, ausente."
+                },
+                "product_id": {
+                  "type": "string",
+                  "description": "Id del producto si venía en la ruta."
+                },
+                "product_category": {
+                  "type": "string",
+                  "enum": [
+                    "training_kit",
+                    "certification",
+                    "onboarding_equipment"
+                  ],
+                  "description": "Categoría del BRIEFING."
+                },
+                "programme_id": {
+                  "type": "string",
+                  "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+                  "description": "Programa (slug, ej. ventas-b2b)."
+                },
+                "quantity": {
+                  "type": "integer",
+                  "description": "Cantidad que se intentó fijar, si venía en el body."
+                },
+                "currency": {
+                  "type": "string",
+                  "enum": [
+                    "EUR",
+                    "USD"
+                  ],
+                  "description": "Moneda de la oficina (EUR Valencia, USD Miami). Sin conversión."
+                },
+                "http_method": {
+                  "type": "string",
+                  "enum": [
+                    "POST",
+                    "PUT",
+                    "PATCH",
+                    "DELETE"
+                  ],
+                  "description": "Método usado."
+                },
+                "route": {
+                  "type": "string",
+                  "description": "Plantilla de ruta sin ids ni query (ej. /inventory/products/{id})."
+                },
+                "status_code": {
+                  "type": "integer",
+                  "enum": [
+                    405,
+                    422
+                  ],
+                  "description": "Respuesta de la API."
+                },
+                "rejected_fields": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "enum": [
+                      "current_stock",
+                      "stock",
+                      "quantity"
+                    ]
+                  },
+                  "description": "Nombres de los campos de stock enviados (sin sus valores)."
+                },
+                "user_role": {
+                  "type": "string",
+                  "enum": [
+                    "admin",
+                    "manager",
+                    "user"
+                  ],
+                  "description": "Rol del usuario en el momento del intento."
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "kit_cost_variance_detected": {
+      "description": "Capturamos `kit_cost_variance_detected` porque necesitamos saber cuándo un proveedor de material sube precios de forma anómala, lo que nos permite alertar a Elena y a Laura para renegociar o buscar un proveedor alterno.",
+      "x-nexova": {
+        "group": "inventario",
+        "origin": "mandatory",
+        "emitter": "api",
+        "delivery": "stream",
+        "contains_pii_at_source": false
+      },
+      "allOf": [
+        {
+          "$ref": "#/definitions/envelope"
+        },
+        {
+          "properties": {
+            "event_type": {
+              "const": "kit_cost_variance_detected"
+            },
+            "schemaVersion": {
+              "const": "1.0.0"
+            },
+            "properties": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "office",
+                "product_id",
+                "product_category",
+                "programme_id",
+                "quantity",
+                "currency",
+                "order_id",
+                "supplier_id",
+                "unit_cost",
+                "baseline_unit_cost",
+                "variance_pct",
+                "threshold_pct",
+                "baseline_sample_size"
+              ],
+              "properties": {
+                "office": {
+                  "type": "string",
+                  "enum": [
+                    "valencia",
+                    "miami"
+                  ],
+                  "description": "Oficina del material o de la operación (minúsculas, como el BRIEFING)."
+                },
+                "product_id": {
+                  "type": "string",
+                  "description": "Id del producto (Asset.id como texto)."
+                },
+                "product_category": {
+                  "type": "string",
+                  "enum": [
+                    "training_kit",
+                    "certification",
+                    "onboarding_equipment"
+                  ],
+                  "description": "Categoría del BRIEFING."
+                },
+                "programme_id": {
+                  "type": "string",
+                  "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+                  "description": "Programa (slug, ej. ventas-b2b)."
+                },
+                "quantity": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "description": "Unidades de la orden."
+                },
+                "currency": {
+                  "type": "string",
+                  "enum": [
+                    "EUR",
+                    "USD"
+                  ],
+                  "description": "Moneda de la oficina (EUR Valencia, USD Miami). Sin conversión."
+                },
+                "order_id": {
+                  "type": "string",
+                  "description": "Id de la orden de entrada que dispara la alerta."
+                },
+                "supplier_id": {
+                  "type": "string",
+                  "description": "Proveedor normalizado (slug)."
+                },
+                "unit_cost": {
+                  "type": "number",
+                  "minimum": 0,
+                  "description": "Costo unitario de esta orden."
+                },
+                "baseline_unit_cost": {
+                  "type": "number",
+                  "minimum": 0,
+                  "description": "Media de las últimas entradas comparables."
+                },
+                "variance_pct": {
+                  "type": "number",
+                  "description": "Variación en % con signo (ej. 12.5 = subió un 12.5 %)."
+                },
+                "threshold_pct": {
+                  "type": "number",
+                  "minimum": 0,
+                  "description": "Umbral aplicado (10 por defecto)."
+                },
+                "baseline_sample_size": {
+                  "type": "integer",
+                  "minimum": 2,
+                  "maximum": 5,
+                  "description": "Cuántas entradas forman la media (2–5)."
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "inbound_order_rejected": {
+      "description": "Capturamos `inbound_order_rejected` porque necesitamos saber qué productos y oficinas acumulan más errores al registrar entradas, lo que nos permite corregir el formulario o el catálogo donde se concentran los rechazos (ej. productos de otra oficina).",
+      "x-nexova": {
+        "group": "inventario",
+        "origin": "identified",
+        "emitter": "api",
+        "delivery": "batch",
+        "contains_pii_at_source": false
+      },
+      "allOf": [
+        {
+          "$ref": "#/definitions/envelope"
+        },
+        {
+          "properties": {
+            "event_type": {
+              "const": "inbound_order_rejected"
+            },
+            "schemaVersion": {
+              "const": "1.0.0"
+            },
+            "properties": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "status_code",
+                "error_code"
+              ],
+              "properties": {
+                "office": {
+                  "type": "string",
+                  "enum": [
+                    "valencia",
+                    "miami"
+                  ],
+                  "description": "Oficina del material o de la operación (minúsculas, como el BRIEFING)."
+                },
+                "product_id": {
+                  "type": "string",
+                  "description": "Id del producto (Asset.id como texto)."
+                },
+                "product_category": {
+                  "type": "string",
+                  "enum": [
+                    "training_kit",
+                    "certification",
+                    "onboarding_equipment"
+                  ],
+                  "description": "Categoría del BRIEFING."
+                },
+                "programme_id": {
+                  "type": "string",
+                  "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+                  "description": "Programa (slug, ej. ventas-b2b)."
+                },
+                "status_code": {
+                  "type": "integer",
+                  "enum": [
+                    400,
+                    404,
+                    422
+                  ],
+                  "description": "Código HTTP."
+                },
+                "error_code": {
+                  "type": "string",
+                  "enum": [
+                    "asset_not_found",
+                    "office_mismatch",
+                    "invalid_quantity",
+                    "missing_field",
+                    "invalid_value",
+                    "other"
+                  ],
+                  "description": "Motivo normalizado."
+                },
+                "invalid_fields": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  },
+                  "description": "Campos con error (sin valores)."
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "outbound_order_rejected": {
+      "description": "Capturamos `outbound_order_rejected` porque necesitamos saber cuántas entregas se intentan sin stock suficiente y en qué programas, lo que nos permite subir el mínimo de esos productos o reponer antes; formar al personal si son errores de datos.",
+      "x-nexova": {
+        "group": "inventario",
+        "origin": "identified",
+        "emitter": "api",
+        "delivery": "batch",
+        "contains_pii_at_source": false
+      },
+      "allOf": [
+        {
+          "$ref": "#/definitions/envelope"
+        },
+        {
+          "properties": {
+            "event_type": {
+              "const": "outbound_order_rejected"
+            },
+            "schemaVersion": {
+              "const": "1.0.0"
+            },
+            "properties": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "status_code",
+                "error_code"
+              ],
+              "properties": {
+                "office": {
+                  "type": "string",
+                  "enum": [
+                    "valencia",
+                    "miami"
+                  ],
+                  "description": "Oficina del material o de la operación (minúsculas, como el BRIEFING)."
+                },
+                "product_id": {
+                  "type": "string",
+                  "description": "Id del producto (Asset.id como texto)."
+                },
+                "product_category": {
+                  "type": "string",
+                  "enum": [
+                    "training_kit",
+                    "certification",
+                    "onboarding_equipment"
+                  ],
+                  "description": "Categoría del BRIEFING."
+                },
+                "programme_id": {
+                  "type": "string",
+                  "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+                  "description": "Programa (slug, ej. ventas-b2b)."
+                },
+                "quantity": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "description": "Cantidad pedida."
+                },
+                "stock_available": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "description": "Stock que había (solo si el motivo es falta de stock)."
+                },
+                "status_code": {
+                  "type": "integer",
+                  "enum": [
+                    400,
+                    404,
+                    422
+                  ],
+                  "description": "Código HTTP."
+                },
+                "error_code": {
+                  "type": "string",
+                  "enum": [
+                    "insufficient_stock",
+                    "asset_not_found",
+                    "office_mismatch",
+                    "assigned_to_required",
+                    "assigned_to_not_allowed",
+                    "invalid_quantity",
+                    "missing_field",
+                    "other"
+                  ],
+                  "description": "Motivo normalizado."
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "stock_depleted": {
+      "description": "Capturamos `stock_depleted` porque necesitamos saber qué material se agota del todo (no solo baja del mínimo) y cuánto tarda en reponerse, lo que nos permite priorizar la reposición de ese material por encima de otros que solo están bajos.",
+      "x-nexova": {
+        "group": "inventario",
+        "origin": "identified",
+        "emitter": "api",
+        "delivery": "stream",
+        "contains_pii_at_source": false
+      },
+      "allOf": [
+        {
+          "$ref": "#/definitions/envelope"
+        },
+        {
+          "properties": {
+            "event_type": {
+              "const": "stock_depleted"
+            },
+            "schemaVersion": {
+              "const": "1.0.0"
+            },
+            "properties": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "office",
+                "product_id",
+                "product_category",
+                "programme_id",
+                "trigger_order_id"
+              ],
+              "properties": {
+                "office": {
+                  "type": "string",
+                  "enum": [
+                    "valencia",
+                    "miami"
+                  ],
+                  "description": "Oficina del material o de la operación (minúsculas, como el BRIEFING)."
+                },
+                "product_id": {
+                  "type": "string",
+                  "description": "Id del producto (Asset.id como texto)."
+                },
+                "product_category": {
+                  "type": "string",
+                  "enum": [
+                    "training_kit",
+                    "certification",
+                    "onboarding_equipment"
+                  ],
+                  "description": "Categoría del BRIEFING."
+                },
+                "programme_id": {
+                  "type": "string",
+                  "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+                  "description": "Programa (slug, ej. ventas-b2b)."
+                },
+                "trigger_order_id": {
+                  "type": "string",
+                  "description": "Orden de salida que dejó el stock a 0."
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "product_created": {
+      "description": "Capturamos `product_created` porque necesitamos saber a qué ritmo crece el catálogo de material por programa y categoría, lo que nos permite detectar programas nuevos que todavía no tienen kits dados de alta antes de abrir matrículas.",
+      "x-nexova": {
+        "group": "inventario",
+        "origin": "identified",
+        "emitter": "api",
+        "delivery": "batch",
+        "contains_pii_at_source": false
+      },
+      "allOf": [
+        {
+          "$ref": "#/definitions/envelope"
+        },
+        {
+          "properties": {
+            "event_type": {
+              "const": "product_created"
+            },
+            "schemaVersion": {
+              "const": "1.0.0"
+            },
+            "properties": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "office",
+                "product_id",
+                "product_category",
+                "programme_id",
+                "min_stock"
+              ],
+              "properties": {
+                "office": {
+                  "type": "string",
+                  "enum": [
+                    "valencia",
+                    "miami"
+                  ],
+                  "description": "Oficina del material o de la operación (minúsculas, como el BRIEFING)."
+                },
+                "product_id": {
+                  "type": "string",
+                  "description": "Id del producto (Asset.id como texto)."
+                },
+                "product_category": {
+                  "type": "string",
+                  "enum": [
+                    "training_kit",
+                    "certification",
+                    "onboarding_equipment"
+                  ],
+                  "description": "Categoría del BRIEFING."
+                },
+                "programme_id": {
+                  "type": "string",
+                  "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+                  "description": "Programa (slug, ej. ventas-b2b)."
+                },
+                "min_stock": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "description": "Umbral inicial configurado."
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "product_create_rejected": {
+      "description": "Capturamos `product_create_rejected` porque necesitamos saber si el alta de material falla por SKUs duplicados o datos mal formados, lo que nos permite decidir si hace falta una convención de SKU o validación previa en el formulario.",
+      "x-nexova": {
+        "group": "inventario",
+        "origin": "identified",
+        "emitter": "api",
+        "delivery": "batch",
+        "contains_pii_at_source": false
+      },
+      "allOf": [
+        {
+          "$ref": "#/definitions/envelope"
+        },
+        {
+          "properties": {
+            "event_type": {
+              "const": "product_create_rejected"
+            },
+            "schemaVersion": {
+              "const": "1.0.0"
+            },
+            "properties": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "status_code",
+                "error_code"
+              ],
+              "properties": {
+                "office": {
+                  "type": "string",
+                  "enum": [
+                    "valencia",
+                    "miami"
+                  ],
+                  "description": "Oficina del material o de la operación (minúsculas, como el BRIEFING)."
+                },
+                "product_category": {
+                  "type": "string",
+                  "enum": [
+                    "training_kit",
+                    "certification",
+                    "onboarding_equipment"
+                  ],
+                  "description": "Categoría del BRIEFING."
+                },
+                "status_code": {
+                  "type": "integer",
+                  "enum": [
+                    409,
+                    422
+                  ],
+                  "description": "Código HTTP."
+                },
+                "error_code": {
+                  "type": "string",
+                  "enum": [
+                    "duplicate_sku",
+                    "invalid_category",
+                    "invalid_office",
+                    "missing_field",
+                    "other"
+                  ],
+                  "description": "Motivo normalizado."
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "login_succeeded": {
+      "description": "Capturamos `login_succeeded` porque necesitamos saber cuántos operadores usan el backoffice cada día por oficina y en qué horario, lo que nos permite dimensionar soporte y elegir ventanas de mantenimiento fuera de las horas pico.",
+      "x-nexova": {
+        "group": "autenticación",
+        "origin": "identified",
+        "emitter": "api",
+        "delivery": "batch",
+        "contains_pii_at_source": false
+      },
+      "allOf": [
+        {
+          "$ref": "#/definitions/envelope"
+        },
+        {
+          "properties": {
+            "event_type": {
+              "const": "login_succeeded"
+            },
+            "schemaVersion": {
+              "const": "1.0.0"
+            },
+            "properties": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "user_role"
+              ],
+              "properties": {
+                "user_role": {
+                  "type": "string",
+                  "enum": [
+                    "admin",
+                    "manager",
+                    "user"
+                  ],
+                  "description": "Rol."
+                },
+                "office": {
+                  "type": "string",
+                  "enum": [
+                    "valencia",
+                    "miami"
+                  ],
+                  "description": "Oficina del perfil del usuario, si la tiene."
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "login_failed": {
+      "description": "Capturamos `login_failed` porque necesitamos saber cuántos intentos fallidos hay por día y si se concentran en una cuenta (posible fuerza bruta), lo que nos permite bloquear temporalmente la cuenta o añadir rate limit / CAPTCHA en el login.",
+      "x-nexova": {
+        "group": "autenticación",
+        "origin": "identified",
+        "emitter": "api",
+        "delivery": "stream",
+        "contains_pii_at_source": true
+      },
+      "allOf": [
+        {
+          "$ref": "#/definitions/envelope"
+        },
+        {
+          "properties": {
+            "event_type": {
+              "const": "login_failed"
+            },
+            "schemaVersion": {
+              "const": "1.0.0"
+            },
+            "properties": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "reason",
+                "account_ref"
+              ],
+              "properties": {
+                "reason": {
+                  "type": "string",
+                  "enum": [
+                    "invalid_credentials",
+                    "inactive_user",
+                    "malformed_request"
+                  ],
+                  "description": "Motivo normalizado."
+                },
+                "account_ref": {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{16}$",
+                  "description": "HMAC-SHA256 del email normalizado con una clave del servidor, primeros 16 hex. Permite contar intentos por cuenta sin guardar el email."
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "session_expired": {
+      "description": "Capturamos `session_expired` porque necesitamos saber si la duración del token corta el trabajo de los operadores a mitad de una tarea, lo que nos permite ajustar la caducidad del JWT o añadir refresh token.",
+      "x-nexova": {
+        "group": "autenticación",
+        "origin": "identified",
+        "emitter": "backoffice",
+        "delivery": "batch",
+        "contains_pii_at_source": false
+      },
+      "allOf": [
+        {
+          "$ref": "#/definitions/envelope"
+        },
+        {
+          "properties": {
+            "event_type": {
+              "const": "session_expired"
+            },
+            "schemaVersion": {
+              "const": "1.0.0"
+            },
+            "properties": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "page",
+                "had_unsaved_form"
+              ],
+              "properties": {
+                "page": {
+                  "type": "string",
+                  "description": "Ruta del frontend como plantilla, sin query ni hash (ej. /inventory/orders/inbound)."
+                },
+                "had_unsaved_form": {
+                  "type": "boolean",
+                  "description": "Si había un formulario con cambios sin enviar."
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "password_reset_requested": {
+      "description": "Capturamos `password_reset_requested` porque necesitamos saber con qué frecuencia la gente olvida la contraseña y si hay picos anómalos, lo que nos permite decidir si hace falta SSO o si un pico indica un abuso del endpoint (no tiene rate limit).",
+      "x-nexova": {
+        "group": "autenticación",
+        "origin": "identified",
+        "emitter": "api",
+        "delivery": "batch",
+        "contains_pii_at_source": true
+      },
+      "allOf": [
+        {
+          "$ref": "#/definitions/envelope"
+        },
+        {
+          "properties": {
+            "event_type": {
+              "const": "password_reset_requested"
+            },
+            "schemaVersion": {
+              "const": "1.0.0"
+            },
+            "properties": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "account_exists",
+                "account_ref"
+              ],
+              "properties": {
+                "account_exists": {
+                  "type": "boolean",
+                  "description": "Si el email correspondía a una cuenta (solo visible en telemetría, nunca en la respuesta)."
+                },
+                "account_ref": {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{16}$",
+                  "description": "HMAC del email, como en login_failed."
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "password_reset_completed": {
+      "description": "Capturamos `password_reset_completed` porque necesitamos saber cuántos restablecimientos se completan frente a los pedidos, lo que nos permite si muchos no se completan, revisar el email (Resend) o la caducidad del token.",
+      "x-nexova": {
+        "group": "autenticación",
+        "origin": "identified",
+        "emitter": "api",
+        "delivery": "batch",
+        "contains_pii_at_source": false
+      },
+      "allOf": [
+        {
+          "$ref": "#/definitions/envelope"
+        },
+        {
+          "properties": {
+            "event_type": {
+              "const": "password_reset_completed"
+            },
+            "schemaVersion": {
+              "const": "1.0.0"
+            },
+            "properties": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "token_age_minutes"
+              ],
+              "properties": {
+                "token_age_minutes": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "description": "Minutos desde que se pidió el token."
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "password_reset_failed": {
+      "description": "Capturamos `password_reset_failed` porque necesitamos saber si los enlaces de restablecimiento caducan antes de que la gente los use, lo que nos permite ampliar la validez del token o mejorar el texto del email.",
+      "x-nexova": {
+        "group": "autenticación",
+        "origin": "identified",
+        "emitter": "api",
+        "delivery": "batch",
+        "contains_pii_at_source": false
+      },
+      "allOf": [
+        {
+          "$ref": "#/definitions/envelope"
+        },
+        {
+          "properties": {
+            "event_type": {
+              "const": "password_reset_failed"
+            },
+            "schemaVersion": {
+              "const": "1.0.0"
+            },
+            "properties": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "reason"
+              ],
+              "properties": {
+                "reason": {
+                  "type": "string",
+                  "enum": [
+                    "token_not_found",
+                    "token_expired",
+                    "token_used",
+                    "user_inactive",
+                    "weak_password"
+                  ],
+                  "description": "Motivo interno (la API responde el mismo 400 genérico)."
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "permission_denied": {
+      "description": "Capturamos `permission_denied` porque necesitamos saber si hay usuarios que necesitan funciones que su rol no permite, lo que nos permite revisar los roles o dar acceso a quien lo necesita de verdad.",
+      "x-nexova": {
+        "group": "autenticación",
+        "origin": "identified",
+        "emitter": "api",
+        "delivery": "stream",
+        "contains_pii_at_source": false
+      },
+      "allOf": [
+        {
+          "$ref": "#/definitions/envelope"
+        },
+        {
+          "properties": {
+            "event_type": {
+              "const": "permission_denied"
+            },
+            "schemaVersion": {
+              "const": "1.0.0"
+            },
+            "properties": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "route",
+                "http_method",
+                "user_role"
+              ],
+              "properties": {
+                "route": {
+                  "type": "string",
+                  "description": "Plantilla de ruta sin ids ni query (ej. /inventory/products/{id})."
+                },
+                "http_method": {
+                  "type": "string",
+                  "enum": [
+                    "GET",
+                    "POST",
+                    "PUT",
+                    "PATCH",
+                    "DELETE"
+                  ],
+                  "description": "Método."
+                },
+                "user_role": {
+                  "type": "string",
+                  "enum": [
+                    "admin",
+                    "manager",
+                    "user"
+                  ],
+                  "description": "Rol."
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "user_role_changed": {
+      "description": "Capturamos `user_role_changed` porque necesitamos saber quién recibe o pierde permisos de administración y cuándo, lo que nos permite auditar los cambios de permisos y revertir los que no estén justificados.",
+      "x-nexova": {
+        "group": "autenticación",
+        "origin": "identified",
+        "emitter": "api",
+        "delivery": "stream",
+        "contains_pii_at_source": false
+      },
+      "allOf": [
+        {
+          "$ref": "#/definitions/envelope"
+        },
+        {
+          "properties": {
+            "event_type": {
+              "const": "user_role_changed"
+            },
+            "schemaVersion": {
+              "const": "1.0.0"
+            },
+            "properties": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "target_user_id",
+                "previous_role",
+                "new_role",
+                "is_active"
+              ],
+              "properties": {
+                "target_user_id": {
+                  "type": "string",
+                  "format": "uuid",
+                  "description": "UUID interno del usuario modificado."
+                },
+                "previous_role": {
+                  "type": "string",
+                  "enum": [
+                    "admin",
+                    "manager",
+                    "user"
+                  ],
+                  "description": "Rol anterior."
+                },
+                "new_role": {
+                  "type": "string",
+                  "enum": [
+                    "admin",
+                    "manager",
+                    "user"
+                  ],
+                  "description": "Rol nuevo."
+                },
+                "is_active": {
+                  "type": "boolean",
+                  "description": "Estado tras el cambio."
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "api_latency_recorded": {
+      "description": "Capturamos `api_latency_recorded` porque necesitamos saber qué endpoints se degradan al crecer los datos (ej. `/inventory/orders` pasa de 2 a 227 ms con 7000 órdenes), lo que nos permite priorizar paginación, índices o caché en los endpoints que superan 300 ms de p95.",
+      "x-nexova": {
+        "group": "rendimiento",
+        "origin": "identified",
+        "emitter": "api",
+        "delivery": "batch",
+        "contains_pii_at_source": false
+      },
+      "allOf": [
+        {
+          "$ref": "#/definitions/envelope"
+        },
+        {
+          "properties": {
+            "event_type": {
+              "const": "api_latency_recorded"
+            },
+            "schemaVersion": {
+              "const": "1.0.0"
+            },
+            "properties": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "route",
+                "http_method",
+                "window_seconds",
+                "request_count",
+                "p50_ms",
+                "p95_ms",
+                "max_ms",
+                "error_count"
+              ],
+              "properties": {
+                "route": {
+                  "type": "string",
+                  "description": "Plantilla de ruta sin ids ni query (ej. /inventory/products/{id})."
+                },
+                "http_method": {
+                  "type": "string",
+                  "enum": [
+                    "GET",
+                    "POST",
+                    "PUT",
+                    "PATCH",
+                    "DELETE"
+                  ],
+                  "description": "Método."
+                },
+                "window_seconds": {
+                  "type": "integer",
+                  "enum": [
+                    60
+                  ],
+                  "description": "Duración de la ventana."
+                },
+                "request_count": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "description": "Peticiones en la ventana."
+                },
+                "p50_ms": {
+                  "type": "number",
+                  "minimum": 0,
+                  "description": "Mediana."
+                },
+                "p95_ms": {
+                  "type": "number",
+                  "minimum": 0,
+                  "description": "Percentil 95."
+                },
+                "max_ms": {
+                  "type": "number",
+                  "minimum": 0,
+                  "description": "Máximo."
+                },
+                "error_count": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "description": "Respuestas 5xx en la ventana."
+                },
+                "cache_hit_ratio": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 1,
+                  "description": "Aciertos/peticiones si la ruta está cacheada (0–1)."
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "page_load_recorded": {
+      "description": "Capturamos `page_load_recorded` porque necesitamos saber si las páginas siguen dentro de los umbrales que dejó la auditoría de Lighthouse con usuarios reales, lo que nos permite volver a optimizar la página que salga de verde en LCP/INP/CLS.",
+      "x-nexova": {
+        "group": "rendimiento",
+        "origin": "identified",
+        "emitter": "backoffice",
+        "delivery": "batch",
+        "contains_pii_at_source": false
+      },
+      "allOf": [
+        {
+          "$ref": "#/definitions/envelope"
+        },
+        {
+          "properties": {
+            "event_type": {
+              "const": "page_load_recorded"
+            },
+            "schemaVersion": {
+              "const": "1.0.0"
+            },
+            "properties": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "page",
+                "app",
+                "device_type"
+              ],
+              "properties": {
+                "page": {
+                  "type": "string",
+                  "description": "Ruta del frontend como plantilla, sin query ni hash (ej. /inventory/orders/inbound)."
+                },
+                "app": {
+                  "type": "string",
+                  "enum": [
+                    "backoffice",
+                    "website"
+                  ],
+                  "description": "Aplicación."
+                },
+                "lcp_ms": {
+                  "type": "number",
+                  "minimum": 0,
+                  "description": "Largest Contentful Paint."
+                },
+                "inp_ms": {
+                  "type": "number",
+                  "minimum": 0,
+                  "description": "Interaction to Next Paint."
+                },
+                "cls": {
+                  "type": "number",
+                  "minimum": 0,
+                  "description": "Cumulative Layout Shift."
+                },
+                "ttfb_ms": {
+                  "type": "number",
+                  "minimum": 0,
+                  "description": "Time to First Byte."
+                },
+                "device_type": {
+                  "type": "string",
+                  "enum": [
+                    "desktop",
+                    "mobile",
+                    "tablet"
+                  ],
+                  "description": "Tipo de dispositivo (no el user agent)."
+                },
+                "connection_type": {
+                  "type": "string",
+                  "enum": [
+                    "slow-2g",
+                    "2g",
+                    "3g",
+                    "4g"
+                  ],
+                  "description": "navigator.connection.effectiveType si existe."
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "cache_stats_recorded": {
+      "description": "Capturamos `cache_stats_recorded` porque necesitamos saber si los TTL elegidos (30 s resumen, 60 s productos) dan un porcentaje de aciertos útil, lo que nos permite subir, bajar o quitar el caché de cada endpoint con datos reales.",
+      "x-nexova": {
+        "group": "rendimiento",
+        "origin": "identified",
+        "emitter": "api",
+        "delivery": "batch",
+        "contains_pii_at_source": false
+      },
+      "allOf": [
+        {
+          "$ref": "#/definitions/envelope"
+        },
+        {
+          "properties": {
+            "event_type": {
+              "const": "cache_stats_recorded"
+            },
+            "schemaVersion": {
+              "const": "1.0.0"
+            },
+            "properties": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "cache_name",
+                "hits",
+                "misses",
+                "entries",
+                "ttl_seconds"
+              ],
+              "properties": {
+                "cache_name": {
+                  "type": "string",
+                  "enum": [
+                    "incidents_summary",
+                    "inventory_products"
+                  ],
+                  "description": "Caché."
+                },
+                "hits": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "description": "Aciertos en la ventana."
+                },
+                "misses": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "description": "Fallos en la ventana."
+                },
+                "entries": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "description": "Entradas vivas."
+                },
+                "ttl_seconds": {
+                  "type": "number",
+                  "minimum": 0,
+                  "description": "TTL configurado."
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "order_form_validation_failed": {
+      "description": "Capturamos `order_form_validation_failed` porque necesitamos saber qué campos del formulario provocan más errores antes de llegar a la API, lo que nos permite mejorar etiquetas, ejemplos o valores por defecto de esos campos.",
+      "x-nexova": {
+        "group": "errores",
+        "origin": "identified",
+        "emitter": "backoffice",
+        "delivery": "batch",
+        "contains_pii_at_source": false
+      },
+      "allOf": [
+        {
+          "$ref": "#/definitions/envelope"
+        },
+        {
+          "properties": {
+            "event_type": {
+              "const": "order_form_validation_failed"
+            },
+            "schemaVersion": {
+              "const": "1.0.0"
+            },
+            "properties": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "form",
+                "invalid_fields"
+              ],
+              "properties": {
+                "form": {
+                  "type": "string",
+                  "enum": [
+                    "inbound_order",
+                    "outbound_order"
+                  ],
+                  "description": "Formulario."
+                },
+                "invalid_fields": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "enum": [
+                      "asset_id",
+                      "quantity",
+                      "supplier",
+                      "unit_cost",
+                      "exit_type",
+                      "assigned_to",
+                      "office"
+                    ]
+                  },
+                  "description": "Campos con error (sin valores)."
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "api_error_occurred": {
+      "description": "Capturamos `api_error_occurred` porque necesitamos saber qué endpoints fallan y desde cuándo, lo que nos permite abrir una incidencia y revertir o corregir el despliegue que lo introdujo.",
+      "x-nexova": {
+        "group": "errores",
+        "origin": "identified",
+        "emitter": "api",
+        "delivery": "stream",
+        "contains_pii_at_source": true
+      },
+      "allOf": [
+        {
+          "$ref": "#/definitions/envelope"
+        },
+        {
+          "properties": {
+            "event_type": {
+              "const": "api_error_occurred"
+            },
+            "schemaVersion": {
+              "const": "1.0.0"
+            },
+            "properties": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "route",
+                "http_method",
+                "status_code",
+                "error_class",
+                "fingerprint"
+              ],
+              "properties": {
+                "route": {
+                  "type": "string",
+                  "description": "Plantilla de ruta sin ids ni query (ej. /inventory/products/{id})."
+                },
+                "http_method": {
+                  "type": "string",
+                  "enum": [
+                    "GET",
+                    "POST",
+                    "PUT",
+                    "PATCH",
+                    "DELETE"
+                  ],
+                  "description": "Método."
+                },
+                "status_code": {
+                  "type": "integer",
+                  "minimum": 500,
+                  "maximum": 599,
+                  "description": "Código HTTP."
+                },
+                "error_class": {
+                  "type": "string",
+                  "description": "Clase de la excepción (ej. OperationalError)."
+                },
+                "fingerprint": {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{12}$",
+                  "description": "Hash de clase + archivo + línea, para agrupar el mismo fallo."
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "frontend_error_captured": {
+      "description": "Capturamos `frontend_error_captured` porque necesitamos saber qué errores de JavaScript sufren los usuarios y que nunca llegan a la API, lo que nos permite priorizar la corrección de los errores con más sesiones afectadas.",
+      "x-nexova": {
+        "group": "errores",
+        "origin": "identified",
+        "emitter": "backoffice",
+        "delivery": "stream",
+        "contains_pii_at_source": true
+      },
+      "allOf": [
+        {
+          "$ref": "#/definitions/envelope"
+        },
+        {
+          "properties": {
+            "event_type": {
+              "const": "frontend_error_captured"
+            },
+            "schemaVersion": {
+              "const": "1.0.0"
+            },
+            "properties": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "page",
+                "app",
+                "error_name",
+                "message",
+                "source",
+                "fingerprint"
+              ],
+              "properties": {
+                "page": {
+                  "type": "string",
+                  "description": "Ruta del frontend como plantilla, sin query ni hash (ej. /inventory/orders/inbound)."
+                },
+                "app": {
+                  "type": "string",
+                  "enum": [
+                    "backoffice",
+                    "website"
+                  ],
+                  "description": "Aplicación."
+                },
+                "error_name": {
+                  "type": "string",
+                  "description": "Nombre del error (TypeError…)."
+                },
+                "message": {
+                  "type": "string",
+                  "maxLength": 200,
+                  "description": "Mensaje recortado a 200 caracteres y saneado (sin emails, números largos ni query strings)."
+                },
+                "source": {
+                  "type": "string",
+                  "enum": [
+                    "onerror",
+                    "unhandledrejection",
+                    "error_boundary"
+                  ],
+                  "description": "Origen."
+                },
+                "fingerprint": {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{12}$",
+                  "description": "Hash de nombre + primer frame del stack."
+                },
+                "release": {
+                  "type": "string",
+                  "description": "Versión/commit desplegado."
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "api_request_failed": {
+      "description": "Capturamos `api_request_failed` porque necesitamos saber si hay problemas de conectividad entre oficinas y el VPS que la API no puede ver, lo que nos permite revisar la red o el despliegue en el VPS si se concentra en una oficina u horario.",
+      "x-nexova": {
+        "group": "errores",
+        "origin": "identified",
+        "emitter": "backoffice",
+        "delivery": "batch",
+        "contains_pii_at_source": false
+      },
+      "allOf": [
+        {
+          "$ref": "#/definitions/envelope"
+        },
+        {
+          "properties": {
+            "event_type": {
+              "const": "api_request_failed"
+            },
+            "schemaVersion": {
+              "const": "1.0.0"
+            },
+            "properties": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "route",
+                "http_method",
+                "failure_type",
+                "elapsed_ms"
+              ],
+              "properties": {
+                "route": {
+                  "type": "string",
+                  "description": "Plantilla de ruta sin ids ni query (ej. /inventory/products/{id})."
+                },
+                "http_method": {
+                  "type": "string",
+                  "enum": [
+                    "GET",
+                    "POST",
+                    "PUT",
+                    "PATCH",
+                    "DELETE"
+                  ],
+                  "description": "Método."
+                },
+                "failure_type": {
+                  "type": "string",
+                  "enum": [
+                    "network",
+                    "timeout",
+                    "cors",
+                    "aborted"
+                  ],
+                  "description": "Tipo de fallo."
+                },
+                "elapsed_ms": {
+                  "type": "number",
+                  "minimum": 0,
+                  "description": "Tiempo hasta el fallo."
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "inventory_filter_applied": {
+      "description": "Capturamos `inventory_filter_applied` porque necesitamos saber qué vistas del inventario usan los operadores (por oficina, por categoría) y si buscan material que no existe, lo que nos permite decidir qué filtros dejar por defecto y si falta alguno (ej. por programa).",
+      "x-nexova": {
+        "group": "navegación",
+        "origin": "identified",
+        "emitter": "backoffice",
+        "delivery": "batch",
+        "contains_pii_at_source": false
+      },
+      "allOf": [
+        {
+          "$ref": "#/definitions/envelope"
+        },
+        {
+          "properties": {
+            "event_type": {
+              "const": "inventory_filter_applied"
+            },
+            "schemaVersion": {
+              "const": "1.0.0"
+            },
+            "properties": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "page",
+                "results_count"
+              ],
+              "properties": {
+                "page": {
+                  "type": "string",
+                  "description": "Ruta del frontend como plantilla, sin query ni hash (ej. /inventory/orders/inbound)."
+                },
+                "filter_office": {
+                  "type": "string",
+                  "enum": [
+                    "valencia",
+                    "miami"
+                  ],
+                  "description": "Oficina filtrada (ausente = todas)."
+                },
+                "filter_category": {
+                  "type": "string",
+                  "enum": [
+                    "training_kit",
+                    "certification",
+                    "onboarding_equipment"
+                  ],
+                  "description": "Categoría filtrada (ausente = todas)."
+                },
+                "results_count": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "description": "Filas devueltas."
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "order_form_abandoned": {
+      "description": "Capturamos `order_form_abandoned` porque necesitamos saber si el registro de órdenes es lo bastante simple o hay pasos donde la gente se rinde, lo que nos permite simplificar el campo donde más se abandona o añadir ayuda contextual.",
+      "x-nexova": {
+        "group": "navegación",
+        "origin": "identified",
+        "emitter": "backoffice",
+        "delivery": "batch",
+        "contains_pii_at_source": false
+      },
+      "allOf": [
+        {
+          "$ref": "#/definitions/envelope"
+        },
+        {
+          "properties": {
+            "event_type": {
+              "const": "order_form_abandoned"
+            },
+            "schemaVersion": {
+              "const": "1.0.0"
+            },
+            "properties": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "form",
+                "fields_completed",
+                "had_validation_error",
+                "time_on_form_ms"
+              ],
+              "properties": {
+                "form": {
+                  "type": "string",
+                  "enum": [
+                    "inbound_order",
+                    "outbound_order"
+                  ],
+                  "description": "Formulario abandonado."
+                },
+                "last_field": {
+                  "type": "string",
+                  "enum": [
+                    "asset_id",
+                    "quantity",
+                    "supplier",
+                    "unit_cost",
+                    "exit_type",
+                    "assigned_to",
+                    "office"
+                  ],
+                  "description": "Último campo tocado (nombre del campo, nunca su valor)."
+                },
+                "fields_completed": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "description": "Campos con valor al salir."
+                },
+                "had_validation_error": {
+                  "type": "boolean",
+                  "description": "Si llegó a ver un error de validación."
+                },
+                "time_on_form_ms": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "description": "Tiempo desde el primer cambio."
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "page_viewed": {
+      "description": "Capturamos `page_viewed` porque necesitamos saber qué secciones visitan más los operadores y cuáles casi no se usan, lo que nos permite dónde invertir el rediseño del backoffice (Stitch) y qué secciones simplificar o quitar.",
+      "x-nexova": {
+        "group": "navegación",
+        "origin": "identified",
+        "emitter": "backoffice",
+        "delivery": "batch",
+        "contains_pii_at_source": false
+      },
+      "allOf": [
+        {
+          "$ref": "#/definitions/envelope"
+        },
+        {
+          "properties": {
+            "event_type": {
+              "const": "page_viewed"
+            },
+            "schemaVersion": {
+              "const": "1.0.0"
+            },
+            "properties": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "page",
+                "app",
+                "ui_locale"
+              ],
+              "properties": {
+                "page": {
+                  "type": "string",
+                  "description": "Ruta del frontend como plantilla, sin query ni hash (ej. /inventory/orders/inbound)."
+                },
+                "app": {
+                  "type": "string",
+                  "enum": [
+                    "backoffice",
+                    "website"
+                  ],
+                  "description": "Aplicación."
+                },
+                "referrer_page": {
+                  "type": "string",
+                  "description": "Página interna anterior (plantilla). Nunca el referrer externo completo."
+                },
+                "ui_locale": {
+                  "type": "string",
+                  "enum": [
+                    "es",
+                    "en"
+                  ],
+                  "description": "Idioma de la interfaz. Dimensión independiente de la oficina (BRIEFING §6)."
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "incident_created": {
+      "description": "Capturamos `incident_created` porque necesitamos saber qué categorías y sedes generan más incidencias, lo que nos permite reforzar el proceso o el equipo de la sede/categoría que más crece.",
+      "x-nexova": {
+        "group": "negocio",
+        "origin": "identified",
+        "emitter": "api",
+        "delivery": "batch",
+        "contains_pii_at_source": false
+      },
+      "allOf": [
+        {
+          "$ref": "#/definitions/envelope"
+        },
+        {
+          "properties": {
+            "event_type": {
+              "const": "incident_created"
+            },
+            "schemaVersion": {
+              "const": "1.0.0"
+            },
+            "properties": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "category",
+                "origin",
+                "branch"
+              ],
+              "properties": {
+                "category": {
+                  "type": "string",
+                  "enum": [
+                    "technical_failure",
+                    "process_error",
+                    "client_complaint",
+                    "candidate_issue",
+                    "staff_issue",
+                    "sla_breach",
+                    "data_quality",
+                    "other"
+                  ],
+                  "description": "Categoría de la incidencia."
+                },
+                "origin": {
+                  "type": "string",
+                  "enum": [
+                    "customer",
+                    "branch",
+                    "internal"
+                  ],
+                  "description": "Origen."
+                },
+                "branch": {
+                  "type": "string",
+                  "enum": [
+                    "central",
+                    "valencia_operations",
+                    "miami_office",
+                    "remote"
+                  ],
+                  "description": "Sede de la incidencia (valores del gestor de incidencias)."
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "incident_status_changed": {
+      "description": "Capturamos `incident_status_changed` porque necesitamos saber cuánto tardan las incidencias en pasar de abiertas a resueltas por categoría, lo que nos permite fijar objetivos de tiempo de resolución y detectar categorías atascadas.",
+      "x-nexova": {
+        "group": "negocio",
+        "origin": "identified",
+        "emitter": "api",
+        "delivery": "batch",
+        "contains_pii_at_source": false
+      },
+      "allOf": [
+        {
+          "$ref": "#/definitions/envelope"
+        },
+        {
+          "properties": {
+            "event_type": {
+              "const": "incident_status_changed"
+            },
+            "schemaVersion": {
+              "const": "1.0.0"
+            },
+            "properties": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "incident_id",
+                "from_status",
+                "to_status",
+                "category",
+                "minutes_in_previous_status"
+              ],
+              "properties": {
+                "incident_id": {
+                  "type": "string",
+                  "description": "Id de la incidencia."
+                },
+                "from_status": {
+                  "type": "string",
+                  "enum": [
+                    "open",
+                    "in_progress",
+                    "resolved",
+                    "discarded"
+                  ],
+                  "description": "Estado anterior."
+                },
+                "to_status": {
+                  "type": "string",
+                  "enum": [
+                    "open",
+                    "in_progress",
+                    "resolved",
+                    "discarded"
+                  ],
+                  "description": "Estado nuevo."
+                },
+                "category": {
+                  "type": "string",
+                  "enum": [
+                    "technical_failure",
+                    "process_error",
+                    "client_complaint",
+                    "candidate_issue",
+                    "staff_issue",
+                    "sla_breach",
+                    "data_quality",
+                    "other"
+                  ],
+                  "description": "Categoría."
+                },
+                "minutes_in_previous_status": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "description": "Minutos en el estado anterior."
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "incident_file_analyzed": {
+      "description": "Capturamos `incident_file_analyzed` porque necesitamos saber qué calidad tienen los CSV de incidencias que se suben (filas inválidas por regla), lo que nos permite corregir en origen la exportación que más filas inválidas genera.",
+      "x-nexova": {
+        "group": "negocio",
+        "origin": "identified",
+        "emitter": "api",
+        "delivery": "batch",
+        "contains_pii_at_source": true
+      },
+      "allOf": [
+        {
+          "$ref": "#/definitions/envelope"
+        },
+        {
+          "properties": {
+            "event_type": {
+              "const": "incident_file_analyzed"
+            },
+            "schemaVersion": {
+              "const": "1.0.0"
+            },
+            "properties": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "rows_total",
+                "rows_invalid",
+                "file_size_kb"
+              ],
+              "properties": {
+                "rows_total": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "description": "Filas del archivo."
+                },
+                "rows_invalid": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "description": "Filas inválidas."
+                },
+                "invalid_rules": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  },
+                  "description": "Reglas incumplidas (nombres)."
+                },
+                "file_size_kb": {
+                  "type": "number",
+                  "minimum": 0,
+                  "description": "Tamaño del archivo."
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "supplier_rate_changed": {
+      "description": "Capturamos `supplier_rate_changed` porque necesitamos saber con qué frecuencia y cuánto cambian las tarifas de los proveedores de servicios, lo que nos permite anticipar el impacto en costes antes de renovar contratos.",
+      "x-nexova": {
+        "group": "negocio",
+        "origin": "identified",
+        "emitter": "api",
+        "delivery": "batch",
+        "contains_pii_at_source": false
+      },
+      "allOf": [
+        {
+          "$ref": "#/definitions/envelope"
+        },
+        {
+          "properties": {
+            "event_type": {
+              "const": "supplier_rate_changed"
+            },
+            "schemaVersion": {
+              "const": "1.0.0"
+            },
+            "properties": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "supplier_id",
+                "currency",
+                "previous_monthly_rate",
+                "new_monthly_rate",
+                "change_pct"
+              ],
+              "properties": {
+                "supplier_id": {
+                  "type": "string",
+                  "description": "Id del proveedor."
+                },
+                "category": {
+                  "type": "string",
+                  "description": "Categoría del proveedor (directorio)."
+                },
+                "currency": {
+                  "type": "string",
+                  "enum": [
+                    "EUR",
+                    "USD"
+                  ],
+                  "description": "Moneda de la oficina (EUR Valencia, USD Miami). Sin conversión."
+                },
+                "previous_monthly_rate": {
+                  "type": "number",
+                  "minimum": 0,
+                  "description": "Tarifa anterior."
+                },
+                "new_monthly_rate": {
+                  "type": "number",
+                  "minimum": 0,
+                  "description": "Tarifa nueva."
+                },
+                "change_pct": {
+                  "type": "number",
+                  "description": "Variación en %."
+                }
+              }
+            }
+          }
+        }
+      ]
+    }
+  }
+}
