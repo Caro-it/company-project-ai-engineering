@@ -35,5 +35,10 @@ class Settings(BaseSettings):
     # backoffice añaden su propio puerto
     CORS_ORIGINS: list[str] = ["http://localhost:3000", "http://localhost:3001"]
 
+    # Telemetría (proyecto de captura): URL pública del receptor de eventos. Hoy apunta al
+    # stub POST /telemetry/events de esta misma API; en la fase de almacenamiento apuntará a
+    # la implementación real. El backoffice usa la misma URL en NEXT_PUBLIC_TELEMETRY_ENDPOINT
+    TELEMETRY_ENDPOINT: str = "http://localhost:8000/telemetry/events"
+
 
 settings = Settings()
