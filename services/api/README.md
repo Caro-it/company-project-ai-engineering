@@ -171,13 +171,26 @@ uv run seed-inventory     # idempotente: activos por SKU; órdenes solo si aún 
 
 **Tests** (`tests/test_inventory_api.py`, 30 tests): usan SQLite en memoria en lugar de Supabase (nunca la `DATABASE_URL` de `.env`). Para pasarlos contra un PostgreSQL local de pruebas: `TEST_DATABASE_URL=postgresql://… uv run pytest tests/test_inventory_api.py` (borra las tablas de inventario al acabar cada test: **nunca** la BD de Supabase).
 
-## Telemetría (proyecto de captura)
+## Telemetría
 
-- `POST /telemetry/events` — **stub**: valida el envelope (`app/telemetry_models.py`, modelo
-  `TelemetryEvent`), registra en el log `api.telemetry` cuántos eventos llegan y de qué tipo, y
-  responde `{"received": N}`. No guarda nada todavía. Sin token, porque el backoffice vacía la
-  cola con `sendBeacon`, que no puede enviar `Authorization`; acepta el cuerpo como
-  `application/json` o `text/plain`.
+- `POST /telemetry/events` — receptor real (proyecto de almacenamiento). Valida cada evento
+  por separado (envelope con `TelemetryEvent` de `app/telemetry_models.py` + allowlist de
+  `docs/telemetry/event-schemas.json`), guarda los válidos en la tabla `telemetry_events` de
+  Supabase con **un solo INSERT por lote** y responde `{"received", "stored", "rejected"}`.
+  Un evento inválido no cancela el lote; 422 solo si el cuerpo no trae `{"events": [...]}`.
+  Sin token, porque el backoffice vacía la cola con `sendBeacon`, que no puede enviar
+  `Authorization`; acepta el cuerpo como `application/json` o `text/plain`.
+- `telemetry_events` (`app/telemetry_store.py`): la crea la API al arrancar, con índices en
+  `timestamp`, `event_type` y GIN en `tags`. Es solo de inserción (trigger en PostgreSQL).
+  Mapeo de columnas: `docs/telemetry/telemetry-plan.md` §5.3.
+- Probar un lote mixto (1 válido + 1 inválido) en PowerShell, con la API arrancada:
+
+  ```powershell
+  $ok  = @{ eventId = [guid]::NewGuid().ToString(); timestamp = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ss.fffZ"); sessionId = $null; userId = $null; event_type = "page_viewed"; schemaVersion = "1.0.0"; requestId = $null; source = "backoffice"; environment = "development"; properties = @{ page = "/"; app = "backoffice"; ui_locale = "es" } }
+  $bad = $ok.Clone(); $bad.eventId = "no-es-uuid"
+  Invoke-RestMethod -Method Post -Uri http://localhost:8000/telemetry/events -ContentType "application/json" -Body (@{ events = @($ok, $bad) } | ConvertTo-Json -Depth 5)
+  # → received 2, stored 1, rejected 1
+  ```
 - `TELEMETRY_ENDPOINT` en `.env`: URL del receptor (la misma que `NEXT_PUBLIC_TELEMETRY_ENDPOINT`
   del backoffice).
 - `X-Request-ID`: la API reutiliza el que manda el backoffice (o genera uno) y lo devuelve en la

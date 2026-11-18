@@ -4,7 +4,12 @@ import json
 import uuid
 
 import pytest
+from sqlalchemy import event as sa_event
+from sqlmodel import Session, select
 from test_inventory_api import LAPTOP, create_asset, inbound, outbound  # noqa: F401
+
+from app import database
+from app.telemetry_store import TelemetryEventRecord
 
 
 def _event(**overrides) -> dict:
@@ -24,35 +29,121 @@ def _event(**overrides) -> dict:
     return event
 
 
-# --- Stub -------------------------------------------------------------------------------
+# --- Receptor real: validación por evento y bulk insert -------------------------------
 
 
-def test_batch_returns_received_count_without_token(client):
-    events = [_event(), _event(event_type="inbound_order_created", properties={"quantity": 3})]
+def _rows(event_type: str | None = None) -> list[TelemetryEventRecord]:
+    with Session(database.engine) as session:
+        query = select(TelemetryEventRecord)
+        if event_type:
+            query = query.where(TelemetryEventRecord.event_type == event_type)
+        return list(session.exec(query).all())
+
+
+INBOUND = {
+    "office": "valencia",
+    "product_id": "7",
+    "product_category": "training_kit",
+    "programme_id": "ventas-b2b",
+    "quantity": 10,
+    "currency": "EUR",
+    "order_id": "31",
+    "supplier_id": "imprenta-turia-sl",
+    "unit_cost": 12.5,
+    "total_cost": 125,
+    "stock_after": 16,
+}
+
+
+def test_batch_is_stored_without_token(client):
+    events = [_event(), _event(event_type="inbound_order_created", properties=INBOUND)]
     res = client.post("/telemetry/events", json={"events": events})
     assert res.status_code == 200
-    assert res.json() == {"received": 2}
+    assert res.json() == {"received": 2, "stored": 2, "rejected": 0}
+
+    row = _rows("inbound_order_created")[0]
+    assert row.service == "backoffice"
+    assert row.level == "info"
+    assert float(row.value) == 10  # quantity
+    assert row.message.startswith("inbound_order_created · office=valencia · programme_id=ventas-b2b")
+    assert row.tags["programme_id"] == "ventas-b2b"
+    assert row.tags["_envelope"]["event_id"] == events[1]["eventId"]
+    assert row.tags["_envelope"]["schema_version"] == "1.0.0"
+    assert row.timestamp is not None
+
+
+def test_mixed_batch_keeps_the_valid_events(client):
+    bad_envelope = _event(eventId="no-es-uuid")
+    bad_properties = _event(properties={**_event()["properties"], "email": "ana@nexova.com"})
+    unknown_type = _event(event_type="something_happened")
+    events = [_event(), bad_envelope, bad_properties, unknown_type, _event(), "no soy un objeto"]
+    res = client.post("/telemetry/events", json={"events": events})
+    assert res.status_code == 200
+    assert res.json() == {"received": 6, "stored": 2, "rejected": 4}
+    assert len(_rows()) == 2
+    assert all("ana@nexova.com" not in str(row.tags) for row in _rows())
 
 
 def test_text_plain_body_from_send_beacon_is_accepted(client):
     """sendBeacon envía un Blob text/plain para evitar el preflight CORS."""
     body = json.dumps({"events": [_event()]})
     res = client.post("/telemetry/events", content=body, headers={"Content-Type": "text/plain;charset=UTF-8"})
-    assert res.status_code == 200
-    assert res.json() == {"received": 1}
+    assert res.json() == {"received": 1, "stored": 1, "rejected": 0}
 
 
-def test_batch_is_logged_with_event_types(client, caplog):
+def test_bulk_insert_is_one_statement(client):
+    """Un solo INSERT por lote, no uno por evento."""
+    inserts = []
+
+    def count(conn, cursor, statement, parameters, context, executemany):
+        if statement.lstrip().upper().startswith("INSERT INTO TELEMETRY_EVENTS"):
+            inserts.append(statement)
+
+    sa_event.listen(database.engine, "before_cursor_execute", count)
+    try:
+        res = client.post("/telemetry/events", json={"events": [_event() for _ in range(20)]})
+    finally:
+        sa_event.remove(database.engine, "before_cursor_execute", count)
+    assert res.json()["stored"] == 20
+    assert len(_rows()) == 20
+    assert len(inserts) == 1
+
+
+def test_retried_events_are_not_duplicated(client):
+    events = [_event(), _event()]
+    client.post("/telemetry/events", json={"events": events})
+    res = client.post("/telemetry/events", json={"events": [*events, events[0]]})
+    assert res.json() == {"received": 3, "stored": 3, "rejected": 0}  # idempotente
+    assert len(_rows()) == 2
+
+
+@pytest.mark.parametrize(
+    ("event_type", "properties", "level", "value"),
+    [
+        ("frontend_error_captured", {"page": "/", "app": "backoffice", "error_name": "TypeError",
+                                     "message": "x", "source": "onerror", "fingerprint": "0123456789ab"}, "error", None),
+        ("login_failed", {"reason": "invalid_credentials"}, "warn", None),
+        ("page_load_recorded", {"page": "/", "app": "backoffice", "lcp_ms": 812.0, "device_type": "desktop"}, "info", 812.0),
+    ],
+)
+def test_level_and_value_mapping(client, event_type, properties, level, value):
+    client.post("/telemetry/events", json={"events": [_event(event_type=event_type, properties=properties)]})
+    row = _rows(event_type)[0]
+    assert row.level == level
+    assert (float(row.value) if row.value is not None else None) == value
+
+
+def test_batch_is_logged(client, caplog):
     import logging
 
     logger = logging.getLogger("api.telemetry")
     logger.propagate = True
     try:
         with caplog.at_level(logging.INFO, logger="api.telemetry"):
-            client.post("/telemetry/events", json={"events": [_event(), _event()]})
+            client.post("/telemetry/events", json={"events": [_event(), _event(eventId="x")]})
     finally:
         logger.propagate = False
-    assert "2 events" in caplog.text and "page_viewed×2" in caplog.text
+    assert "received=2 stored=1 rejected=1" in caplog.text and "page_viewed×1" in caplog.text
 
 
 @pytest.mark.parametrize(
@@ -62,38 +153,40 @@ def test_batch_is_logged_with_event_types(client, caplog):
         {"timestamp": "18/11/2026"},
         {"timestamp": "2026-11-18T20:30:05+01:00"},  # no UTC
         {"event_type": "PageViewed"},
-        {"event_type": "viewed"},  # sin entidad_acción
         {"schemaVersion": "1"},
+        {"schemaVersion": "2.0.0"},  # versión que el contrato no conoce
         {"source": "mobile"},
         {"environment": "staging"},
+        {"properties": {"page": "/x"}},  # faltan obligatorias del allowlist
     ],
 )
-def test_invalid_envelope_is_rejected(client, bad):
-    res = client.post("/telemetry/events", json={"events": [_event(**bad)]})
-    assert res.status_code == 422
+def test_invalid_event_is_rejected_individually(client, bad):
+    res = client.post("/telemetry/events", json={"events": [_event(**bad), _event()]})
+    assert res.status_code == 200
+    assert res.json() == {"received": 2, "stored": 1, "rejected": 1}
 
 
-def test_unknown_envelope_field_is_rejected(client):
-    event = _event()
-    event["email"] = "ana@nexova.com"
-    res = client.post("/telemetry/events", json={"events": [event]})
-    assert res.status_code == 422
-    assert "ana@nexova.com" not in res.text  # el error no devuelve el input
-
-
-@pytest.mark.parametrize("body", [{"events": []}, {}, {"events": [_event()], "extra": 1}])
-def test_invalid_batch_is_rejected(client, body):
-    assert client.post("/telemetry/events", json=body).status_code == 422
-
-
-def test_malformed_json_is_rejected(client):
-    res = client.post("/telemetry/events", content=b"{no json", headers={"Content-Type": "text/plain"})
+@pytest.mark.parametrize(
+    "body",
+    [b"{no json", b"[]", b'{"events": {}}', b"{}", b'"hola"'],
+)
+def test_unreadable_envelope_is_422(client, body):
+    res = client.post("/telemetry/events", content=body, headers={"Content-Type": "application/json"})
     assert res.status_code == 422
 
 
 def test_batch_size_limit(client):
     res = client.post("/telemetry/events", json={"events": [_event() for _ in range(201)]})
     assert res.status_code == 422
+
+
+def test_empty_batch_is_ok(client):
+    assert client.post("/telemetry/events", json={"events": []}).json() == {"received": 0, "stored": 0, "rejected": 0}
+
+
+def test_no_update_or_delete_routes(client):
+    for method in ("put", "patch", "delete"):
+        assert getattr(client, method)("/telemetry/events").status_code == 405
 
 
 # --- X-Request-ID -----------------------------------------------------------------------

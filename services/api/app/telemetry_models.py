@@ -1,8 +1,9 @@
 """Modelo del envelope de telemetría (docs/telemetry/telemetry-plan.md §3.1).
 
-Es el contrato con el backoffice (uis/backoffice/lib/telemetry.ts) y se reutilizará sin
-cambios cuando el stub pase a persistir en Supabase. Aquí solo se valida el envelope:
-las `properties` de cada event_type las valida docs/telemetry/event-schemas.json.
+Es el contrato con el backoffice (uis/backoffice/lib/telemetry.ts). TelemetryEvent no ha
+cambiado desde el proyecto de captura: el receptor real (app/routers/telemetry.py) lo usa
+como validador por evento. Aquí solo se valida el envelope: las `properties` de cada
+event_type las valida docs/telemetry/event-schemas.json (app/telemetry_store.py).
 """
 from datetime import datetime
 from typing import Annotated, Any, Literal
@@ -43,4 +44,8 @@ class TelemetryBatch(BaseModel):
 
 
 class TelemetryReceived(BaseModel):
+    """Respuesta del receptor: recibidos, guardados y rechazados (received = stored + rejected)."""
+
     received: int
+    stored: int
+    rejected: int
