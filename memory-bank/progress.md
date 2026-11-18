@@ -220,3 +220,10 @@ _Última actualización: 2026-11-10 · rama `feature/inventory-backoffice`_
 
 - Diseño, sin código: `docs/telemetry/telemetry-plan.md` + `docs/telemetry/event-schemas.json` (JSON Schema draft-07, 32 eventos: 5 obligatorios del BRIEFING + 27 identificados). BRIEFING en `docs/CONTEXT-telemetry-nexova.md`.
 - Brecha a resolver en el proyecto de captura: el inventario no tiene `programme_id`, `unit_cost`/`currency` en las entradas, `min_stock` ni las categorías del BRIEFING (`training_kit`/`certification`/`onboarding_equipment`). Mapeo de categorías pendiente de confirmar con el mentor.
+
+## Telemetría — captura en el frontend (feature/telemetry-capture)
+
+- Backend: stub `POST /telemetry/events` (envelope `TelemetryEvent`, sin token por `sendBeacon`), `TELEMETRY_ENDPOINT`, middleware `X-Request-ID`. Inventario con `programme_id`, `product_category`, `min_stock`, `unit_cost`/`currency` y `recipient_type`; las órdenes devuelven `stock_after`, `min_stock` y `cost_baseline`. Migración para Supabase: `uv run migrate-telemetry` (pendiente de ejecutar en Supabase).
+- Backoffice: `lib/telemetry.ts` (`track()`, cola, lotes 10 s/20, `sendBeacon`, 3 reintentos con backoff), eventos en `lib/telemetryTrackers.ts`, allowlist generado del JSON. Instrumentados los 5 obligatorios + rechazos de órdenes, `stock_depleted`, abandono y validación de formularios, login, sesión caducada, errores, `api_request_failed`, vistas de página, Web Vitals, alta de incidencias y cambio de tarifa.
+- Nuevo en la interfaz: «Coste unitario» en las entradas, «Destinatario» en las salidas y «Ajustar stock» en la tabla (la API lo rechaza siempre y queda como `direct_stock_edit_rejected`).
+- Pendiente de confirmar con el mentor: mapeo de categorías y que el plan (PR #20) se ajustó para emitir los eventos de negocio desde el backoffice tras el 2xx de la API.
