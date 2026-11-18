@@ -176,6 +176,9 @@ export interface Incident {
   updated_at: string;
 }
 
+// Fila de GET /api/incidents (IncidentListItem en la API): el detalle sin updated_at
+export type IncidentListItem = Omit<Incident, "updated_at">;
+
 // Lo que envía el formulario: sin id, status ni fechas (toda incidencia nace en open)
 export type IncidentCreate = Pick<
   Incident,
@@ -326,13 +329,13 @@ const JSON_HEADERS = { "Content-Type": "application/json" };
 
 export function listIncidents(
   filters: IncidentFilters = EMPTY_FILTERS,
-): Promise<Incident[]> {
+): Promise<IncidentListItem[]> {
   const params = new URLSearchParams();
   for (const [key, value] of Object.entries(filters)) {
     if (value) params.set(key, value);
   }
   const qs = params.toString();
-  return incidentRequest<Incident[]>(`/api/incidents${qs ? `?${qs}` : ""}`);
+  return incidentRequest<IncidentListItem[]>(`/api/incidents${qs ? `?${qs}` : ""}`);
 }
 
 export function getIncidentStats(): Promise<IncidentStats> {

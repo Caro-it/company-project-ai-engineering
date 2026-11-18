@@ -19,13 +19,14 @@ import {
   incidentErrorMessage,
   listIncidents,
   type Incident,
+  type IncidentListItem,
   type IncidentFilters,
   type IncidentStatus,
 } from "@/lib/incidents";
 
 interface Result {
   key: string;
-  incidents: Incident[];
+  incidents: IncidentListItem[];
   error: string | null;
 }
 
@@ -129,7 +130,7 @@ export function IncidentsList({
     }));
   }
 
-  function replaceIncident(updated: Incident) {
+  function replaceIncident(updated: IncidentListItem) {
     setResult((prev) => ({
       ...prev,
       incidents: prev.incidents.map((i) => (i.id === updated.id ? updated : i)),
@@ -316,7 +317,7 @@ function IncidentRow({
   onOptimistic,
   onSaved,
 }: {
-  incident: Incident;
+  incident: IncidentListItem;
   onOptimistic: (id: string, status: IncidentStatus) => void;
   onSaved: (updated: Incident) => void;
 }) {

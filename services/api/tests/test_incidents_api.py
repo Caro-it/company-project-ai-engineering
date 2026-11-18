@@ -116,8 +116,9 @@ def test_summary_after_seed(client, auth_headers, seed_report):
 def test_list_after_seed_never_exposes_emails(client, auth_headers, seed_report):
     res = client.get(BASE, headers=auth_headers)
     assert len(res.json()) == 96
+    # Campos de IncidentListItem: sin updated_at (solo en el detalle)
     assert {k for i in res.json() for k in i} == {
-        "id", "title", "description", "status", "category", "origin", "branch", "created_at", "updated_at",
+        "id", "title", "description", "status", "category", "origin", "branch", "created_at",
     }
     assert "@" not in res.text
     assert "customer_email" not in res.text
