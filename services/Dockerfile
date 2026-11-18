@@ -1,4 +1,5 @@
-# Imagen de desarrollo de la API centralizada (services/api, FastAPI + uvicorn).
+# Imagen de desarrollo de la API centralizada (services/api, FastAPI + uvicorn). La misma imagen
+# sirve al worker de Celery y a Flower (docker-compose.yml cambia el comando).
 #
 # Contexto de build: ./services. requirements.txt instala en modo editable
 # "-e ../../packages/shared/incidents_core", una ruta fuera de ./services:
@@ -17,6 +18,11 @@ RUN pip install --no-cache-dir uv
 WORKDIR /app/services/api
 
 COPY --from=shared incidents_core /app/packages/shared/incidents_core
+# data/ (paquete nexova-data: pipelines y process del Hito 6), "-e ../../data" en requirements.txt.
+# Solo el código: data/raw y data/eval se montan desde el host en docker-compose.yml
+COPY --from=data pyproject.toml /app/data/pyproject.toml
+COPY --from=data pipelines /app/data/pipelines
+COPY --from=data process /app/data/process
 
 # Dependencias de terceros primero (sin las dos líneas "-e"), para que la capa
 # se reutilice mientras requirements.txt no cambie.

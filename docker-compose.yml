@@ -2,6 +2,7 @@
 #   cp .env.example .env   # y rellenar los valores
 #   docker compose up --build
 # website → http://localhost:3000 · backoffice → http://localhost:3001 · API → http://localhost:8000/docs
+# Cola de tareas (DEV-55): redis (broker, 6379), worker (Celery) y Flower → http://localhost:5555
 name: nexova
 
 services:
@@ -35,26 +36,90 @@ services:
       - nexova-net
 
   api:
-    build:
+    image: nexova-api:dev
+    build: &api-build
       context: ./services
-      # requirements.txt instala -e ../../packages/shared/incidents_core
+      # requirements.txt instala -e ../../packages/shared/incidents_core y -e ../../data
       additional_contexts:
         shared: ./packages/shared
+        data: ./data
     env_file: .env
     environment:
       # Hoy uvicorn usa StatReload (sondeo) porque watchfiles no está instalado;
       # si algún día se instala, esto mantiene el polling con bind mounts
       WATCHFILES_FORCE_POLLING: "true"
+      # Dentro de la red de Docker, Redis es "redis" (no localhost)
+      REDIS_URL: redis://redis:6379/0
     ports:
       - "8000:8000"
-    volumes:
+    volumes: &api-volumes
       # Código para --reload y TinyDB persistente (services/api/data en el host)
       - ./services/api:/app/services/api
       - ./packages/shared/incidents_core/incidents_core:/app/packages/shared/incidents_core/incidents_core:ro
+      # Pipelines del Hito 6 y sus salidas (data/eval)
+      - ./data:/app/data
       # Tapa el .venv de Windows del host: no se usa y frenaría el polling
       - /app/services/api/.venv
+    depends_on:
+      redis:
+        condition: service_healthy
     networks:
       - nexova-net
+
+  # Broker y result backend de Celery. noeviction: con la memoria llena Redis rechaza
+  # escrituras en vez de borrar mensajes de la cola. appendonly: los mensajes sobreviven a un
+  # reinicio del contenedor
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--maxmemory-policy", "noeviction", "--appendonly", "yes"]
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    networks:
+      - nexova-net
+
+  # Consumidor: proceso independiente de la API (misma imagen, otro comando). Parar "api" no
+  # para el worker ni pierde mensajes. Para pararlo: docker compose stop worker
+  worker:
+    image: nexova-api:dev
+    build: *api-build
+    command: ["celery", "-A", "app.celery_app", "worker", "--loglevel=INFO", "--concurrency=2"]
+    env_file: .env
+    environment:
+      REDIS_URL: redis://redis:6379/0
+      PREFECT_SERVER_ANALYTICS_ENABLED: "false"
+    volumes: *api-volumes
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - nexova-net
+
+  # Monitor de la cola (solo desarrollo): tareas encoladas, en curso, completadas y fallidas
+  flower:
+    image: nexova-api:dev
+    build: *api-build
+    command: ["celery", "-A", "app.celery_app", "flower", "--port=5555"]
+    env_file: .env
+    environment:
+      REDIS_URL: redis://redis:6379/0
+    ports:
+      - "5555:5555"
+    volumes: *api-volumes
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - nexova-net
+
+volumes:
+  redis-data:
 
 networks:
   nexova-net:
