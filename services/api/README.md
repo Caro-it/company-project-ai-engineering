@@ -349,3 +349,8 @@ uv run celery -A app.celery_app flower --port=5555
 
 Necesita Redis (`REDIS_URL`, por defecto `redis://localhost:6379/0`): `docker compose up -d redis`.
 Detalle en [`docs/background-jobs/message-queue.md`](../../docs/background-jobs/message-queue.md).
+
+El email de recuperación de contraseña también va por la cola (`emails.send_delivery`): la API
+lo registra en `email_deliveries` y el worker lo envía a Resend con reintentos e
+`Idempotency-Key`. Estado en `GET /email-deliveries` (admin y manager). Ver
+[`docs/background-jobs/async-processing.md`](../../docs/background-jobs/async-processing.md).

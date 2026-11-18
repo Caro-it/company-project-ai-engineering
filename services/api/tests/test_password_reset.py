@@ -1,9 +1,9 @@
 """POST /auth/forgot-password + POST /auth/reset-password: quién recibe un enlace y
 cuándo sirve ese enlace para cambiar la contraseña.
 
-El envío real se sustituye en app.routers.auth (donde se usa). El TestClient ejecuta
-las BackgroundTasks al terminar la petición, así que el "email" ya está capturado al
-volver de client.post. Ya cubierto en test_error_handling.py: si falla el cambio de
+El envío real se sustituye en app.services.email (lo llama el worker, app/tasks/email.py).
+El TestClient ejecuta las BackgroundTasks al terminar la petición y Celery corre en modo
+eager en los tests, así que el "email" ya está capturado al volver de client.post. Ya cubierto en test_error_handling.py: si falla el cambio de
 contraseña, el token sigue valiendo.
 """
 from datetime import datetime, timedelta, timezone
@@ -26,8 +26,8 @@ def sent_emails(monkeypatch) -> list[dict]:
     """Cada llamada a send_password_reset_email queda aquí en vez de enviarse."""
     sent: list[dict] = []
     monkeypatch.setattr(
-        "app.routers.auth.send_password_reset_email",
-        lambda to, reset_url: sent.append({"to": to, "url": reset_url}),
+        "app.services.email.send_password_reset_email",
+        lambda to, reset_url, idempotency_key=None: sent.append({"to": to, "url": reset_url}) or "re_test",
     )
     return sent
 

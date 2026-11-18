@@ -1,17 +1,27 @@
 from collections.abc import AsyncIterator
-from uuid import UUID, uuid4
 from contextlib import asynccontextmanager
+from uuid import UUID, uuid4
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-
 from pipelines.db import configure_engine
 
 from app import database
 from app.config import settings
 from app.database import create_db_and_tables
 from app.errors import register_error_handlers
-from app.routers import auth, incidents, inventory, profiles, reporting, suppliers, tasks, telemetry, users
+from app.routers import (
+    auth,
+    email_deliveries,
+    incidents,
+    inventory,
+    profiles,
+    reporting,
+    suppliers,
+    tasks,
+    telemetry,
+    users,
+)
 
 
 @asynccontextmanager
@@ -64,6 +74,7 @@ app.include_router(inventory.router)
 app.include_router(telemetry.router)
 app.include_router(reporting.router)
 app.include_router(tasks.router)
+app.include_router(email_deliveries.router)
 
 
 @app.get("/api/health")

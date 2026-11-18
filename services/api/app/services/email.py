@@ -61,18 +61,29 @@ def _reset_html(reset_url: str, minutes: int) -> str:
 """
 
 
-def send_password_reset_email(to: str, reset_url: str) -> None:
-    """Envía el enlace de recuperación. Sin RESEND_API_KEY solo deja un aviso en los logs."""
+class EmailNotConfiguredError(RuntimeError):
+    """Sin RESEND_API_KEY no se puede enviar (desarrollo local)."""
+
+
+def send_password_reset_email(to: str, reset_url: str, idempotency_key: str | None = None) -> str | None:
+    """Envía el enlace de recuperación y devuelve el id del email en Resend.
+
+    `idempotency_key` viaja como cabecera `Idempotency-Key`: si el worker reintenta un envío
+    que Resend ya aceptó (la respuesta se perdió), Resend no lo manda dos veces.
+    Sin RESEND_API_KEY lanza EmailNotConfiguredError (quien llama decide).
+    """
     if not settings.RESEND_API_KEY:
-        logger.warning("RESEND_API_KEY no está configurada: no se envía el email de recuperación")
-        return
+        raise EmailNotConfiguredError("RESEND_API_KEY no está configurada: no se envía el email de recuperación")
 
     minutes = settings.RESET_TOKEN_EXPIRE_MINUTES
     resend.api_key = settings.RESEND_API_KEY
-    resend.Emails.send({
+    params = {
         "from": settings.EMAIL_FROM,
         "to": [to],
         "subject": _RESET_SUBJECT,
         "html": _reset_html(reset_url, minutes),
         "text": _reset_text(reset_url, minutes),
-    })
+    }
+    options = {"idempotency_key": idempotency_key} if idempotency_key else None
+    response = resend.Emails.send(params, options)
+    return (response or {}).get("id")

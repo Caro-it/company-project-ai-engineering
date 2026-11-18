@@ -1,4 +1,5 @@
 """Endpoints de autenticación: login con JWT, datos del usuario actual y contraseñas."""
+import hashlib
 import logging
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
@@ -17,7 +18,6 @@ from app.auth_models import (
 from app.config import settings
 from app.deps import get_current_user
 from app.security import create_access_token, hash_password, verify_password
-from app.services.email import send_password_reset_email
 from app.services.password_reset import (
     consume_reset_token,
     create_reset_token,
@@ -25,6 +25,7 @@ from app.services.password_reset import (
 )
 from app.services.profiles import get_profile_by_user_id
 from app.services.users import get_user_by_email, get_user_by_id, update_user
+from app.tasks.email import enqueue_password_reset
 
 logger = logging.getLogger(__name__)
 
@@ -67,18 +68,23 @@ def read_me(current_user: dict = Depends(get_current_user)):
 
 
 def _start_password_reset(email: str) -> None:
-    """Genera el token y envía el enlace. Se ejecuta después de responder."""
+    """Genera el token y encola el email. Se ejecuta después de responder.
+
+    El token se crea aquí (TinyDB es de este proceso); el envío a Resend lo hace un worker
+    de Celery con reintentos (app/tasks/email.py). Clave de idempotencia: el hash del token,
+    único por solicitud."""
     user = get_user_by_email(email)
     if user is None or not user["is_active"]:
         return
     try:
         token = create_reset_token(user["id"])
         reset_url = f"{settings.FRONTEND_URL.rstrip('/')}/reset-password?token={token}"
-        send_password_reset_email(user["email"], reset_url)
+        idempotency_key = f"password_reset:{hashlib.sha256(token.encode()).hexdigest()}"
+        enqueue_password_reset(user["email"], reset_url, idempotency_key)
     except Exception:
         # Solo el user_id: el token en claro y el enlace no deben quedar escritos
         logger.exception(
-            "No se pudo generar o enviar el enlace de recuperación al usuario %s", user["id"]
+            "No se pudo generar o encolar el enlace de recuperación al usuario %s", user["id"]
         )
 
 
