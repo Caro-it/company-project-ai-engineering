@@ -17,11 +17,16 @@ llegar como text/plain, así que se lee el cuerpo crudo en vez de declarar un bo
 import json
 import logging
 from collections import Counter
+from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlmodel import Session
 
+from app import database
 from app.database import get_db
+from app.deps import get_current_user
+from app.telemetry.analysis import build_report
+from app.telemetry.report import report_cache, resolve_period
 from app.telemetry_models import MAX_BATCH_SIZE, TelemetryReceived
 from app.telemetry_store import store_events, validate_event
 
@@ -71,3 +76,25 @@ async def receive_events(request: Request, session: Session = Depends(get_db)) -
         ", ".join(f"{event_type}×{n}" for event_type, n in counts.most_common()) or "-",
     )
     return TelemetryReceived(received=len(raw_events), stored=stored, rejected=rejected)
+
+
+# --- Reporte técnico (proyecto "Telemetría – Reporte técnico") --------------------------
+
+
+@router.get("/report", dependencies=[Depends(get_current_user)])
+def telemetry_report(start_date: datetime | None = None, end_date: datetime | None = None) -> dict:
+    """Métricas operacionales del período [start_date, end_date) (UTC; por defecto, los
+    últimos 7 días). Con token: es información interna del equipo de ingeniería.
+
+    El pipeline (app/telemetry/analysis.py) no corre en cada petición: caché de 60 s por
+    período.
+    """
+    try:
+        start, end = resolve_period(start_date, end_date)
+    except ValueError as error:
+        raise HTTPException(status_code=422, detail=str(error)) from None
+    metrics = report_cache.get_or_compute((start, end), lambda: build_report(database.engine, start, end))
+    return {
+        "period": {"from": start.isoformat().replace("+00:00", "Z"), "to": end.isoformat().replace("+00:00", "Z")},
+        "metrics": metrics,
+    }
