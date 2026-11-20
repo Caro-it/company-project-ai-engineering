@@ -1,5 +1,8 @@
 """Añade a las tablas de inventario de Supabase los campos que necesita la telemetría.
 
+También deja lista la tabla telemetry_events (default del id y trigger de solo
+inserción), por si se creó antes que el trigger.
+
 Uso (desde services/api, con DATABASE_URL de Supabase en .env):
   uv run migrate-telemetry --dry-run   # solo muestra el SQL
   uv run migrate-telemetry             # lo aplica, en una sola transacción
@@ -22,8 +25,15 @@ import sys
 
 from sqlalchemy import text
 
-from app.database import engine
-from app.inventory_catalog import DEFAULT_MIN_STOCK, Currency, ProductCategory, RecipientType, sql_in
+from app.database import create_db_and_tables, engine
+from app.inventory_catalog import (
+    DEFAULT_MIN_STOCK,
+    Currency,
+    ProductCategory,
+    RecipientType,
+    sql_in,
+)
+from app.telemetry_store import POSTGRES_DDL
 
 
 def _add_check(table: str, name: str, condition: str) -> str:
@@ -68,6 +78,10 @@ STATEMENTS: list[str] = [
         "ck_asset_exit_recipient_type",
         f"recipient_type IS NULL OR recipient_type IN ({sql_in(RecipientType)})",
     ),
+    # --- telemetry_events (proyecto de almacenamiento) ------------------------------------
+    # create_all (al arrancar la API o justo antes de esta migración) crea la tabla y sus
+    # índices; esto asegura el default del id y el trigger de solo inserción
+    *POSTGRES_DDL,
 ]
 
 
@@ -85,6 +99,7 @@ def main() -> None:
             f"{engine.dialect.name}. En SQLite basta con borrar la BD: create_all la recrea."
         )
 
+    create_db_and_tables()  # crea telemetry_events (y lo que falte) antes de los ALTER
     with engine.begin() as connection:  # una transacción: o todo o nada
         for statement in STATEMENTS:
             connection.execute(text(statement))

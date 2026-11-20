@@ -768,7 +768,33 @@ valide. *Oblig.* = la clave tiene que estar siempre.
 lotes cada 10 s o al llegar a 20 eventos; `navigator.sendBeacon` cuando la pestaña se oculta
 (`visibilitychange`) o se cierra (`pagehide`) para no perder los últimos; hasta 3 reintentos con
 backoff exponencial (1 s, 2 s, 4 s) y después se descarta el lote; deduplicación por `eventId`
-en el servidor. Implementado en `uis/backoffice/lib/telemetry.ts`.
+en el servidor (§5.3). Implementado en `uis/backoffice/lib/telemetry.ts`.
+
+### 5.3 Almacenamiento: tabla `telemetry_events`
+
+Receptor: `POST /telemetry/events` (`services/api/app/routers/telemetry.py`), misma URL que el
+stub. Valida **cada evento por separado** (envelope con `TelemetryEvent` + allowlist de
+`event-schemas.json`), guarda los válidos en **un único INSERT por lote** y responde
+`{"received", "stored", "rejected"}`. Un evento inválido no cancela el lote.
+
+| Columna | Tipo | Origen |
+| --- | --- | --- |
+| `id` | `uuid` PK, default `gen_random_uuid()` | generado |
+| `timestamp` | `timestamptz` NOT NULL | `timestamp` del envelope (momento del hecho) |
+| `service` | `text` NOT NULL | `source` del envelope (`backoffice`, `api`…) |
+| `event_type` | `text` NOT NULL | `event_type` |
+| `level` | `text` default `info` | `error`: `frontend_error_captured`, `api_error_occurred`. `warn`: rechazos (`*_rejected`), fallos (`*_failed`), `session_expired`, `permission_denied`, `stock_threshold_triggered`, `stock_depleted`, `kit_cost_variance_detected`. Resto: `info` |
+| `value` | `numeric` nullable | la magnitud principal del evento: `quantity` (órdenes creadas, salida rechazada, intento de editar stock), `stock_after` (umbral), `variance_pct` (coste), `lcp_ms` (carga de página), `p95_ms` (latencia API), `elapsed_ms` (petición fallida), `time_on_form_ms` (abandono), `change_pct` (tarifa), `minutes_in_previous_status` (incidencia). Resto: `null` |
+| `message` | `text` nullable | `event_type · office=… · programme_id=… · product_id=… · page=… · route=… · reason=… · error_code=… · status_code=…` (las que tenga el evento) |
+| `tags` | `jsonb` default `{}` | `properties` del evento (ya filtradas por su allowlist: incluye `office` y `programme_id` para agregar por oficina y programa) **+** `_envelope`: `event_id`, `session_id`, `user_id`, `schema_version`, `request_id`, `environment` |
+
+- Índices: `timestamp`, `event_type` y GIN sobre `tags`.
+- **Solo inserción:** no hay código que actualice o borre, y en PostgreSQL el trigger
+  `telemetry_events_no_update_delete` rechaza cualquier `UPDATE` o `DELETE`.
+- **Idempotencia:** un `eventId` que ya está guardado (reintento del frontend) no se inserta
+  otra vez y cuenta como guardado.
+- La tabla la crea la API al arrancar (`create_all`); `uv run migrate-telemetry` asegura el
+  default del `id` y el trigger si la tabla ya existía.
 
 ---
 

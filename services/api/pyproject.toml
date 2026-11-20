@@ -20,6 +20,7 @@ dependencies = [
     "resend>=2.50.0",
     "sqlmodel>=0.0.48",
     "psycopg2-binary>=2.9.13",
+    "jsonschema>=4.23",
 ]
 
 [project.scripts]
