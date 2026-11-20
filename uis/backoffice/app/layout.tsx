@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { TelemetryProvider } from "@/components/telemetry/TelemetryProvider";
 import { EMPRESA } from "@/lib/nexova";
 import "./globals.css";
 
@@ -20,6 +21,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         >
           Saltar al contenido
         </a>
+        <TelemetryProvider />
         {children}
       </body>
     </html>

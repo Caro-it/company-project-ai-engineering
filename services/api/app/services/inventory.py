@@ -13,7 +13,7 @@ from collections.abc import Sequence
 from sqlalchemy import func
 from sqlmodel import Session, select
 
-from app.inventory_catalog import AssetCategory, Office
+from app.inventory_catalog import OFFICE_CURRENCY, AssetCategory, Office
 from app.models import Asset, AssetEntry, AssetExit
 from app.schemas import (
     AssetCreate,
@@ -21,8 +21,13 @@ from app.schemas import (
     AssetExitCreate,
     AssetRead,
     AssetSummary,
+    CostBaseline,
     OrderRead,
 )
+
+# Entradas previas que forman la media de coste (telemetría: kit_cost_variance_detected)
+COST_BASELINE_WINDOW = 5
+COST_BASELINE_MIN_SAMPLE = 2
 
 
 class InventoryError(Exception):
@@ -66,6 +71,9 @@ def _to_read(asset: Asset, current_stock: int) -> AssetRead:
         sku=asset.sku,
         category=asset.category,
         office=asset.office,
+        programme_id=asset.programme_id,
+        product_category=asset.product_category,
+        min_stock=asset.min_stock,
         current_stock=int(current_stock),
     )
 
@@ -84,6 +92,35 @@ def list_assets(
 def get_asset(session: Session, asset_id: int) -> AssetRead | None:
     row = session.exec(_stock_query().where(Asset.id == asset_id)).first()
     return None if row is None else _to_read(*row)
+
+
+def stock_of(session: Session, asset_id: int) -> int:
+    """Stock actual de un activo (entradas − salidas)."""
+    return _stock_of(session, asset_id)
+
+
+def min_stock_of(session: Session, asset_id: int) -> int:
+    return session.exec(select(Asset.min_stock).where(Asset.id == asset_id)).one()
+
+
+def cost_baseline(session: Session, entry: AssetEntry) -> CostBaseline | None:
+    """Media del coste unitario de las últimas entradas del mismo activo y proveedor,
+    sin contar `entry`. None si no hay al menos COST_BASELINE_MIN_SAMPLE con coste."""
+    rows = session.exec(
+        select(AssetEntry.unit_cost)
+        .where(
+            AssetEntry.asset_id == entry.asset_id,
+            AssetEntry.supplier == entry.supplier,
+            AssetEntry.unit_cost.is_not(None),
+            AssetEntry.id != entry.id,
+        )
+        .order_by(AssetEntry.created_at.desc(), AssetEntry.id.desc())
+        .limit(COST_BASELINE_WINDOW)
+    ).all()
+    costs = [float(cost) for cost in rows]
+    if len(costs) < COST_BASELINE_MIN_SAMPLE:
+        return None
+    return CostBaseline(unit_cost=round(sum(costs) / len(costs), 2), sample_size=len(costs))
 
 
 def _stock_of(session: Session, asset_id: int) -> int:
@@ -135,7 +172,9 @@ def _load_asset_for_order(session: Session, asset_id: int, office: Office, *, lo
 
 def create_entry(session: Session, data: AssetEntryCreate, user_uuid: str) -> AssetEntry:
     _load_asset_for_order(session, data.asset_id, data.office, lock=False)
-    entry = AssetEntry(**data.model_dump(), user_uuid=user_uuid)
+    # La moneda la pone la oficina, no el usuario (BRIEFING de telemetría §6)
+    currency = OFFICE_CURRENCY[data.office] if data.unit_cost is not None else None
+    entry = AssetEntry(**data.model_dump(), currency=currency, user_uuid=user_uuid)
     session.add(entry)
     session.commit()
     session.refresh(entry)
@@ -165,7 +204,13 @@ def create_exit(session: Session, data: AssetExitCreate, user_uuid: str) -> Asse
 
 def _summary(asset: Asset) -> AssetSummary:
     return AssetSummary(
-        id=asset.id, name=asset.name, sku=asset.sku, category=asset.category, office=asset.office
+        id=asset.id,
+        name=asset.name,
+        sku=asset.sku,
+        category=asset.category,
+        office=asset.office,
+        programme_id=asset.programme_id,
+        product_category=asset.product_category,
     )
 
 
@@ -194,6 +239,8 @@ def list_orders(session: Session, office: Office | None = None) -> list[OrderRea
             created_at=entry.created_at,
             user_uuid=entry.user_uuid,
             supplier=entry.supplier,
+            unit_cost=entry.unit_cost,
+            currency=entry.currency,
         )
         for entry, asset in entries
     ] + [
@@ -207,6 +254,7 @@ def list_orders(session: Session, office: Office | None = None) -> list[OrderRea
             user_uuid=exit_.user_uuid,
             exit_type=exit_.exit_type,
             assigned_to=exit_.assigned_to,
+            recipient_type=exit_.recipient_type,
         )
         for exit_, asset in exits
     ]

@@ -3,6 +3,7 @@
 import Link from "next/link";
 
 import { Empty, ErrorBanner, Loading } from "@/components/inventory/LoadStatus";
+import { StockAdjustAttempt } from "@/components/inventory/StockAdjustAttempt";
 import { StockBadge } from "@/components/inventory/StockBadge";
 import { CATEGORY_LABELS, LOW_STOCK_MAX, WARNING_STOCK_MAX, listAssets } from "@/lib/inventory";
 import { useInventoryData } from "@/lib/useInventoryData";
@@ -41,6 +42,7 @@ export function AssetsTable() {
               <th scope="col" className="px-4 py-3">Activo</th>
               <th scope="col" className="px-4 py-3">SKU</th>
               <th scope="col" className="px-4 py-3">Categoría</th>
+              <th scope="col" className="px-4 py-3">Programa</th>
               <th scope="col" className="px-4 py-3">Oficina</th>
               <th scope="col" className="px-4 py-3 text-right">Stock actual</th>
               <th scope="col" className="px-4 py-3">Nivel</th>
@@ -53,6 +55,7 @@ export function AssetsTable() {
                 <td className="px-4 py-3 font-medium text-[#001D4A]">{asset.name}</td>
                 <td className="px-4 py-3 font-mono text-xs text-slate-700">{asset.sku}</td>
                 <td className="px-4 py-3 text-slate-700">{CATEGORY_LABELS[asset.category]}</td>
+                <td className="px-4 py-3 font-mono text-xs text-slate-700">{asset.programme_id}</td>
                 <td className="px-4 py-3 text-slate-700">{asset.office}</td>
                 <td
                   className="px-4 py-3 text-right font-semibold tabular-nums"
@@ -79,6 +82,7 @@ export function AssetsTable() {
                     >
                       − Salida
                     </Link>
+                    <StockAdjustAttempt asset={asset} />
                   </div>
                 </td>
               </tr>

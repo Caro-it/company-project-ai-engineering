@@ -27,19 +27,33 @@ export function clearToken(): void {
   }
 }
 
-// Lee exp del payload sin verificar la firma: solo sirve para no mostrar el panel
-// con un token caducado. La API es quien valida el token de verdad.
-function tokenExpiry(token: string): number | null {
+// Payload del JWT sin verificar la firma: solo para la interfaz y la telemetría.
+// La API es quien valida el token de verdad.
+function tokenPayload(token: string): Record<string, unknown> | null {
   try {
     const payload = token.split(".")[1];
     if (!payload) return null;
     const base64 = payload.replace(/-/g, "+").replace(/_/g, "/");
     const padded = base64.padEnd(base64.length + ((4 - (base64.length % 4)) % 4), "=");
-    const { exp } = JSON.parse(atob(padded));
-    return typeof exp === "number" ? exp : null;
+    const data = JSON.parse(atob(padded));
+    return data && typeof data === "object" ? data : null;
   } catch {
     return null;
   }
+}
+
+// Sirve para no mostrar el panel con un token caducado
+function tokenExpiry(token: string): number | null {
+  const exp = tokenPayload(token)?.exp;
+  return typeof exp === "number" ? exp : null;
+}
+
+// Id del usuario de la sesión (claim sub del token = users.id de la API) o null
+export function tokenSubject(): string | null {
+  const token = getToken();
+  if (!token) return null;
+  const sub = tokenPayload(token)?.sub;
+  return typeof sub === "string" && sub ? sub : null;
 }
 
 export function isTokenValid(): boolean {

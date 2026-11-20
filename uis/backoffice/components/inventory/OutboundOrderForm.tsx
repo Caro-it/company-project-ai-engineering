@@ -16,6 +16,7 @@ import { ErrorBanner, Loading } from "@/components/inventory/LoadStatus";
 import { StockBadge } from "@/components/inventory/StockBadge";
 import {
   EXIT_TYPE_LABELS,
+  RECIPIENT_TYPE_LABELS,
   InventoryError,
   assetOptionLabel,
   createAssetExit,
@@ -24,10 +25,12 @@ import {
   parseAssetId,
   parseQuantity,
 } from "@/lib/inventory";
+import { trackOutboundCreated, trackOutboundRejected } from "@/lib/telemetryTrackers";
 import { useAssetStock, useInventoryData } from "@/lib/useInventoryData";
-import { EXIT_TYPES, type ExitType } from "@/types/inventory";
+import { useOrderFormTelemetry } from "@/lib/useOrderFormTelemetry";
+import { EXIT_TYPES, RECIPIENT_TYPES, type ExitType, type RecipientType } from "@/types/inventory";
 
-type Field = "asset_id" | "quantity" | "exit_type" | "assigned_to";
+type Field = "asset_id" | "quantity" | "exit_type" | "assigned_to" | "recipient_type";
 type FieldErrors = Partial<Record<Field, string>>;
 
 // Textos por campo para los errores del cliente y los 422 de la API
@@ -36,6 +39,7 @@ const FIELD_TEXT: Record<Field, string> = {
   quantity: "Indica una cantidad entera mayor que 0.",
   exit_type: "Elige si es una asignación o un consumo.",
   assigned_to: "Indica a qué empleado se asigna (nombre o ID).",
+  recipient_type: "Elige a qué tipo de destinatario se entrega.",
 };
 
 export function OutboundOrderForm() {
@@ -48,6 +52,7 @@ export function OutboundOrderForm() {
   const [quantity, setQuantity] = useState("");
   const [exitType, setExitType] = useState<ExitType | "">("");
   const [assignedTo, setAssignedTo] = useState("");
+  const [recipientType, setRecipientType] = useState<RecipientType | "">("");
   const [errors, setErrors] = useState<FieldErrors>({});
   // 400 de stock insuficiente: va junto al campo cantidad
   const [stockError, setStockError] = useState<string | null>(null);
@@ -55,6 +60,10 @@ export function OutboundOrderForm() {
   const [success, setSuccess] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [stockKey, setStockKey] = useState(0);
+  const telemetry = useOrderFormTelemetry(
+    "outbound_order",
+    [assetId, quantity, exitType, assignedTo, recipientType].filter((v) => v.trim() !== "").length,
+  );
 
   const assets = state.status === "ready" ? state.data : [];
   const selected = assets.find((a) => String(a.id) === assetId) ?? null;
@@ -73,10 +82,12 @@ export function OutboundOrderForm() {
   function changeAsset(value: string) {
     setAssetId(value);
     setStockError(null);
+    telemetry.fieldChanged("asset_id");
   }
 
   function changeExitType(value: ExitType) {
     setExitType(value);
+    telemetry.fieldChanged("exit_type");
     // En un consumo assigned_to debe ir vacío (regla 3 del BRIEFING)
     if (value === "consumption") setAssignedTo("");
     setErrors((prev) => ({ ...prev, exit_type: undefined, assigned_to: undefined }));
@@ -94,19 +105,26 @@ export function OutboundOrderForm() {
     if (exitType === "allocation" && !assignedTo.trim()) {
       found.assigned_to = FIELD_TEXT.assigned_to;
     }
+    if (!recipientType) found.recipient_type = FIELD_TEXT.recipient_type;
     setErrors(found);
-    if (!selected || qty === null || !exitType || Object.keys(found).length > 0) return;
+    telemetry.validationFailed(Object.keys(found) as Field[]);
+    if (!selected || qty === null || !exitType || !recipientType || Object.keys(found).length > 0) {
+      return;
+    }
 
     // Superar el stock solo muestra un aviso: la regla real la aplica la API (400)
     setSubmitting(true);
     try {
-      await createAssetExit({
+      const exit = await createAssetExit({
         asset_id: selected.id,
         quantity: qty,
         exit_type: exitType,
         assigned_to: exitType === "allocation" ? assignedTo.trim() : null,
         office: selected.office,
+        recipient_type: recipientType,
       });
+      trackOutboundCreated(selected, exit);
+      telemetry.submitted();
       setSuccess(
         exitType === "allocation"
           ? `Salida registrada: ${qty} uds. de ${assetOptionLabel(selected)} asignadas a ${assignedTo.trim()}.`
@@ -116,8 +134,12 @@ export function OutboundOrderForm() {
       setQuantity("");
       setExitType("");
       setAssignedTo("");
+      setRecipientType("");
       setStockKey((k) => k + 1);
     } catch (e) {
+      if (e instanceof InventoryError) {
+        trackOutboundRejected(selected, qty, exitType, e);
+      }
       if (e instanceof InventoryError && e.isInsufficientStock) {
         setStockError(e.message);
         setStockKey((k) => k + 1);
@@ -208,6 +230,7 @@ export function OutboundOrderForm() {
             onChange={(e) => {
               setQuantity(e.target.value);
               setStockError(null);
+              telemetry.fieldChanged("quantity");
             }}
             aria-invalid={!!errors.quantity || !!stockError}
             aria-describedby={describedBy(
@@ -283,7 +306,10 @@ export function OutboundOrderForm() {
               maxLength={200}
               placeholder="Nombre o ID del empleado"
               value={assignedTo}
-              onChange={(e) => setAssignedTo(e.target.value)}
+              onChange={(e) => {
+                setAssignedTo(e.target.value);
+                telemetry.fieldChanged("assigned_to");
+              }}
               aria-required="true"
               aria-invalid={!!errors.assigned_to}
               aria-describedby={errors.assigned_to ? "f-assigned-to-error" : undefined}
@@ -296,6 +322,37 @@ export function OutboundOrderForm() {
             )}
           </div>
         )}
+
+        {/* A quién se entrega, como tipo: es lo que mide la telemetría (nunca el nombre) */}
+        <div className="sm:col-span-2">
+          <label htmlFor="f-recipient-type" className={labelClass}>
+            Destinatario <span aria-hidden="true">*</span>
+          </label>
+          <select
+            id="f-recipient-type"
+            value={recipientType}
+            onChange={(e) => {
+              setRecipientType(e.target.value as RecipientType | "");
+              setErrors((prev) => ({ ...prev, recipient_type: undefined }));
+              telemetry.fieldChanged("recipient_type");
+            }}
+            aria-invalid={!!errors.recipient_type}
+            aria-describedby={errors.recipient_type ? "f-recipient-type-error" : undefined}
+            className={inputClass}
+          >
+            <option value="">Elige el tipo de destinatario…</option>
+            {RECIPIENT_TYPES.map((type) => (
+              <option key={type} value={type}>
+                {RECIPIENT_TYPE_LABELS[type]}
+              </option>
+            ))}
+          </select>
+          {errors.recipient_type && (
+            <p id="f-recipient-type-error" role="alert" className={errorClass}>
+              {errors.recipient_type}
+            </p>
+          )}
+        </div>
 
         {apiError && (
           <p

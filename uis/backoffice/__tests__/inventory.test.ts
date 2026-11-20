@@ -226,6 +226,7 @@ describe("peticiones a /inventory", () => {
       exit_type: "consumption",
       assigned_to: null,
       office: "Miami",
+      recipient_type: "employee",
     });
 
     await expect(call).rejects.toMatchObject({ status: 400, message: detail });
@@ -238,6 +239,7 @@ describe("peticiones a /inventory", () => {
       exit_type: "consumption",
       assigned_to: null,
       office: "Miami",
+      recipient_type: "employee",
     });
   });
 

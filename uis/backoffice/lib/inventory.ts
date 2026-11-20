@@ -21,7 +21,14 @@ import {
   failedRequestStatus,
   statusErrorMessage,
 } from "@/lib/api";
-import { ApiError, toApiError } from "@/lib/account";
+import { ApiError, getMe, toApiError } from "@/lib/account";
+import {
+  rememberUserRole,
+  rememberedUserRole,
+  stockFieldsIn,
+  trackDirectStockEditRejected,
+  type UserRole,
+} from "@/lib/telemetryTrackers";
 import type {
   Asset,
   AssetCategory,
@@ -32,6 +39,8 @@ import type {
   ExitType,
   Order,
   OrderType,
+  ProductCategory,
+  RecipientType,
 } from "@/types/inventory";
 
 // URL base de la API de inventario (README del Hito 5). Si no se define, la misma API
@@ -48,6 +57,22 @@ export const CATEGORY_LABELS: Record<AssetCategory, string> = {
   office_supplies: "Material de oficina",
   training_materials: "Material de formación",
 };
+
+export const PRODUCT_CATEGORY_LABELS: Record<ProductCategory, string> = {
+  training_kit: "Kit de formación",
+  certification: "Certificación",
+  onboarding_equipment: "Equipo de incorporación",
+};
+
+export const RECIPIENT_TYPE_LABELS: Record<RecipientType, string> = {
+  client: "Cliente",
+  candidate: "Candidato/a",
+  consultant: "Consultor/a de Nexova",
+  support_agent: "Agente de soporte",
+  employee: "Empleado/a interno/a",
+};
+
+export const CURRENCY_BY_OFFICE = { Valencia: "EUR", Miami: "USD" } as const;
 
 export const EXIT_TYPE_LABELS: Record<ExitType, string> = {
   allocation: "Asignación a empleado",
@@ -111,6 +136,8 @@ const FIELD_LABELS: Record<string, string> = {
   office: "Oficina",
   exit_type: "Tipo de salida",
   assigned_to: "Asignado a",
+  unit_cost: "Coste unitario",
+  recipient_type: "Destinatario",
 };
 
 export function fieldLabel(field: string): string {
@@ -160,7 +187,43 @@ export function inventoryErrorMessage(e: unknown): string {
 
 const JSON_HEADERS = { "Content-Type": "application/json" };
 
-async function inventoryRequest<T>(path: string, init?: RequestInit): Promise<T> {
+// Rol de la sesión para la telemetría: el guardado al hacer login o, si la sesión es
+// anterior, el de GET /auth/me
+async function sessionRole(): Promise<UserRole | null> {
+  const remembered = rememberedUserRole();
+  if (remembered) return remembered;
+  try {
+    const { role } = await getMe();
+    rememberUserRole(role);
+    return role;
+  } catch {
+    return null;
+  }
+}
+
+// ¿La petición intentaba fijar el stock de un activo fuera de una orden?
+function isDirectStockEdit(path: string, method: string, body: unknown): boolean {
+  const route = path.split("?")[0];
+  if (/^\/inventory\/products\/\d+$/.test(route) && method !== "GET") return true;
+  return route === "/inventory/products" && stockFieldsIn(body).length > 0;
+}
+
+async function reportDirectStockEdit(
+  path: string,
+  method: string,
+  status: number,
+  body: unknown,
+  asset: Asset | null,
+): Promise<void> {
+  const role = await sessionRole();
+  if (role) trackDirectStockEditRejected({ method, path, status, body, asset, userRole: role });
+}
+
+async function inventoryRequest<T>(
+  path: string,
+  init?: RequestInit,
+  context: { asset?: Asset | null } = {},
+): Promise<T> {
   let res: Response;
   try {
     res = await apiFetch(path, init, INVENTORY_API_URL);
@@ -168,7 +231,19 @@ async function inventoryRequest<T>(path: string, init?: RequestInit): Promise<T>
     const status = failedRequestStatus(e);
     throw new InventoryError(statusErrorMessage(status), status);
   }
-  if (!res.ok) throw await toInventoryError(res);
+  if (!res.ok) {
+    const method = (init?.method ?? "GET").toUpperCase();
+    let body: unknown = null;
+    try {
+      body = typeof init?.body === "string" ? JSON.parse(init.body) : null;
+    } catch {
+      body = null;
+    }
+    if ((res.status === 405 || res.status === 422) && isDirectStockEdit(path, method, body)) {
+      void reportDirectStockEdit(path, method, res.status, body, context.asset ?? null);
+    }
+    throw await toInventoryError(res);
+  }
   try {
     return (await res.json()) as T;
   } catch {
@@ -200,6 +275,29 @@ export function createAssetExit(data: AssetExitCreate): Promise<AssetExit> {
   });
 }
 
+// «Ajustar stock» de la tabla de activos: intenta fijar el stock a mano. La API lo rechaza
+// siempre (405: no existe PATCH sobre un activo) porque el stock solo cambia con órdenes
+// trazables; el rechazo queda registrado como direct_stock_edit_rejected.
+export const DIRECT_STOCK_EDIT_MESSAGE =
+  "El stock no se puede modificar directamente: registra una entrada o una salida para que quede trazado quién lo cambió.";
+
+export async function attemptDirectStockEdit(asset: Asset, stock: number): Promise<never> {
+  try {
+    await inventoryRequest<unknown>(
+      `/inventory/products/${asset.id}`,
+      { method: "PATCH", headers: JSON_HEADERS, body: JSON.stringify({ current_stock: stock }) },
+      { asset },
+    );
+  } catch (e) {
+    if (e instanceof InventoryError && (e.status === 405 || e.status === 422)) {
+      throw new InventoryError(DIRECT_STOCK_EDIT_MESSAGE, e.status);
+    }
+    throw e;
+  }
+  // Si algún día la API aceptara la petición, sería un error de seguridad: se avisa igual
+  throw new InventoryError(DIRECT_STOCK_EDIT_MESSAGE, 409);
+}
+
 export function listOrders(): Promise<Order[]> {
   return inventoryRequest<Order[]>("/inventory/orders");
 }
@@ -222,4 +320,12 @@ export function parseQuantity(value: string): number | null {
   if (!/^\d+$/.test(value.trim())) return null;
   const n = Number(value);
   return n > 0 ? n : null;
+}
+
+// Coste unitario: número mayor que 0 con hasta 2 decimales (acepta coma o punto), o null
+export function parseUnitCost(value: string): number | null {
+  const normalized = value.trim().replace(",", ".");
+  if (!/^\d+(\.\d{1,2})?$/.test(normalized)) return null;
+  const n = Number(normalized);
+  return n > 0 && n <= 1_000_000 ? n : null;
 }

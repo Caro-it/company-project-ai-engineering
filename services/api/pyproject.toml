@@ -26,6 +26,7 @@ dependencies = [
 seed = "app.seed:main"
 create-admin = "app.create_admin:main"
 seed-inventory = "app.seed_inventory:main"
+migrate-telemetry = "app.migrate_telemetry_fields:main"
 
 [tool.setuptools]
 packages = ["app", "app.routers", "app.services"]

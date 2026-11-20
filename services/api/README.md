@@ -171,6 +171,24 @@ uv run seed-inventory     # idempotente: activos por SKU; órdenes solo si aún 
 
 **Tests** (`tests/test_inventory_api.py`, 30 tests): usan SQLite en memoria en lugar de Supabase (nunca la `DATABASE_URL` de `.env`). Para pasarlos contra un PostgreSQL local de pruebas: `TEST_DATABASE_URL=postgresql://… uv run pytest tests/test_inventory_api.py` (borra las tablas de inventario al acabar cada test: **nunca** la BD de Supabase).
 
+## Telemetría (proyecto de captura)
+
+- `POST /telemetry/events` — **stub**: valida el envelope (`app/telemetry_models.py`, modelo
+  `TelemetryEvent`), registra en el log `api.telemetry` cuántos eventos llegan y de qué tipo, y
+  responde `{"received": N}`. No guarda nada todavía. Sin token, porque el backoffice vacía la
+  cola con `sendBeacon`, que no puede enviar `Authorization`; acepta el cuerpo como
+  `application/json` o `text/plain`.
+- `TELEMETRY_ENDPOINT` en `.env`: URL del receptor (la misma que `NEXT_PUBLIC_TELEMETRY_ENDPOINT`
+  del backoffice).
+- `X-Request-ID`: la API reutiliza el que manda el backoffice (o genera uno) y lo devuelve en la
+  respuesta, para correlacionar eventos, peticiones y logs.
+- Campos de inventario para la telemetría (plan §1.3): `programme_id`, `product_category` y
+  `min_stock` en los activos; `unit_cost` y `currency` en las entradas (la moneda la pone la
+  oficina); `recipient_type` en las salidas. Las respuestas de `POST /inventory/orders/*`
+  incluyen `stock_after` (y `min_stock` o `cost_baseline`).
+- **En Supabase hay que añadir esas columnas una vez:** `uv run migrate-telemetry --dry-run`
+  (ver el SQL) y `uv run migrate-telemetry` (aplicarlo). Es idempotente y no borra datos.
+
 ## Autenticación
 
 Autenticación JWT stateless (ticket AUTH-01). Los usuarios y sus perfiles se guardan en TinyDB, en `data/auth.json`, separados de los proveedores (`data/suppliers.json`). Las contraseñas se guardan con bcrypt y nunca salen en las respuestas.

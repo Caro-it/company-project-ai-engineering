@@ -13,6 +13,7 @@ import {
 } from "@/components/inventory/fields";
 import { ErrorBanner, Loading } from "@/components/inventory/LoadStatus";
 import {
+  CURRENCY_BY_OFFICE,
   InventoryError,
   assetOptionLabel,
   createAssetEntry,
@@ -20,10 +21,13 @@ import {
   listAssets,
   parseAssetId,
   parseQuantity,
+  parseUnitCost,
 } from "@/lib/inventory";
+import { trackInboundCreated, trackInboundRejected } from "@/lib/telemetryTrackers";
 import { useInventoryData } from "@/lib/useInventoryData";
+import { useOrderFormTelemetry } from "@/lib/useOrderFormTelemetry";
 
-type Field = "asset_id" | "quantity" | "supplier";
+type Field = "asset_id" | "quantity" | "supplier" | "unit_cost";
 type FieldErrors = Partial<Record<Field, string>>;
 
 // Textos por campo para los errores del cliente y los 422 de la API
@@ -31,6 +35,7 @@ const FIELD_TEXT: Record<Field, string> = {
   asset_id: "Elige un activo.",
   quantity: "Indica una cantidad entera mayor que 0.",
   supplier: "Indica el proveedor o vendedor.",
+  unit_cost: "Indica el coste por unidad: un número mayor que 0, con hasta 2 decimales.",
 };
 
 export function InboundOrderForm() {
@@ -42,10 +47,15 @@ export function InboundOrderForm() {
   );
   const [quantity, setQuantity] = useState("");
   const [supplier, setSupplier] = useState("");
+  const [unitCost, setUnitCost] = useState("");
   const [errors, setErrors] = useState<FieldErrors>({});
   const [apiError, setApiError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const telemetry = useOrderFormTelemetry(
+    "inbound_order",
+    [assetId, quantity, supplier, unitCost].filter((v) => v.trim() !== "").length,
+  );
 
   if (state.status === "loading") return <Loading>Cargando activos…</Loading>;
   if (state.status === "error") {
@@ -60,29 +70,39 @@ export function InboundOrderForm() {
     setSuccess(null);
 
     const qty = parseQuantity(quantity);
+    const cost = parseUnitCost(unitCost);
     const found: FieldErrors = {};
     if (!selected) found.asset_id = FIELD_TEXT.asset_id;
     if (qty === null) found.quantity = FIELD_TEXT.quantity;
     if (!supplier.trim()) found.supplier = FIELD_TEXT.supplier;
+    if (cost === null) found.unit_cost = FIELD_TEXT.unit_cost;
     setErrors(found);
-    if (!selected || qty === null || Object.keys(found).length > 0) return;
+    telemetry.validationFailed(Object.keys(found) as Field[]);
+    if (!selected || qty === null || cost === null || Object.keys(found).length > 0) return;
 
     setSubmitting(true);
     try {
-      await createAssetEntry({
+      const entry = await createAssetEntry({
         asset_id: selected.id,
         quantity: qty,
         supplier: supplier.trim(),
         office: selected.office,
+        unit_cost: cost,
       });
+      trackInboundCreated(selected, entry);
+      telemetry.submitted();
       setSuccess(
         `Entrada registrada: ${qty} uds. de ${assetOptionLabel(selected)}, de ${supplier.trim()}.`,
       );
       setAssetId("");
       setQuantity("");
       setSupplier("");
+      setUnitCost("");
       refresh();
     } catch (e) {
+      if (e instanceof InventoryError) {
+        trackInboundRejected(selected, e);
+      }
       if (e instanceof InventoryError && e.status === 422) {
         const fromApi: FieldErrors = {};
         for (const field of Object.keys(e.fieldErrors)) {
@@ -125,7 +145,10 @@ export function InboundOrderForm() {
           <AssetSelect
             assets={assets}
             value={selected ? assetId : ""}
-            onChange={setAssetId}
+            onChange={(value) => {
+              setAssetId(value);
+              telemetry.fieldChanged("asset_id");
+            }}
             error={errors.asset_id}
           />
           {selected && (
@@ -146,7 +169,10 @@ export function InboundOrderForm() {
             min={1}
             step={1}
             value={quantity}
-            onChange={(e) => setQuantity(e.target.value)}
+            onChange={(e) => {
+              setQuantity(e.target.value);
+              telemetry.fieldChanged("quantity");
+            }}
             aria-invalid={!!errors.quantity}
             aria-describedby={errors.quantity ? "f-quantity-error" : undefined}
             className={inputClass}
@@ -160,6 +186,36 @@ export function InboundOrderForm() {
 
         <OfficeField office={selected?.office ?? null} label="Oficina receptora" />
 
+        <div>
+          <label htmlFor="f-unit-cost" className={labelClass}>
+            Coste unitario{selected ? ` (${CURRENCY_BY_OFFICE[selected.office]})` : ""}{" "}
+            <span aria-hidden="true">*</span>
+          </label>
+          <input
+            id="f-unit-cost"
+            type="text"
+            inputMode="decimal"
+            placeholder="p. ej. 12,50"
+            value={unitCost}
+            onChange={(e) => {
+              setUnitCost(e.target.value);
+              telemetry.fieldChanged("unit_cost");
+            }}
+            aria-invalid={!!errors.unit_cost}
+            aria-describedby={errors.unit_cost ? "f-unit-cost-error" : "f-unit-cost-help"}
+            className={inputClass}
+          />
+          {errors.unit_cost ? (
+            <p id="f-unit-cost-error" role="alert" className={errorClass}>
+              {errors.unit_cost}
+            </p>
+          ) : (
+            <p id="f-unit-cost-help" className="mt-1 text-xs text-slate-500">
+              En la moneda de la oficina: EUR en Valencia, USD en Miami.
+            </p>
+          )}
+        </div>
+
         <div className="sm:col-span-2">
           <label htmlFor="f-supplier" className={labelClass}>
             Proveedor <span aria-hidden="true">*</span>
@@ -170,7 +226,10 @@ export function InboundOrderForm() {
             maxLength={200}
             placeholder="p. ej. TechDistrib Valencia S.L."
             value={supplier}
-            onChange={(e) => setSupplier(e.target.value)}
+            onChange={(e) => {
+              setSupplier(e.target.value);
+              telemetry.fieldChanged("supplier");
+            }}
             aria-invalid={!!errors.supplier}
             aria-describedby={errors.supplier ? "f-supplier-error" : undefined}
             className={inputClass}

@@ -1,12 +1,26 @@
 "use client"; // Las fronteras de error de Next son Client Components
 
 import Link from "next/link";
+import { useEffect } from "react";
+
+import { trackFrontendError } from "@/lib/telemetryTrackers";
 
 import "./globals.css";
 
 // Sustituye al layout raíz cuando falla él mismo: necesita su propio <html> y <body>,
 // y no hereda metadata (se usa <title>). No se muestra el mensaje del error.
-export default function GlobalError({ reset }: { error: Error & { digest?: string }; reset: () => void }) {
+export default function GlobalError({
+  error,
+  reset,
+}: {
+  error: Error & { digest?: string };
+  reset: () => void;
+}) {
+  // Telemetría: frontend_error_captured (sin mostrar el mensaje al usuario)
+  useEffect(() => {
+    trackFrontendError(error, "error_boundary", window.location.pathname);
+  }, [error]);
+
   return (
     <html lang="es">
       <body className="min-h-screen bg-slate-100 text-slate-800 antialiased">

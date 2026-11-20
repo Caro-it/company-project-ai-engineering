@@ -37,6 +37,8 @@ export default defineConfig({
         NEXT_PUBLIC_API_URL: API_URL,
         NEXT_PUBLIC_INVENTORY_API_URL: API_URL,
         NEXT_DIST_DIR: ".next/e2e",
+        // Telemetría contra el stub de la API de e2e (06-telemetria.spec.ts)
+        NEXT_PUBLIC_TELEMETRY_ENDPOINT: `${API_URL}/telemetry/events`,
       },
       reuseExistingServer: false,
       timeout: 300_000,

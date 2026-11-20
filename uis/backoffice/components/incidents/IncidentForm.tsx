@@ -19,6 +19,7 @@ import {
   type IncidentField,
   type IncidentOrigin,
 } from "@/lib/incidents";
+import { trackIncidentCreated } from "@/lib/telemetryTrackers";
 
 interface FormState {
   title: string;
@@ -105,6 +106,11 @@ export function IncidentForm() {
         category: form.category as IncidentCategory,
         origin: form.origin as IncidentOrigin,
         branch: form.branch as IncidentBranch,
+      });
+      trackIncidentCreated({
+        category: incident.category,
+        origin: incident.origin,
+        branch: incident.branch,
       });
       setForm(EMPTY_FORM);
       setCreated(incident.title);

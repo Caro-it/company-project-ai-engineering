@@ -130,6 +130,7 @@ test("salida: stock reactivo, aviso en cliente y 400 de la API junto a la cantid
   await expect(page.getByLabel("Asignado a (empleado)")).toHaveAttribute("aria-invalid", "true");
 
   await page.getByLabel("Asignado a (empleado)").fill("Prueba e2e");
+  await page.getByLabel("Destinatario").selectOption({ label: "Empleado/a interno/a" });
   await page.getByRole("button", { name: "Registrar salida" }).click();
 
   // 400 real de la API, con su mensaje, junto al campo cantidad
@@ -163,6 +164,7 @@ test("salida: un 422 de la API se muestra legible, sin texto de Pydantic", async
   await page.getByLabel("Activo").selectOption({ label: PAPER });
   await page.getByLabel("Cantidad").fill("1");
   await page.getByRole("radio", { name: "Consumo" }).check();
+  await page.getByLabel("Destinatario").selectOption({ label: "Empleado/a interno/a" });
   await page.getByRole("button", { name: "Registrar salida" }).click();
 
   await expect(page.getByTestId("form-error")).toHaveText(
@@ -177,6 +179,7 @@ test("salida: un consumo correcto actualiza el stock mostrado", async ({ page })
   await expect(page.getByTestId("available-stock-value")).toHaveText("16 uds.");
   await page.getByLabel("Cantidad").fill("2");
   await page.getByRole("radio", { name: "Consumo" }).check();
+  await page.getByLabel("Destinatario").selectOption({ label: "Empleado/a interno/a" });
   await page.getByRole("button", { name: "Registrar salida" }).click();
 
   await expect(page.getByRole("status").filter({ hasText: "Salida registrada" })).toContainText(
@@ -194,11 +197,13 @@ test("entrada: obligatorios, error de la API visible y alta correcta", async ({ 
   await expect(page.locator("#f-asset-error")).toHaveText("Elige un activo.");
   await expect(page.locator("#f-quantity-error")).toBeVisible();
   await expect(page.locator("#f-supplier-error")).toBeVisible();
+  await expect(page.locator("#f-unit-cost-error")).toBeVisible();
 
   await page.getByLabel("Activo").selectOption({ label: HUB });
   await expect(page.getByTestId("order-office")).toHaveText("Miami");
   await page.getByLabel("Cantidad recibida").fill("3");
   await page.getByLabel("Proveedor").fill("Office Depot Miami");
+  await page.getByLabel(/Coste unitario/).fill("39,90");
 
   // Un 500 se explica sin texto técnico y no borra los datos
   await mockApi(page, "/inventory/orders/inbound", "POST", (route) =>
@@ -218,6 +223,7 @@ test("entrada: obligatorios, error de la API visible y alta correcta", async ({ 
   await expect(page.getByLabel("Activo")).toHaveValue("");
   await expect(page.getByLabel("Cantidad recibida")).toHaveValue("");
   await expect(page.getByLabel("Proveedor")).toHaveValue("");
+  await expect(page.getByLabel(/Coste unitario/)).toHaveValue("");
   await page.screenshot({ path: path.join(SCREENSHOTS_DIR, "entrada-registrada.png"), fullPage: true });
 
   await page.goto("/inventory/products");

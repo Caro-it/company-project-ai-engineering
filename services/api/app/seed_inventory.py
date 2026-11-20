@@ -18,32 +18,33 @@ from sqlmodel import Session, func, select
 
 from app.auth_models import Role
 from app.database import create_db_and_tables, engine, users_table
+from app.inventory_catalog import OFFICE_CURRENCY, Office
 from app.models import Asset, AssetEntry, AssetExit
 
 ASSETS = [
-    # name, sku, category, office
-    ('Portátil 14" Business', "NXV-IT-001", "hardware", "Valencia"),
-    ('Portátil 14" Business', "NXV-IT-002", "hardware", "Miami"),
-    ("Ratón ergonómico", "NXV-PER-001", "peripherals", "Valencia"),
-    ("Hub USB-C", "NXV-PER-002", "peripherals", "Miami"),
-    ("Resma de papel A4", "NXV-OFF-001", "office_supplies", "Valencia"),
-    ("Cuaderno de formación en liderazgo", "NXV-TRN-001", "training_materials", "Valencia"),
+    # name, sku, category, office, programme_id, product_category (telemetría)
+    ('Portátil 14" Business', "NXV-IT-001", "hardware", "Valencia", "onboarding-soporte", "onboarding_equipment"),
+    ('Portátil 14" Business', "NXV-IT-002", "hardware", "Miami", "onboarding-soporte", "onboarding_equipment"),
+    ("Ratón ergonómico", "NXV-PER-001", "peripherals", "Valencia", "onboarding-soporte", "onboarding_equipment"),
+    ("Hub USB-C", "NXV-PER-002", "peripherals", "Miami", "onboarding-soporte", "onboarding_equipment"),
+    ("Resma de papel A4", "NXV-OFF-001", "office_supplies", "Valencia", "onboarding-general", "onboarding_equipment"),
+    ("Cuaderno de formación en liderazgo", "NXV-TRN-001", "training_materials", "Valencia", "liderazgo-basico", "training_kit"),
 ]
 
 ENTRIES = [
-    # sku, quantity, supplier, días atrás
-    ("NXV-IT-001", 10, "TechDistrib Valencia S.L.", 30),
-    ("NXV-IT-001", 5, "TechDistrib Valencia S.L.", 12),
-    ("NXV-IT-002", 8, "Office Depot Miami", 25),
-    ("NXV-PER-002", 6, "Office Depot Miami", 20),
-    ("NXV-OFF-001", 20, "Papelería Levante S.L.", 18),
+    # sku, quantity, supplier, días atrás, coste unitario (moneda de la oficina)
+    ("NXV-IT-001", 10, "TechDistrib Valencia S.L.", 30, 850.00),
+    ("NXV-IT-001", 5, "TechDistrib Valencia S.L.", 12, 870.00),
+    ("NXV-IT-002", 8, "Office Depot Miami", 25, 940.00),
+    ("NXV-PER-002", 6, "Office Depot Miami", 20, 39.90),
+    ("NXV-OFF-001", 20, "Papelería Levante S.L.", 18, 4.50),
 ]
 
 EXITS = [
-    # sku, quantity, exit_type, assigned_to, días atrás
-    ("NXV-IT-001", 3, "allocation", "Lucía Ferrer (Soporte externalizado)", 10),
-    ("NXV-PER-002", 2, "allocation", "Daniel Ortiz (Headhunting Miami)", 8),
-    ("NXV-OFF-001", 4, "consumption", None, 5),
+    # sku, quantity, exit_type, assigned_to, días atrás, recipient_type
+    ("NXV-IT-001", 3, "allocation", "Lucía Ferrer (Soporte externalizado)", 10, "support_agent"),
+    ("NXV-PER-002", 2, "allocation", "Daniel Ortiz (Headhunting Miami)", 8, "consultant"),
+    ("NXV-OFF-001", 4, "consumption", None, 5, "employee"),
 ]
 
 
@@ -59,10 +60,17 @@ def run(session: Session, user_uuid: str) -> dict:
     created = {"assets": 0, "entries": 0, "exits": 0}
 
     assets: dict[str, Asset] = {}
-    for name, sku, category, office in ASSETS:
+    for name, sku, category, office, programme_id, product_category in ASSETS:
         asset = session.exec(select(Asset).where(Asset.sku == sku)).first()
         if asset is None:
-            asset = Asset(name=name, sku=sku, category=category, office=office)
+            asset = Asset(
+                name=name,
+                sku=sku,
+                category=category,
+                office=office,
+                programme_id=programme_id,
+                product_category=product_category,
+            )
             session.add(asset)
             created["assets"] += 1
         assets[sku] = asset
@@ -78,7 +86,7 @@ def run(session: Session, user_uuid: str) -> dict:
         return created
 
     now = datetime.now(UTC)
-    for sku, quantity, supplier, days_ago in ENTRIES:
+    for sku, quantity, supplier, days_ago, unit_cost in ENTRIES:
         asset = assets[sku]
         session.add(
             AssetEntry(
@@ -88,10 +96,12 @@ def run(session: Session, user_uuid: str) -> dict:
                 office=asset.office,
                 created_at=now - timedelta(days=days_ago),
                 user_uuid=user_uuid,
+                unit_cost=unit_cost,
+                currency=OFFICE_CURRENCY[Office(asset.office)],
             )
         )
         created["entries"] += 1
-    for sku, quantity, exit_type, assigned_to, days_ago in EXITS:
+    for sku, quantity, exit_type, assigned_to, days_ago, recipient_type in EXITS:
         asset = assets[sku]
         session.add(
             AssetExit(
@@ -102,6 +112,7 @@ def run(session: Session, user_uuid: str) -> dict:
                 office=asset.office,
                 created_at=now - timedelta(days=days_ago),
                 user_uuid=user_uuid,
+                recipient_type=recipient_type,
             )
         )
         created["exits"] += 1
