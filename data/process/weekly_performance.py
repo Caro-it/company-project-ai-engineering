@@ -38,7 +38,9 @@ def flatten_material_events(raw: pd.DataFrame) -> pd.DataFrame:
     """
     if raw.empty:
         return pd.DataFrame(columns=EVENT_COLUMNS)
-    tags = pd.json_normalize(raw["tags"].tolist()).reindex(
+    # tags que no sean un objeto (nulo, texto…) cuentan como vacíos: la fila se descartará después
+    tags_objects = [value if isinstance(value, dict) else {} for value in raw["tags"]]
+    tags = pd.json_normalize(tags_objects).reindex(
         columns=["_envelope.event_id", "office", "programme_id", "total_cost"]
     )
     tags.index = raw.index

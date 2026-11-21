@@ -247,3 +247,9 @@ _Última actualización: 2026-11-10 · rama `feature/inventory-backoffice`_
 - Flow de Prefect `weekly_office_program_performance` en `data/pipelines/pipeline.py` (tasks de extracción, transformación con caché, carga con upsert y advisory lock, log en `reporting.pipeline_runs`, copia CSV opcional con `return_state=True`). Transformaciones en `data/process/weekly_performance.py`. `data/` es el paquete `nexova-data`, dependencia de ruta de `services/api`.
 - Endpoints en `services/api/app/routers/reporting.py`: `GET /reporting/weekly-office-program-performance`, `GET /reporting/weeks`, `GET /reporting/pipeline-runs/latest`, `POST /reporting/pipeline-runs` (202, admin/manager, 409 si hay una en curso).
 - Ejecutar: `uv run --project services/api python data/pipelines/pipeline.py` desde la raíz.
+
+## Hito 6 — parte 3/3: subflows y dashboard (feature/data-pipeline-enhancement)
+
+- El flow se divide en subflows por etapa (`extract_weekly_material_activity`, `transform_weekly_office_program_kpis`, `publish_weekly_office_program_performance`, `snapshot_weekly_office_program_performance` opcional). Tests unitarios en `tests/pipelines/test_pipeline.py`.
+- Dashboard `/reporting` en el backoffice (tarjeta por KPI, selector de semana, botón «Actualizar datos»). Detalle en `PIPELINE_DESIGN.md` §11.
+- Corregido de paso: el reporte técnico redondeaba el fin del período hacia abajo y dejaba fuera los eventos del minuto en curso.

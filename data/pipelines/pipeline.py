@@ -1,4 +1,4 @@
-"""Pipeline de Desempeño de Negocio de Nexova (Hito 6, parte 2/3) — orquestado con Prefect.
+"""Pipeline de Desempeño de Negocio de Nexova (Hito 6, partes 2 y 3) — orquestado con Prefect.
 
 Produce el "Reporte Semanal de Desempeño por Oficina y Programa" (Laura y Elena) en
 reporting.weekly_office_program_performance a partir de public.telemetry_events (solo lectura).
@@ -175,7 +175,34 @@ def export_weekly_snapshot(kpis: pd.DataFrame, run_id: UUID) -> str:
     return str(path)
 
 
-# --- Flow -------------------------------------------------------------------------------------
+# --- Subflows (parte 3/3): una etapa del pipeline cada uno, con entradas y salidas explícitas ----
+
+
+@flow(name="extract_weekly_material_activity")
+def extract_weekly_material_activity(window_start: date, window_end: date, environment: str) -> pd.DataFrame:
+    """Extracción: los eventos de material (4 métricas obligatorias) de la ventana."""
+    return extract_material_events(window_start, window_end, environment)
+
+
+@flow(name="transform_weekly_office_program_kpis")
+def transform_weekly_office_program_kpis(raw_events: pd.DataFrame) -> tuple[pd.DataFrame, int]:
+    """Transformación: los 4 KPIs del BRIEFING por oficina × programa × semana."""
+    return compute_weekly_office_program_kpis_task(raw_events)
+
+
+@flow(name="publish_weekly_office_program_performance")
+def publish_weekly_office_program_performance(kpis: pd.DataFrame) -> int:
+    """Carga: upsert en reporting.weekly_office_program_performance. Devuelve filas escritas."""
+    return load_weekly_office_program_performance(kpis)
+
+
+@flow(name="snapshot_weekly_office_program_performance")
+def snapshot_weekly_office_program_performance(kpis: pd.DataFrame, run_id: UUID) -> str:
+    """Paso opcional: copia CSV del resultado en data/eval/."""
+    return export_weekly_snapshot(kpis, run_id)
+
+
+# --- Flow principal ---------------------------------------------------------------------------
 
 
 @flow(name="weekly_office_program_performance", log_prints=True)
@@ -186,7 +213,8 @@ def weekly_office_program_performance(
     environment: str | None = None,
     run_id: UUID | None = None,
 ) -> dict:
-    """Extracción → transformación → carga, con el log de la ejecución en pipeline_runs."""
+    """Flow principal: invoca en secuencia los subflows de extracción, transformación y carga
+    (y el opcional de copia CSV), con el log de la ejecución en pipeline_runs."""
     engine = get_engine()
     ensure_reporting_tables(engine)
     run_id = run_id or uuid4()
@@ -220,23 +248,24 @@ def weekly_office_program_performance(
         print(f"Pipeline {run_id} fallido en la fase {phase}: {error}")
         return state
 
-    extract_state = extract_material_events(window_start, window_end, environment, return_state=True)
+    # Cada etapa es un subflow; return_state=True: el fallo se registra aquí en vez de propagarse
+    extract_state = extract_weekly_material_activity(window_start, window_end, environment, return_state=True)
     if extract_state.is_failed():
         return fail("extract", extract_state)
     raw_events = extract_state.result()
 
-    transform_state = compute_weekly_office_program_kpis_task(raw_events, return_state=True)
+    transform_state = transform_weekly_office_program_kpis(raw_events, return_state=True)
     if transform_state.is_failed():
         return fail("transform", transform_state)
     kpis, discarded = transform_state.result()
 
-    load_state = load_weekly_office_program_performance(kpis, return_state=True)
+    load_state = publish_weekly_office_program_performance(kpis, return_state=True)
     if load_state.is_failed():
         return fail("load", load_state)
     rows_upserted = load_state.result()
 
     # Opcional: si la copia en data/eval falla, la ejecución sigue y se completa igual
-    snapshot = export_weekly_snapshot(kpis, run_id, return_state=True)
+    snapshot = snapshot_weekly_office_program_performance(kpis, run_id, return_state=True)
     if snapshot.is_failed():
         print(f"Aviso: no se pudo guardar la copia CSV ({snapshot.message})")
 
