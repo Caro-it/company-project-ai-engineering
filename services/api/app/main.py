@@ -11,7 +11,7 @@ from app import database
 from app.config import settings
 from app.database import create_db_and_tables
 from app.errors import register_error_handlers
-from app.routers import auth, incidents, inventory, profiles, reporting, suppliers, telemetry, users
+from app.routers import auth, incidents, inventory, profiles, reporting, suppliers, tasks, telemetry, users
 
 
 @asynccontextmanager
@@ -63,6 +63,7 @@ app.include_router(suppliers.router)
 app.include_router(inventory.router)
 app.include_router(telemetry.router)
 app.include_router(reporting.router)
+app.include_router(tasks.router)
 
 
 @app.get("/api/health")

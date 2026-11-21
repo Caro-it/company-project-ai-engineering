@@ -18,6 +18,10 @@ os.environ["SECRET_KEY"] = "test-secret-key-solo-para-tests"
 # TEST_DATABASE_URL permite pasarlos contra un PostgreSQL local de pruebas; nunca se
 # usa el DATABASE_URL de .env (drop_all borra las tablas al acabar cada test)
 os.environ["DATABASE_URL"] = os.environ.get("TEST_DATABASE_URL", "sqlite://")
+# Cola de tareas sin Redis: Celery ejecuta la tarea en el propio proceso (modo eager), sin
+# esperas entre reintentos
+os.environ["CELERY_TASK_ALWAYS_EAGER"] = "true"
+os.environ["TASK_RETRY_BASE_SECONDS"] = "0"
 
 _TinyDB = tinydb.TinyDB
 tinydb.TinyDB = lambda *args, **kwargs: _TinyDB(storage=MemoryStorage)

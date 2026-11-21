@@ -30,6 +30,9 @@ const env = {
   // así que sus eventos llevan environment "production"
   PIPELINE_ENVIRONMENT: "production",
   PREFECT_SERVER_ANALYTICS_ENABLED: "false",
+  // Cola de tareas sin Redis ni worker: Celery ejecuta la tarea dentro de la petición (eager).
+  // Solo e2e; en desarrollo el worker es un proceso aparte (docs/background-jobs/message-queue.md)
+  CELERY_TASK_ALWAYS_EAGER: "true",
 };
 
 // uv run usa el entorno de services/api (lo crea si no existe)

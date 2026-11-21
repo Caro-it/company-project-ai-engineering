@@ -3,7 +3,7 @@
 // "Reporte Semanal de Desempeño por Oficina y Programa" para Laura (CEO) y Elena (L&D).
 // Un bloque por KPI del BRIEFING (docs/CONTEXT-data-pipelines-nexova.md §2), con su nombre
 // exacto, la semana que cubre y cada oficina en su moneda (nunca sumadas entre sí).
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { Empty, ErrorBanner, Loading } from "@/components/inventory/LoadStatus";
 import { ApiError, errorMessage } from "@/lib/account";
@@ -11,9 +11,11 @@ import {
   OFFICE_LABELS,
   formatMoney,
   getLatestRun,
+  getTaskStatus,
   getWeeklyPerformance,
   listReportWeeks,
   programmeLabel,
+  taskNotice,
   triggerPipelineRun,
   weekLabel,
   type PipelineRun,
@@ -133,6 +135,30 @@ export function WeeklyPerformanceDashboard() {
   const [run, setRun] = useState<PipelineRun | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
   const [notice, setNotice] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const pollTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => () => {
+    if (pollTimer.current) clearTimeout(pollTimer.current);
+  }, []);
+
+  // Sigue la tarea de la cola (GET /tasks/{task_id}) hasta que termina bien o mal
+  function followTask(taskId: string) {
+    pollTimer.current = setTimeout(async () => {
+      try {
+        const task = await getTaskStatus(taskId);
+        setNotice(taskNotice(task));
+        if (task.status === "success" || task.status === "failure") {
+          setBusy(false);
+          setRefreshKey((k) => k + 1);
+          return;
+        }
+      } catch {
+        // Un fallo puntual al consultar no corta el seguimiento
+      }
+      followTask(taskId);
+    }, 3000);
+  }
 
   useEffect(() => {
     let cancelled = false;
@@ -154,16 +180,19 @@ export function WeeklyPerformanceDashboard() {
   async function refreshData() {
     setNotice(null);
     try {
-      await triggerPipelineRun();
-      setNotice("Actualización en marcha. Los datos estarán listos en unos segundos.");
-      setTimeout(() => setRefreshKey((k) => k + 1), 8000);
+      const accepted = await triggerPipelineRun();
+      setBusy(true);
+      setNotice(taskNotice({ status: accepted.status, retries: 0 }));
+      followTask(accepted.task_id);
     } catch (e) {
       setNotice(
         e instanceof ApiError && e.status === 403
           ? "Solo dirección (admin o manager) puede actualizar los datos."
           : e instanceof ApiError && e.status === 409
             ? "Ya hay una actualización en marcha."
-            : errorMessage(e),
+            : e instanceof ApiError && e.status === 503
+              ? "El sistema de actualización no está disponible ahora mismo. Inténtalo más tarde."
+              : errorMessage(e),
       );
     }
   }
@@ -209,7 +238,8 @@ export function WeeklyPerformanceDashboard() {
           <button
             type="button"
             onClick={refreshData}
-            className="rounded-md border border-[#001D4A] px-3 py-1.5 text-sm font-medium text-[#001D4A] hover:bg-slate-50"
+            disabled={busy}
+            className="rounded-md border border-[#001D4A] px-3 py-1.5 text-sm font-medium text-[#001D4A] hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
           >
             Actualizar datos
           </button>

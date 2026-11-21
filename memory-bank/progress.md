@@ -1,6 +1,6 @@
 # Progress
 
-_Última actualización: 2026-11-10 · rama `feature/inventory-backoffice`_
+_Última actualización: 2026-11-18 · rama `feature/message-queue`_
 
 ## Hecho
 
@@ -82,6 +82,21 @@ _Última actualización: 2026-11-10 · rama `feature/inventory-backoffice`_
   - `uv run seed-inventory` (idempotente). Stock sembrado: 12 / 8 / 0 / 4 / 16 / 0.
   - `uv run pytest`: 148 tests correctos (30 de inventario), también contra PostgreSQL 16 local con `TEST_DATABASE_URL`. Prueba manual con uvicorn + PostgreSQL: seed, stock, 400 y 422.
   - Verificado contra Supabase el 2026-11-09: conexión, admin de pruebas, `seed-inventory` (6 activos, 5 entradas y 3 salidas) y prueba manual de los endpoints (stock, 400, 422, 401). PR #13 (`feature/inventory-orm`) mergeada en `main`.
+
+- **Contenedorización del monorepo (ticket #infra-40), rama `feature/docker-monorepo` (sale de `main`), Fase 1 (local) hecha, push sin PR:**
+  - `uis/Dockerfile` (`node:22-alpine`, `npm ci` por app, `start.sh` con `wait -n`: si una app muere, el contenedor sale), `services/Dockerfile` (`python:3.12-slim` + uv), `.dockerignore` de cada uno, `docker-compose.yml` (red `nexova-net`, `env_file: .env`, bind mounts + volúmenes anónimos, polling), `.env.example` raíz y `.gitattributes` (LF en `uis/start.sh`). Sección "Docker" en `README.md` y `README.es.md`.
+  - Desviaciones: web Astro en modo dev en el 3000 (el ticket dice Next.js); `packages/shared` como `additional_contexts`; en Docker el backoffice usa `next dev --webpack` porque Turbopack ignora `WATCHPACK_POLLING` y no veía los cambios.
+  - URLs: todas las llamadas del backoffice a la API salen del navegador → `NEXT_PUBLIC_API_URL=http://localhost:8000` (VPS: IP pública). `http://api:8000` solo dentro de la red de Docker.
+  - Verificado el 2026-11-12 con Docker 29.9.3 / Compose v5.7.0: build y up sin pasos extra; 2 servicios `running`; 200 en 3000, 3001 y 8000/docs; `wget http://api:8000` desde `uis`; preflight CORS + registro + login + `/auth/me` con origen 3001 (usuario de prueba `docker.check@nexova-demo.com` en la TinyDB de desarrollo); hot reload de web, backoffice y API sin rebuild; sin secretos en Dockerfiles/YAML/imágenes. Evidencia en `docs/docker/compose-ps-local.txt`.
+  - El login se probó reproduciendo las peticiones del navegador con curl, no en un navegador real. La `SECRET_KEY` del `.env` local es el placeholder `cambia-esto`: en el VPS hay que generar una real.
+- **#infra-40, Fase 2 (VPS) completada (preparada el 2026-11-12, desplegada y verificada el 2026-11-15):**
+  - Diagnóstico de solo lectura por SSH en `docs/docker/vps-diagnostico.txt`. El VPS tiene 1 vCPU y **957 MiB de RAM**, swap de 2 GB ya creado y Docker sin instalar. ufw está inactivo; OpenClaw escucha en el 18789, solo en loopback, y usa ~360 MiB. Los puertos 3000/3001/8000 están libres.
+  - `infra/deploy-vps.sh`: idempotente, sin ejecutar. Hace swap si falta, Docker si falta, `ufw allow OpenSSH` antes que el resto, clonado o actualización, y se para si no hay `.env` o si quedan huecos. Tiene una salvaguarda de RAM: con menos de 1900 MB se para salvo `ALLOW_LOW_MEMORY=1`. Construye las imágenes de una en una.
+  - `.env.production.example`, `docs/docker/DEPLOY_VPS.md` (pasos de la usuaria) y `docs/docker/PR_DESCRIPTION.md`.
+  - Desplegado en el VPS: `docker compose ps` con `api` y `uis` en `Up`; `curl` → 200 en 3000, 3001 y 8000; health de la API desde el contenedor `uis` OK; login real en el navegador contra `http://<IP_VPS>:3001`.
+  - **`allowedDevOrigins` resuelto:** Next 16 en modo dev bloqueaba sus recursos de desarrollo desde la IP del VPS. `uis/backoffice/next.config.ts` lo lee ahora de `ALLOWED_DEV_ORIGINS` (commit `fix(backoffice)`); en el VPS, `ALLOWED_DEV_ORIGINS=<IP_VPS>` en `.env` + `docker compose up -d --force-recreate uis`. Recogido como desviación 5 en `PR_DESCRIPTION.md` y en la tabla "Si algo falla" de `DEPLOY_VPS.md`.
+  - Evidencias en `docs/docker/`: `compose-ps-vps.txt` y las capturas `vps-compose-ps.png`, `vps-backoffice.png`, `vps-website.png` y `vps-api-docs.png`. Checklist del PR cerrada.
+  - Pendiente: abrir el PR de `feature/docker-monorepo` con `docs/docker/PR_DESCRIPTION.md`. Sigue abierto el riesgo de RAM del droplet (957 MiB).
 
 ## En curso / próximos pasos
 
@@ -259,3 +274,9 @@ _Última actualización: 2026-11-10 · rama `feature/inventory-backoffice`_
 - `scripts/nightly_export.py` (DEV-53): exporta `telemetry_events` de ayer (UTC) a `data/raw/telemetry_YYYY-MM-DD.csv` si no existe, lanza el pipeline del Hito 6 y registra cada ejecución en `job_runs` (pending → processing → completed | failed). Lock = estado `processing` (índice único parcial); idempotencia por `target_date`; `TARGET_DATE` para otros días.
 - Estado en `services/api/app/services/job_runner.py`; disparador crontab `15 2 * * *` UTC (Windows: `scripts/cron/register-windows-task.ps1`). Detalle y texto del PR en `docs/background-jobs/nightly-export.md`.
 - Pendiente de hacer en local: `uv run migrate-job-runs` contra Supabase (o dejar que el script la cree), una ejecución real y la captura del CSV para el PR.
+
+## Cola de tareas con Redis y Celery (feature/message-queue, DEV-55)
+
+- La rama sale de `feature/nightly-export` e incluye un merge de `origin/feature/docker-monorepo` (PR sin mergear en `main`): el `docker-compose.yml` es el de ese PR más `redis` (noeviction, appendonly), `worker` y `flower` (5555). `services/Dockerfile` copia también `data/` (nexova-data); `requirements.txt` regenerado con `uv export`.
+- `POST /reporting/pipeline-runs` ya no usa BackgroundTasks: encola `reporting.run_weekly_pipeline` (Celery, `app/celery_app.py`) y responde 202 con `task_id` y `run_id`; `GET /tasks/{task_id}` y `GET /tasks/dead-letters`. 3 reintentos con backoff 10/20/40 s, DLQ en `task_dead_letters`. El dashboard `/reporting` sigue la tarea.
+- Verificado con Redis + worker + Flower reales (sin Docker: Docker Hub no accesible desde el entorno de trabajo). Pendiente: `docker compose up --build` en local y capturas para el PR. Detalle en `docs/background-jobs/message-queue.md`.

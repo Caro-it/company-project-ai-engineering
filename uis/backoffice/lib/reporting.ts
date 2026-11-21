@@ -42,8 +42,42 @@ export function getLatestRun(): Promise<PipelineRun> {
   return request<PipelineRun>("/reporting/pipeline-runs/latest");
 }
 
-export function triggerPipelineRun(): Promise<{ run_id: string; status: string }> {
-  return request("/reporting/pipeline-runs", { method: "POST" });
+export interface RunAccepted {
+  task_id: string;
+  run_id: string;
+  status: "pending";
+}
+
+// Estado de una tarea de la cola (GET /tasks/{task_id}): los estados reales de Celery
+export interface TaskStatus {
+  task_id: string;
+  status: "pending" | "started" | "retry" | "success" | "failure";
+  retries: number;
+  error: string | null;
+}
+
+export function triggerPipelineRun(): Promise<RunAccepted> {
+  return request<RunAccepted>("/reporting/pipeline-runs", { method: "POST" });
+}
+
+export function getTaskStatus(taskId: string): Promise<TaskStatus> {
+  return request<TaskStatus>(`/tasks/${encodeURIComponent(taskId)}`);
+}
+
+// Texto para dirección (sin jerga) de cada estado de la tarea de actualización
+export function taskNotice(task: Pick<TaskStatus, "status" | "retries">): string {
+  switch (task.status) {
+    case "pending":
+      return "Actualización en cola. Empezará en unos segundos.";
+    case "started":
+      return "Calculando los datos…";
+    case "retry":
+      return `Hubo un fallo y se reintenta automáticamente (reintento ${task.retries + 1} de 3).`;
+    case "success":
+      return "Datos actualizados.";
+    case "failure":
+      return "No se pudieron actualizar los datos tras varios intentos. El fallo queda registrado para el equipo técnico; se muestran los últimos datos correctos.";
+  }
 }
 
 // --- Presentación (para Laura y Elena: sin jerga técnica) --------------------------------
