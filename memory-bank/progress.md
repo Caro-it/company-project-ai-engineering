@@ -236,3 +236,8 @@ _Última actualización: 2026-11-10 · rama `feature/inventory-backoffice`_
 ## Telemetría — reporte técnico (feature/telemetry-report)
 
 - `GET /telemetry/report` (con token, últimos 7 días por defecto, caché 60 s por período) sobre el pipeline Pandas `services/api/app/telemetry/analysis.py` (6 métricas técnicas; el enunciado pide `services/telemetry/analysis.py`, aquí sigue la estructura de `services/api/app`). Vista `/telemetria` en el backoffice (tablas y barras CSS). Detalle en `telemetry-plan.md` §5.4.
+
+## Hito 6 — Pipeline de desempeño de negocio (parte 1/3: diseño)
+
+- `data/pipelines/PIPELINE_DESIGN.md` (rama `feature/data-pipeline-design`): reporte semanal por oficina y programa para Laura y Elena, en `reporting.weekly_office_program_performance`, desde `telemetry_events` (solo lectura). BRIEFING en `docs/CONTEXT-data-pipelines-nexova.md`.
+- Decisión: el módulo `services/reporting/` del enunciado vive en `services/api/app/reporting/` (como el resto de la API); `data/` se instala en la API como dependencia de ruta.
