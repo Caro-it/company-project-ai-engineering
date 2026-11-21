@@ -28,7 +28,7 @@ MAX_RETRIES = 3
 TASK_SOFT_TIME_LIMIT = 25 * 60
 TASK_TIME_LIMIT = 30 * 60
 
-celery_app = Celery("nexova", broker=settings.REDIS_URL, backend=settings.REDIS_URL, include=["app.tasks.reporting"])
+celery_app = Celery("nexova", broker=settings.REDIS_URL, backend=settings.REDIS_URL, include=["app.tasks.reporting", "app.tasks.email"])
 celery_app.conf.update(
     task_serializer="json",
     accept_content=["json"],
