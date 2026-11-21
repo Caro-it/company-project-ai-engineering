@@ -250,7 +250,54 @@ Programación: un deployment de Prefect con cron `0 6 * * 1` en `Europe/Madrid`.
 
 ---
 
-## 9. Respuestas a las preguntas de diseño
+## 9. Implementación (parte 2/3)
+
+| Pieza | Archivo |
+| --- | --- |
+| Flow y tasks de Prefect, CLI | `data/pipelines/pipeline.py` |
+| Transformaciones (Pandas puro) | `data/process/weekly_performance.py` |
+| Tablas `reporting` y conexión | `data/pipelines/db.py` |
+| Lecturas para la API | `data/pipelines/queries.py` |
+| Endpoints | `services/api/app/routers/reporting.py` (importa `pipelines.*`) |
+| Tests del flow (SQLite + `prefect_test_harness`) | `tests/pipelines/test_pipeline_flow.py` |
+
+`data/` es un paquete instalable (`data/pyproject.toml`, nombre `nexova-data`) que
+`services/api` instala como dependencia de ruta, así que el mismo entorno sirve para la API, el
+CLI y los tests.
+
+**Comandos** (desde la raíz del monorepo; en PowerShell igual):
+
+```bash
+# ventana por defecto: 2 semanas cerradas + la semana en curso (ejecución manual)
+uv run --project services/api python data/pipelines/pipeline.py
+# backfill de un rango de semanas (lunes, ambos incluidos)
+uv run --project services/api python data/pipelines/pipeline.py --from-week 2026-11-02 --to-week 2026-11-16
+# leer eventos de producción en vez de desarrollo
+uv run --project services/api python data/pipelines/pipeline.py --environment production
+# tests del flow
+uv run --project services/api python -m pytest tests/pipelines
+```
+
+- **Conexión:** Prefect Secret block `nexova-supabase-database-url`; si no existe, `DATABASE_URL`
+  del entorno o de `services/api/.env`. El primer `run` crea el esquema `reporting` y sus tablas.
+- **Entorno de los eventos:** `--environment`, variable `PIPELINE_ENVIRONMENT` o block
+  `nexova-pipeline-environment`; por defecto `development` (es lo que emite el backoffice en
+  local con `npm run dev`).
+- **Frecuencia prevista:** semanal, lunes 06:00 Europe/Madrid. Con un servidor de Prefect:
+  `prefect deploy` del flow `weekly_office_program_performance` con cron `0 6 * * 1` y zona
+  `Europe/Madrid` (la ejecución programada usa `trigger="scheduled"`: las 2 semanas cerradas).
+- Sin servidor de Prefect configurado, cada ejecución levanta uno temporal (unos segundos). El
+  aviso `Failed to send telemetry: 403` de Prefect es su propia analítica de uso y no afecta;
+  se quita con `PREFECT_SERVER_ANALYTICS_ENABLED=false`.
+
+**Verificado** en SQLite y en PostgreSQL 16: dos ejecuciones seguidas dejan las mismas filas
+(upsert por la clave única), un evento tardío actualiza la semana publicada, un fallo en la carga
+queda en `pipeline_runs` como `failed` con `failed_phase = load` sin escribir filas, y si falla la
+copia CSV opcional la ejecución se completa igual.
+
+---
+
+## 10. Respuestas a las preguntas de diseño
 
 | Pregunta | Respuesta en este diseño |
 | --- | --- |

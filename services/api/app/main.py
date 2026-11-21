@@ -5,10 +5,13 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 
+from pipelines.db import configure_engine
+
+from app import database
 from app.config import settings
 from app.database import create_db_and_tables
 from app.errors import register_error_handlers
-from app.routers import auth, incidents, inventory, profiles, suppliers, telemetry, users
+from app.routers import auth, incidents, inventory, profiles, reporting, suppliers, telemetry, users
 
 
 @asynccontextmanager
@@ -16,6 +19,8 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
     # Al arrancar: crea en Supabase las tablas de inventario que falten
     # (SQLModel.metadata.create_all). TinyDB no necesita inicialización.
     create_db_and_tables()
+    # El pipeline de negocio (data/pipelines) usa el mismo engine que la API
+    configure_engine(database.engine)
     yield
 
 
@@ -57,6 +62,7 @@ app.include_router(incidents.router)
 app.include_router(suppliers.router)
 app.include_router(inventory.router)
 app.include_router(telemetry.router)
+app.include_router(reporting.router)
 
 
 @app.get("/api/health")

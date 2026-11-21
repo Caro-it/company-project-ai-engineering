@@ -241,3 +241,9 @@ _Última actualización: 2026-11-10 · rama `feature/inventory-backoffice`_
 
 - `data/pipelines/PIPELINE_DESIGN.md` (rama `feature/data-pipeline-design`): reporte semanal por oficina y programa para Laura y Elena, en `reporting.weekly_office_program_performance`, desde `telemetry_events` (solo lectura). BRIEFING en `docs/CONTEXT-data-pipelines-nexova.md`.
 - Decisión: el módulo `services/reporting/` del enunciado vive en `services/api/app/reporting/` (como el resto de la API); `data/` se instala en la API como dependencia de ruta.
+
+## Hito 6 — parte 2/3: implementación (feature/data-pipeline-build)
+
+- Flow de Prefect `weekly_office_program_performance` en `data/pipelines/pipeline.py` (tasks de extracción, transformación con caché, carga con upsert y advisory lock, log en `reporting.pipeline_runs`, copia CSV opcional con `return_state=True`). Transformaciones en `data/process/weekly_performance.py`. `data/` es el paquete `nexova-data`, dependencia de ruta de `services/api`.
+- Endpoints en `services/api/app/routers/reporting.py`: `GET /reporting/weekly-office-program-performance`, `GET /reporting/weeks`, `GET /reporting/pipeline-runs/latest`, `POST /reporting/pipeline-runs` (202, admin/manager, 409 si hay una en curso).
+- Ejecutar: `uv run --project services/api python data/pipelines/pipeline.py` desde la raíz.

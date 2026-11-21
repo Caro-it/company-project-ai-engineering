@@ -17,6 +17,8 @@ from sqlmodel import Session, SQLModel, create_engine
 from tinydb import TinyDB
 from tinydb.storages import JSONStorage
 
+from pipelines.db import attach_reporting_schema
+
 from app.config import settings
 
 
@@ -109,6 +111,10 @@ def _build_engine(url: str):
         @event.listens_for(sqlite_engine, "connect")
         def _enable_foreign_keys(dbapi_connection, _record):
             dbapi_connection.execute("PRAGMA foreign_keys=ON")
+
+        # El pipeline de negocio (data/pipelines) escribe en el esquema `reporting`, que en
+        # SQLite es una base adjunta
+        attach_reporting_schema(sqlite_engine)
 
         return sqlite_engine
     # Supabase da la URI como postgresql://… y SQLAlchemy 2.1 la asocia por defecto a
