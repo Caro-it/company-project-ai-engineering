@@ -328,3 +328,10 @@ En las rutas `/users/{user_id}` el permiso se comprueba antes que la existencia:
 | 8 | `GET /users/abc` como usuario normal | 403 | [08](../../docs/screenshots/auth-api/08-user-ajeno-403.png) |
 | 9 | `GET /users` como admin | 200 | [09](../../docs/screenshots/auth-api/09-users-admin-200.png) |
 | 10 | Token mal formado (`curl.exe`) | 401 | [10](../../docs/screenshots/auth-api/10-token-falso-401.png) |
+
+## Procesos en segundo plano (`job_runs`)
+
+`app/services/job_runner.py` guarda el estado de los jobs que corren fuera de la API (hoy,
+`scripts/nightly_export.py`). La API crea la tabla al arrancar; a mano:
+`uv run migrate-job-runs --dry-run` (ver el SQL) y `uv run migrate-job-runs` (aplicarlo).
+Detalle en [`docs/background-jobs/nightly-export.md`](../../docs/background-jobs/nightly-export.md).

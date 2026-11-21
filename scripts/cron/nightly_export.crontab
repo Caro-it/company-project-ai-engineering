@@ -1,0 +1,11 @@
+# Script nocturno de telemetría (DEV-53) — crontab del sistema operativo (Linux/macOS/WSL).
+# Instalar: crontab -e y pegar estas líneas cambiando REPO por la ruta del monorepo.
+#
+# 02:15 UTC todos los días: el día anterior (UTC) ya está cerrado y los eventos que
+# llegan tarde por la cola del navegador (lotes de 10 s, sendBeacon) ya están guardados.
+# CRON_TZ fija la zona aunque el servidor esté en hora local (cronie/Vixie cron).
+CRON_TZ=UTC
+REPO=/srv/nexova/company-project-ai-engineering
+PATH=/usr/local/bin:/usr/bin:/bin
+
+15 2 * * * cd "$REPO" && mkdir -p logs && uv run --project services/api python scripts/nightly_export.py >> logs/nightly_export.log 2>&1

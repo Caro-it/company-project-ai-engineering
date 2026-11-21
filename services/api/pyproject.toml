@@ -30,6 +30,7 @@ seed = "app.seed:main"
 create-admin = "app.create_admin:main"
 seed-inventory = "app.seed_inventory:main"
 migrate-telemetry = "app.migrate_telemetry_fields:main"
+migrate-job-runs = "app.migrate_job_runs:main"
 
 [tool.setuptools]
 packages = ["app", "app.routers", "app.services"]
