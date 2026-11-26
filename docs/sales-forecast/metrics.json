@@ -1,0 +1,41 @@
+{
+  "mse_usd2": 1247108795.39,
+  "rmse_usd": 35314.43,
+  "rmse_pct_of_mean_revenue": 3.68,
+  "mse_pct_of_mean_revenue_squared": 0.1355,
+  "mape_pct": 3.15,
+  "r2_score": 0.8328,
+  "gini_normalized": 0.8759,
+  "psi_pred_vs_real_test": 0.1782,
+  "psi_revenue_train_vs_test": 8.1602,
+  "band_p10_p90_coverage_pct": 75.0,
+  "mean_monthly_revenue_test_usd": 959363.25,
+  "benchmark_xgboost": {
+    "rmse_pct_of_mean_revenue": 3.94,
+    "mape_pct": 3.36,
+    "r2_score": 0.8087,
+    "gini_normalized": 0.8743
+  },
+  "baseline_seasonal_naive": {
+    "rmse_pct_of_mean_revenue": 7.31,
+    "mape_pct": 6.01,
+    "r2_score": 0.3413
+  },
+  "feature_importances": {
+    "yoy_lag_12": 0.5064,
+    "ratio_lag12_roll12": 0.169,
+    "ratio_lag1_lag13": 0.0861,
+    "acv_lag_12": 0.0839,
+    "contracts_lag_12": 0.07,
+    "month_sin": 0.0447,
+    "month_cos": 0.0356,
+    "is_jan_feb": 0.0032,
+    "is_august": 0.0012
+  },
+  "split": {
+    "train": "2016-01 a 2023-12 (96 meses)",
+    "test": "2024-01 a 2025-12 (24 meses)",
+    "train_rows_used_after_lags": 72
+  },
+  "seed": 42
+}
